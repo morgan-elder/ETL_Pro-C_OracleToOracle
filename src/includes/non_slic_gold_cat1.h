@@ -1,0 +1,25 @@
+typedef struct
+{
+	char part[32];
+	char cage[5];
+	char prime[32];
+	char noun[19];
+	char unit_issue[2];
+	char security_code;
+	char demil_code;
+	char pmi_code;
+	char cog[2];
+	char mcc;
+	char fsc[4];
+	char niin[9];
+	char smic[2];
+	char smrc[6];
+	char errc[3];
+	char source_code[3];
+	char ims_designator_code[20];
+	char shelf_life;
+	char leadtime[5];
+	char critical_item_code;
+	char hazmat_code;
+	char eol;
+} non_slic_gold_cat1;

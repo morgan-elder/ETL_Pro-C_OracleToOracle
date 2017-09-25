@@ -1,0 +1,1987 @@
+<html xmlns:v="urn:schemas-microsoft-com:vml"
+xmlns:o="urn:schemas-microsoft-com:office:office"
+xmlns:w="urn:schemas-microsoft-com:office:word"
+xmlns:x="urn:schemas-microsoft-com:office:excel"
+xmlns:p="urn:schemas-microsoft-com:office:powerpoint"
+xmlns:a="urn:schemas-microsoft-com:office:access"
+xmlns:dt="uuid:C2F41010-65B3-11d1-A29F-00AA00C14882"
+xmlns:s="uuid:BDC6E3F0-6DA3-11d1-A2A3-00AA00C14882"
+xmlns:rs="urn:schemas-microsoft-com:rowset" xmlns:z="#RowsetSchema"
+xmlns:b="urn:schemas-microsoft-com:office:publisher"
+xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+xmlns:c="urn:schemas-microsoft-com:office:component:spreadsheet"
+xmlns:odc="urn:schemas-microsoft-com:office:odc"
+xmlns:oa="urn:schemas-microsoft-com:office:activation"
+xmlns:html="http://www.w3.org/TR/REC-html40"
+xmlns:q="http://schemas.xmlsoap.org/soap/envelope/"
+xmlns:rtc="http://microsoft.com/officenet/conferencing" xmlns:D="DAV:"
+xmlns:Repl="http://schemas.microsoft.com/repl/"
+xmlns:mt="http://schemas.microsoft.com/sharepoint/soap/meetings/"
+xmlns:x2="http://schemas.microsoft.com/office/excel/2003/xml"
+xmlns:ppda="http://www.passport.com/NameSpace.xsd"
+xmlns:ois="http://schemas.microsoft.com/sharepoint/soap/ois/"
+xmlns:dir="http://schemas.microsoft.com/sharepoint/soap/directory/"
+xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
+xmlns:dsp="http://schemas.microsoft.com/sharepoint/dsp"
+xmlns:udc="http://schemas.microsoft.com/data/udc"
+xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+xmlns:sub="http://schemas.microsoft.com/sharepoint/soap/2002/1/alerts/"
+xmlns:ec="http://www.w3.org/2001/04/xmlenc#"
+xmlns:sp="http://schemas.microsoft.com/sharepoint/"
+xmlns:sps="http://schemas.microsoft.com/sharepoint/soap/"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xmlns:udcs="http://schemas.microsoft.com/data/udc/soap"
+xmlns:udcxf="http://schemas.microsoft.com/data/udc/xmlfile"
+xmlns:udcp2p="http://schemas.microsoft.com/data/udc/parttopart"
+xmlns:wf="http://schemas.microsoft.com/sharepoint/soap/workflow/"
+xmlns:dsss="http://schemas.microsoft.com/office/2006/digsig-setup"
+xmlns:dssi="http://schemas.microsoft.com/office/2006/digsig"
+xmlns:mdssi="http://schemas.openxmlformats.org/package/2006/digital-signature"
+xmlns:mver="http://schemas.openxmlformats.org/markup-compatibility/2006"
+xmlns:m="http://schemas.microsoft.com/office/2004/12/omml"
+xmlns:mrels="http://schemas.openxmlformats.org/package/2006/relationships"
+xmlns:spwp="http://microsoft.com/sharepoint/webpartpages"
+xmlns:ex12t="http://schemas.microsoft.com/exchange/services/2006/types"
+xmlns:ex12m="http://schemas.microsoft.com/exchange/services/2006/messages"
+xmlns:pptsl="http://schemas.microsoft.com/sharepoint/soap/SlideLibrary/"
+xmlns:spsl="http://microsoft.com/webservices/SharePointPortalServer/PublishedLinksService"
+xmlns:Z="urn:schemas-microsoft-com:" xmlns:st="&#1;"
+xmlns="http://www.w3.org/TR/REC-html40">
+
+<head>
+<meta http-equiv=Content-Type content="text/html; charset=windows-1252">
+<meta name=ProgId content=Word.Document>
+<meta name=Generator content="Microsoft Word 12">
+<meta name=Originator content="Microsoft Word 12">
+<link rel=File-List
+href="RE%20STL%20SLIC%20-%20GOLD%20Interface_files/filelist.xml">
+<link rel=Edit-Time-Data
+href="RE%20STL%20SLIC%20-%20GOLD%20Interface_files/editdata.mso">
+<!--[if !mso]>
+<style>
+v\:* {behavior:url(#default#VML);}
+o\:* {behavior:url(#default#VML);}
+w\:* {behavior:url(#default#VML);}
+.shape {behavior:url(#default#VML);}
+</style>
+<![endif]--><!--[if gte mso 9]><xml>
+ <o:DocumentProperties>
+  <o:Author>Douglas S. Elder</o:Author>
+  <o:Template>NormalEmail.dotm</o:Template>
+  <o:Revision>1</o:Revision>
+  <o:TotalTime>37</o:TotalTime>
+  <o:Created>2012-03-07T18:07:00Z</o:Created>
+  <o:Pages>1</o:Pages>
+  <o:Words>3692</o:Words>
+  <o:Characters>21045</o:Characters>
+  <o:Lines>175</o:Lines>
+  <o:Paragraphs>49</o:Paragraphs>
+  <o:CharactersWithSpaces>24688</o:CharactersWithSpaces>
+  <o:Version>12.00</o:Version>
+ </o:DocumentProperties>
+</xml><![endif]-->
+<link rel=themeData
+href="RE%20STL%20SLIC%20-%20GOLD%20Interface_files/themedata.thmx">
+<link rel=colorSchemeMapping
+href="RE%20STL%20SLIC%20-%20GOLD%20Interface_files/colorschememapping.xml">
+<!--[if gte mso 9]><xml>
+ <w:WordDocument>
+  <w:Zoom>0</w:Zoom>
+  <w:TrackMoves/>
+  <w:TrackFormatting/>
+  <w:ValidateAgainstSchemas/>
+  <w:SaveIfXMLInvalid>false</w:SaveIfXMLInvalid>
+  <w:IgnoreMixedContent>false</w:IgnoreMixedContent>
+  <w:AlwaysShowPlaceholderText>false</w:AlwaysShowPlaceholderText>
+  <w:DoNotPromoteQF/>
+  <w:LidThemeOther>EN-US</w:LidThemeOther>
+  <w:LidThemeAsian>X-NONE</w:LidThemeAsian>
+  <w:LidThemeComplexScript>X-NONE</w:LidThemeComplexScript>
+  <w:Compatibility>
+   <w:DoNotExpandShiftReturn/>
+   <w:BreakWrappedTables/>
+   <w:SplitPgBreakAndParaMark/>
+   <w:DontVertAlignCellWithSp/>
+   <w:DontBreakConstrainedForcedTables/>
+   <w:DontVertAlignInTxbx/>
+   <w:Word11KerningPairs/>
+   <w:CachedColBalance/>
+  </w:Compatibility>
+  <w:BrowserLevel>MicrosoftInternetExplorer4</w:BrowserLevel>
+  <m:mathPr>
+   <m:mathFont m:val="Cambria Math"/>
+   <m:brkBin m:val="before"/>
+   <m:brkBinSub m:val="&#45;-"/>
+   <m:smallFrac m:val="off"/>
+   <m:dispDef/>
+   <m:lMargin m:val="0"/>
+   <m:rMargin m:val="0"/>
+   <m:defJc m:val="centerGroup"/>
+   <m:wrapIndent m:val="1440"/>
+   <m:intLim m:val="subSup"/>
+   <m:naryLim m:val="undOvr"/>
+  </m:mathPr></w:WordDocument>
+</xml><![endif]--><!--[if gte mso 9]><xml>
+ <w:LatentStyles DefLockedState="false" DefUnhideWhenUsed="true"
+  DefSemiHidden="true" DefQFormat="false" DefPriority="99"
+  LatentStyleCount="267">
+  <w:LsdException Locked="false" Priority="0" SemiHidden="false"
+   UnhideWhenUsed="false" QFormat="true" Name="Normal"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="false"
+   UnhideWhenUsed="false" QFormat="true" Name="heading 1"/>
+  <w:LsdException Locked="false" Priority="9" QFormat="true" Name="heading 2"/>
+  <w:LsdException Locked="false" Priority="9" QFormat="true" Name="heading 3"/>
+  <w:LsdException Locked="false" Priority="9" QFormat="true" Name="heading 4"/>
+  <w:LsdException Locked="false" Priority="9" QFormat="true" Name="heading 5"/>
+  <w:LsdException Locked="false" Priority="9" QFormat="true" Name="heading 6"/>
+  <w:LsdException Locked="false" Priority="9" QFormat="true" Name="heading 7"/>
+  <w:LsdException Locked="false" Priority="9" QFormat="true" Name="heading 8"/>
+  <w:LsdException Locked="false" Priority="9" QFormat="true" Name="heading 9"/>
+  <w:LsdException Locked="false" Priority="39" Name="toc 1"/>
+  <w:LsdException Locked="false" Priority="39" Name="toc 2"/>
+  <w:LsdException Locked="false" Priority="39" Name="toc 3"/>
+  <w:LsdException Locked="false" Priority="39" Name="toc 4"/>
+  <w:LsdException Locked="false" Priority="39" Name="toc 5"/>
+  <w:LsdException Locked="false" Priority="39" Name="toc 6"/>
+  <w:LsdException Locked="false" Priority="39" Name="toc 7"/>
+  <w:LsdException Locked="false" Priority="39" Name="toc 8"/>
+  <w:LsdException Locked="false" Priority="39" Name="toc 9"/>
+  <w:LsdException Locked="false" Priority="35" QFormat="true" Name="caption"/>
+  <w:LsdException Locked="false" Priority="10" SemiHidden="false"
+   UnhideWhenUsed="false" QFormat="true" Name="Title"/>
+  <w:LsdException Locked="false" Priority="1" Name="Default Paragraph Font"/>
+  <w:LsdException Locked="false" Priority="11" SemiHidden="false"
+   UnhideWhenUsed="false" QFormat="true" Name="Subtitle"/>
+  <w:LsdException Locked="false" Priority="22" SemiHidden="false"
+   UnhideWhenUsed="false" QFormat="true" Name="Strong"/>
+  <w:LsdException Locked="false" Priority="20" SemiHidden="false"
+   UnhideWhenUsed="false" QFormat="true" Name="Emphasis"/>
+  <w:LsdException Locked="false" Priority="59" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Table Grid"/>
+  <w:LsdException Locked="false" UnhideWhenUsed="false" Name="Placeholder Text"/>
+  <w:LsdException Locked="false" Priority="1" SemiHidden="false"
+   UnhideWhenUsed="false" QFormat="true" Name="No Spacing"/>
+  <w:LsdException Locked="false" Priority="60" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light Shading"/>
+  <w:LsdException Locked="false" Priority="61" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light List"/>
+  <w:LsdException Locked="false" Priority="62" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light Grid"/>
+  <w:LsdException Locked="false" Priority="63" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Shading 1"/>
+  <w:LsdException Locked="false" Priority="64" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Shading 2"/>
+  <w:LsdException Locked="false" Priority="65" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium List 1"/>
+  <w:LsdException Locked="false" Priority="66" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium List 2"/>
+  <w:LsdException Locked="false" Priority="67" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 1"/>
+  <w:LsdException Locked="false" Priority="68" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 2"/>
+  <w:LsdException Locked="false" Priority="69" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 3"/>
+  <w:LsdException Locked="false" Priority="70" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Dark List"/>
+  <w:LsdException Locked="false" Priority="71" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful Shading"/>
+  <w:LsdException Locked="false" Priority="72" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful List"/>
+  <w:LsdException Locked="false" Priority="73" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful Grid"/>
+  <w:LsdException Locked="false" Priority="60" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light Shading Accent 1"/>
+  <w:LsdException Locked="false" Priority="61" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light List Accent 1"/>
+  <w:LsdException Locked="false" Priority="62" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light Grid Accent 1"/>
+  <w:LsdException Locked="false" Priority="63" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Shading 1 Accent 1"/>
+  <w:LsdException Locked="false" Priority="64" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Shading 2 Accent 1"/>
+  <w:LsdException Locked="false" Priority="65" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium List 1 Accent 1"/>
+  <w:LsdException Locked="false" UnhideWhenUsed="false" Name="Revision"/>
+  <w:LsdException Locked="false" Priority="34" SemiHidden="false"
+   UnhideWhenUsed="false" QFormat="true" Name="List Paragraph"/>
+  <w:LsdException Locked="false" Priority="29" SemiHidden="false"
+   UnhideWhenUsed="false" QFormat="true" Name="Quote"/>
+  <w:LsdException Locked="false" Priority="30" SemiHidden="false"
+   UnhideWhenUsed="false" QFormat="true" Name="Intense Quote"/>
+  <w:LsdException Locked="false" Priority="66" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium List 2 Accent 1"/>
+  <w:LsdException Locked="false" Priority="67" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 1 Accent 1"/>
+  <w:LsdException Locked="false" Priority="68" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 2 Accent 1"/>
+  <w:LsdException Locked="false" Priority="69" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 3 Accent 1"/>
+  <w:LsdException Locked="false" Priority="70" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Dark List Accent 1"/>
+  <w:LsdException Locked="false" Priority="71" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful Shading Accent 1"/>
+  <w:LsdException Locked="false" Priority="72" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful List Accent 1"/>
+  <w:LsdException Locked="false" Priority="73" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful Grid Accent 1"/>
+  <w:LsdException Locked="false" Priority="60" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light Shading Accent 2"/>
+  <w:LsdException Locked="false" Priority="61" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light List Accent 2"/>
+  <w:LsdException Locked="false" Priority="62" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light Grid Accent 2"/>
+  <w:LsdException Locked="false" Priority="63" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Shading 1 Accent 2"/>
+  <w:LsdException Locked="false" Priority="64" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Shading 2 Accent 2"/>
+  <w:LsdException Locked="false" Priority="65" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium List 1 Accent 2"/>
+  <w:LsdException Locked="false" Priority="66" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium List 2 Accent 2"/>
+  <w:LsdException Locked="false" Priority="67" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 1 Accent 2"/>
+  <w:LsdException Locked="false" Priority="68" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 2 Accent 2"/>
+  <w:LsdException Locked="false" Priority="69" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 3 Accent 2"/>
+  <w:LsdException Locked="false" Priority="70" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Dark List Accent 2"/>
+  <w:LsdException Locked="false" Priority="71" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful Shading Accent 2"/>
+  <w:LsdException Locked="false" Priority="72" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful List Accent 2"/>
+  <w:LsdException Locked="false" Priority="73" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful Grid Accent 2"/>
+  <w:LsdException Locked="false" Priority="60" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light Shading Accent 3"/>
+  <w:LsdException Locked="false" Priority="61" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light List Accent 3"/>
+  <w:LsdException Locked="false" Priority="62" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light Grid Accent 3"/>
+  <w:LsdException Locked="false" Priority="63" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Shading 1 Accent 3"/>
+  <w:LsdException Locked="false" Priority="64" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Shading 2 Accent 3"/>
+  <w:LsdException Locked="false" Priority="65" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium List 1 Accent 3"/>
+  <w:LsdException Locked="false" Priority="66" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium List 2 Accent 3"/>
+  <w:LsdException Locked="false" Priority="67" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 1 Accent 3"/>
+  <w:LsdException Locked="false" Priority="68" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 2 Accent 3"/>
+  <w:LsdException Locked="false" Priority="69" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 3 Accent 3"/>
+  <w:LsdException Locked="false" Priority="70" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Dark List Accent 3"/>
+  <w:LsdException Locked="false" Priority="71" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful Shading Accent 3"/>
+  <w:LsdException Locked="false" Priority="72" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful List Accent 3"/>
+  <w:LsdException Locked="false" Priority="73" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful Grid Accent 3"/>
+  <w:LsdException Locked="false" Priority="60" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light Shading Accent 4"/>
+  <w:LsdException Locked="false" Priority="61" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light List Accent 4"/>
+  <w:LsdException Locked="false" Priority="62" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light Grid Accent 4"/>
+  <w:LsdException Locked="false" Priority="63" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Shading 1 Accent 4"/>
+  <w:LsdException Locked="false" Priority="64" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Shading 2 Accent 4"/>
+  <w:LsdException Locked="false" Priority="65" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium List 1 Accent 4"/>
+  <w:LsdException Locked="false" Priority="66" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium List 2 Accent 4"/>
+  <w:LsdException Locked="false" Priority="67" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 1 Accent 4"/>
+  <w:LsdException Locked="false" Priority="68" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 2 Accent 4"/>
+  <w:LsdException Locked="false" Priority="69" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 3 Accent 4"/>
+  <w:LsdException Locked="false" Priority="70" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Dark List Accent 4"/>
+  <w:LsdException Locked="false" Priority="71" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful Shading Accent 4"/>
+  <w:LsdException Locked="false" Priority="72" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful List Accent 4"/>
+  <w:LsdException Locked="false" Priority="73" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful Grid Accent 4"/>
+  <w:LsdException Locked="false" Priority="60" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light Shading Accent 5"/>
+  <w:LsdException Locked="false" Priority="61" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light List Accent 5"/>
+  <w:LsdException Locked="false" Priority="62" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light Grid Accent 5"/>
+  <w:LsdException Locked="false" Priority="63" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Shading 1 Accent 5"/>
+  <w:LsdException Locked="false" Priority="64" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Shading 2 Accent 5"/>
+  <w:LsdException Locked="false" Priority="65" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium List 1 Accent 5"/>
+  <w:LsdException Locked="false" Priority="66" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium List 2 Accent 5"/>
+  <w:LsdException Locked="false" Priority="67" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 1 Accent 5"/>
+  <w:LsdException Locked="false" Priority="68" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 2 Accent 5"/>
+  <w:LsdException Locked="false" Priority="69" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 3 Accent 5"/>
+  <w:LsdException Locked="false" Priority="70" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Dark List Accent 5"/>
+  <w:LsdException Locked="false" Priority="71" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful Shading Accent 5"/>
+  <w:LsdException Locked="false" Priority="72" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful List Accent 5"/>
+  <w:LsdException Locked="false" Priority="73" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful Grid Accent 5"/>
+  <w:LsdException Locked="false" Priority="60" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light Shading Accent 6"/>
+  <w:LsdException Locked="false" Priority="61" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light List Accent 6"/>
+  <w:LsdException Locked="false" Priority="62" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Light Grid Accent 6"/>
+  <w:LsdException Locked="false" Priority="63" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Shading 1 Accent 6"/>
+  <w:LsdException Locked="false" Priority="64" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Shading 2 Accent 6"/>
+  <w:LsdException Locked="false" Priority="65" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium List 1 Accent 6"/>
+  <w:LsdException Locked="false" Priority="66" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium List 2 Accent 6"/>
+  <w:LsdException Locked="false" Priority="67" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 1 Accent 6"/>
+  <w:LsdException Locked="false" Priority="68" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 2 Accent 6"/>
+  <w:LsdException Locked="false" Priority="69" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Medium Grid 3 Accent 6"/>
+  <w:LsdException Locked="false" Priority="70" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Dark List Accent 6"/>
+  <w:LsdException Locked="false" Priority="71" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful Shading Accent 6"/>
+  <w:LsdException Locked="false" Priority="72" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful List Accent 6"/>
+  <w:LsdException Locked="false" Priority="73" SemiHidden="false"
+   UnhideWhenUsed="false" Name="Colorful Grid Accent 6"/>
+  <w:LsdException Locked="false" Priority="19" SemiHidden="false"
+   UnhideWhenUsed="false" QFormat="true" Name="Subtle Emphasis"/>
+  <w:LsdException Locked="false" Priority="21" SemiHidden="false"
+   UnhideWhenUsed="false" QFormat="true" Name="Intense Emphasis"/>
+  <w:LsdException Locked="false" Priority="31" SemiHidden="false"
+   UnhideWhenUsed="false" QFormat="true" Name="Subtle Reference"/>
+  <w:LsdException Locked="false" Priority="32" SemiHidden="false"
+   UnhideWhenUsed="false" QFormat="true" Name="Intense Reference"/>
+  <w:LsdException Locked="false" Priority="33" SemiHidden="false"
+   UnhideWhenUsed="false" QFormat="true" Name="Book Title"/>
+  <w:LsdException Locked="false" Priority="37" Name="Bibliography"/>
+  <w:LsdException Locked="false" Priority="39" QFormat="true" Name="TOC Heading"/>
+ </w:LatentStyles>
+</xml><![endif]-->
+<style>
+<!--
+ /* Font Definitions */
+ @font-face
+	{font-family:"Cambria Math";
+	panose-1:2 4 5 3 5 4 6 3 2 4;
+	mso-font-alt:"Calisto MT";
+	mso-font-charset:0;
+	mso-generic-font-family:roman;
+	mso-font-pitch:variable;
+	mso-font-signature:-536870145 1107305727 0 0 415 0;}
+@font-face
+	{font-family:Calibri;
+	panose-1:2 15 5 2 2 2 4 3 2 4;
+	mso-font-alt:"Times New Roman";
+	mso-font-charset:0;
+	mso-generic-font-family:swiss;
+	mso-font-pitch:variable;
+	mso-font-signature:-520092929 1073786111 9 0 415 0;}
+@font-face
+	{font-family:Tahoma;
+	panose-1:2 11 6 4 3 5 4 4 2 4;
+	mso-font-alt:Verdana;
+	mso-font-charset:0;
+	mso-generic-font-family:swiss;
+	mso-font-pitch:variable;
+	mso-font-signature:-520081665 -1073717157 41 0 66047 0;}
+@font-face
+	{font-family:"MS Sans Serif";
+	panose-1:0 0 0 0 0 0 0 0 0 0;
+	mso-font-alt:"Times New Roman";
+	mso-font-charset:0;
+	mso-generic-font-family:swiss;
+	mso-font-format:other;
+	mso-font-pitch:auto;
+	mso-font-signature:3 0 0 0 1 0;}
+@font-face
+	{font-family:Georgia;
+	panose-1:2 4 5 2 5 4 5 2 3 3;
+	mso-font-charset:0;
+	mso-generic-font-family:roman;
+	mso-font-pitch:variable;
+	mso-font-signature:647 0 0 0 159 0;}
+ /* Style Definitions */
+ p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{mso-style-unhide:no;
+	mso-style-qformat:yes;
+	mso-style-parent:"";
+	margin:0in;
+	margin-bottom:.0001pt;
+	mso-pagination:widow-orphan;
+	font-size:11.0pt;
+	font-family:"Calibri","sans-serif";
+	mso-fareast-font-family:Calibri;
+	mso-fareast-theme-font:minor-latin;}
+a:link, span.MsoHyperlink
+	{mso-style-priority:99;
+	font-family:"Times New Roman","serif";
+	mso-ascii-font-family:"Times New Roman";
+	mso-hansi-font-family:"Times New Roman";
+	mso-bidi-font-family:"Times New Roman";
+	color:blue;
+	text-decoration:underline;
+	text-underline:single;}
+a:visited, span.MsoHyperlinkFollowed
+	{mso-style-noshow:yes;
+	mso-style-priority:99;
+	font-family:"Times New Roman","serif";
+	mso-ascii-font-family:"Times New Roman";
+	mso-hansi-font-family:"Times New Roman";
+	mso-bidi-font-family:"Times New Roman";
+	color:purple;
+	text-decoration:underline;
+	text-underline:single;}
+strong
+	{mso-style-priority:22;
+	mso-style-unhide:no;
+	mso-style-qformat:yes;
+	font-family:"Times New Roman","serif";
+	mso-ascii-font-family:"Times New Roman";
+	mso-hansi-font-family:"Times New Roman";
+	mso-bidi-font-family:"Times New Roman";}
+p
+	{mso-style-noshow:yes;
+	mso-style-priority:99;
+	mso-margin-top-alt:auto;
+	margin-right:0in;
+	mso-margin-bottom-alt:auto;
+	margin-left:0in;
+	mso-pagination:widow-orphan;
+	font-size:12.0pt;
+	font-family:"Times New Roman","serif";
+	mso-fareast-font-family:Calibri;
+	mso-fareast-theme-font:minor-latin;}
+p.MsoAcetate, li.MsoAcetate, div.MsoAcetate
+	{mso-style-noshow:yes;
+	mso-style-priority:99;
+	mso-style-link:"Balloon Text Char";
+	margin:0in;
+	margin-bottom:.0001pt;
+	mso-pagination:widow-orphan;
+	font-size:8.0pt;
+	font-family:"Tahoma","sans-serif";
+	mso-fareast-font-family:Calibri;
+	mso-fareast-theme-font:minor-latin;}
+p.MsoListParagraph, li.MsoListParagraph, div.MsoListParagraph
+	{mso-style-priority:34;
+	mso-style-unhide:no;
+	mso-style-qformat:yes;
+	margin-top:0in;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.5in;
+	margin-bottom:.0001pt;
+	mso-pagination:widow-orphan;
+	font-size:11.0pt;
+	font-family:"Calibri","sans-serif";
+	mso-fareast-font-family:Calibri;
+	mso-fareast-theme-font:minor-latin;}
+span.BalloonTextChar
+	{mso-style-name:"Balloon Text Char";
+	mso-style-noshow:yes;
+	mso-style-priority:99;
+	mso-style-unhide:no;
+	mso-style-locked:yes;
+	mso-style-link:"Balloon Text";
+	font-family:"Tahoma","sans-serif";
+	mso-ascii-font-family:Tahoma;
+	mso-hansi-font-family:Tahoma;
+	mso-bidi-font-family:Tahoma;}
+span.EmailStyle22
+	{mso-style-type:personal;
+	mso-style-noshow:yes;
+	mso-style-unhide:no;
+	font-family:"Arial","sans-serif";
+	mso-ascii-font-family:Arial;
+	mso-hansi-font-family:Arial;
+	mso-bidi-font-family:Arial;
+	color:windowtext;}
+span.EmailStyle23
+	{mso-style-type:personal;
+	mso-style-noshow:yes;
+	mso-style-unhide:no;
+	font-family:"Calibri","sans-serif";
+	mso-ascii-font-family:Calibri;
+	mso-hansi-font-family:Calibri;
+	mso-bidi-font-family:Calibri;
+	color:#1F497D;}
+span.EmailStyle24
+	{mso-style-type:personal;
+	mso-style-noshow:yes;
+	mso-style-unhide:no;
+	font-family:"Calibri","sans-serif";
+	mso-ascii-font-family:Calibri;
+	mso-hansi-font-family:Calibri;
+	mso-bidi-font-family:Calibri;
+	color:#1F497D;}
+span.EmailStyle25
+	{mso-style-type:personal;
+	mso-style-noshow:yes;
+	mso-style-unhide:no;
+	font-family:"Calibri","sans-serif";
+	mso-ascii-font-family:Calibri;
+	mso-hansi-font-family:Calibri;
+	mso-bidi-font-family:Calibri;
+	color:#1F497D;}
+span.EmailStyle26
+	{mso-style-type:personal;
+	mso-style-noshow:yes;
+	mso-style-unhide:no;
+	font-family:"Times New Roman","serif";
+	mso-ascii-font-family:"Times New Roman";
+	mso-hansi-font-family:"Times New Roman";
+	mso-bidi-font-family:"Times New Roman";
+	color:black;}
+span.EmailStyle27
+	{mso-style-type:personal;
+	mso-style-noshow:yes;
+	mso-style-unhide:no;
+	font-family:"Calibri","sans-serif";
+	mso-ascii-font-family:Calibri;
+	mso-hansi-font-family:Calibri;
+	mso-bidi-font-family:Calibri;
+	color:#1F497D;}
+span.EmailStyle28
+	{mso-style-type:personal;
+	mso-style-noshow:yes;
+	mso-style-unhide:no;
+	font-family:"Times New Roman","serif";
+	mso-ascii-font-family:"Times New Roman";
+	mso-hansi-font-family:"Times New Roman";
+	mso-bidi-font-family:"Times New Roman";
+	color:black;}
+span.EmailStyle29
+	{mso-style-type:personal;
+	mso-style-noshow:yes;
+	mso-style-unhide:no;
+	font-family:"Calibri","sans-serif";
+	mso-ascii-font-family:Calibri;
+	mso-hansi-font-family:Calibri;
+	mso-bidi-font-family:Calibri;
+	color:#1F497D;}
+span.EmailStyle30
+	{mso-style-type:personal;
+	mso-style-noshow:yes;
+	mso-style-unhide:no;
+	font-family:"Calibri","sans-serif";
+	mso-ascii-font-family:Calibri;
+	mso-hansi-font-family:Calibri;
+	mso-bidi-font-family:Calibri;
+	color:#1F497D;}
+span.EmailStyle31
+	{mso-style-type:personal;
+	mso-style-noshow:yes;
+	mso-style-unhide:no;
+	font-family:"Times New Roman","serif";
+	mso-ascii-font-family:"Times New Roman";
+	mso-hansi-font-family:"Times New Roman";
+	mso-bidi-font-family:"Times New Roman";
+	color:black;}
+span.EmailStyle32
+	{mso-style-type:personal;
+	mso-style-noshow:yes;
+	mso-style-unhide:no;
+	font-family:"Calibri","sans-serif";
+	mso-ascii-font-family:Calibri;
+	mso-hansi-font-family:Calibri;
+	mso-bidi-font-family:Calibri;
+	color:#1F497D;}
+span.EmailStyle33
+	{mso-style-type:personal;
+	mso-style-noshow:yes;
+	mso-style-unhide:no;
+	font-family:"Calibri","sans-serif";
+	mso-ascii-font-family:Calibri;
+	mso-hansi-font-family:Calibri;
+	mso-bidi-font-family:Calibri;
+	color:#1F497D;}
+span.EmailStyle34
+	{mso-style-type:personal;
+	mso-style-noshow:yes;
+	mso-style-unhide:no;
+	font-family:"Times New Roman","serif";
+	mso-ascii-font-family:"Times New Roman";
+	mso-hansi-font-family:"Times New Roman";
+	mso-bidi-font-family:"Times New Roman";
+	color:black;}
+span.EmailStyle35
+	{mso-style-type:personal;
+	mso-style-noshow:yes;
+	mso-style-unhide:no;
+	font-family:"Calibri","sans-serif";
+	mso-ascii-font-family:Calibri;
+	mso-hansi-font-family:Calibri;
+	mso-bidi-font-family:Calibri;
+	color:#1F497D;}
+span.EmailStyle36
+	{mso-style-type:personal;
+	mso-style-noshow:yes;
+	mso-style-unhide:no;
+	color:black;}
+.MsoChpDefault
+	{mso-style-type:export-only;
+	mso-default-props:yes;
+	font-size:10.0pt;
+	mso-ansi-font-size:10.0pt;
+	mso-bidi-font-size:10.0pt;}
+@page WordSection1
+	{size:8.5in 11.0in;
+	margin:1.0in 1.0in 1.0in 1.0in;
+	mso-header-margin:.5in;
+	mso-footer-margin:.5in;
+	mso-paper-source:0;}
+div.WordSection1
+	{page:WordSection1;}
+ /* List Definitions */
+ @list l0
+	{mso-list-id:337392475;
+	mso-list-type:hybrid;
+	mso-list-template-ids:-317709134 67698703 67698713 67698715 67698703 67698713 67698715 67698703 67698713 67698715;}
+@list l0:level1
+	{mso-level-tab-stop:none;
+	mso-level-number-position:left;
+	text-indent:-.25in;
+	mso-bidi-font-family:"Times New Roman";}
+@list l0:level2
+	{mso-level-tab-stop:1.0in;
+	mso-level-number-position:left;
+	text-indent:-.25in;}
+@list l0:level3
+	{mso-level-tab-stop:1.5in;
+	mso-level-number-position:left;
+	text-indent:-.25in;}
+@list l0:level4
+	{mso-level-tab-stop:2.0in;
+	mso-level-number-position:left;
+	text-indent:-.25in;}
+@list l0:level5
+	{mso-level-tab-stop:2.5in;
+	mso-level-number-position:left;
+	text-indent:-.25in;}
+@list l0:level6
+	{mso-level-tab-stop:3.0in;
+	mso-level-number-position:left;
+	text-indent:-.25in;}
+@list l0:level7
+	{mso-level-tab-stop:3.5in;
+	mso-level-number-position:left;
+	text-indent:-.25in;}
+@list l0:level8
+	{mso-level-tab-stop:4.0in;
+	mso-level-number-position:left;
+	text-indent:-.25in;}
+@list l0:level9
+	{mso-level-tab-stop:4.5in;
+	mso-level-number-position:left;
+	text-indent:-.25in;}
+ol
+	{margin-bottom:0in;}
+ul
+	{margin-bottom:0in;}
+-->
+</style>
+<!--[if gte mso 10]>
+<style>
+ /* Style Definitions */
+ table.MsoNormalTable
+	{mso-style-name:"Table Normal";
+	mso-tstyle-rowband-size:0;
+	mso-tstyle-colband-size:0;
+	mso-style-noshow:yes;
+	mso-style-priority:99;
+	mso-style-qformat:yes;
+	mso-style-parent:"";
+	mso-padding-alt:0in 5.4pt 0in 5.4pt;
+	mso-para-margin:0in;
+	mso-para-margin-bottom:.0001pt;
+	mso-pagination:widow-orphan;
+	font-size:10.0pt;
+	font-family:"Times New Roman","serif";}
+</style>
+<![endif]--><!--[if gte mso 9]><xml>
+ <o:shapedefaults v:ext="edit" spidmax="1026"/>
+</xml><![endif]--><!--[if gte mso 9]><xml>
+ <o:shapelayout v:ext="edit">
+  <o:idmap v:ext="edit" data="1"/>
+ </o:shapelayout></xml><![endif]-->
+</head>
+
+<body lang=EN-US link=blue vlink=purple style='tab-interval:.5in'>
+
+<div class=WordSection1>
+
+<p class=MsoNormal style='margin-left:120.0pt;text-indent:-120.0pt;tab-stops:
+120.0pt;mso-layout-grid-align:none;text-autospace:none'><b><span
+style='color:black'>From:<span style='mso-tab-count:1'>                                         </span></span></b><span
+style='color:black'>Mills, Larry D<o:p></o:p></span></p>
+
+<p class=MsoNormal style='margin-left:120.0pt;text-indent:-120.0pt;tab-stops:
+120.0pt;mso-layout-grid-align:none;text-autospace:none'><b><span
+style='color:black'>Sent:<span style='mso-tab-count:1'>                                           </span></span></b><span
+style='color:black'>Wednesday, March 07, 2012 10:08 AM<o:p></o:p></span></p>
+
+<p class=MsoNormal style='margin-left:120.0pt;text-indent:-120.0pt;tab-stops:
+120.0pt;mso-layout-grid-align:none;text-autospace:none'><b><span
+style='color:black'>To:<span style='mso-tab-count:1'>                                               </span></span></b><span
+style='color:black'>Elder, Douglas S<o:p></o:p></span></p>
+
+<p class=MsoNormal style='margin-left:120.0pt;text-indent:-120.0pt;tab-stops:
+120.0pt;mso-layout-grid-align:none;text-autospace:none'><b><span
+style='color:black'>Cc:<span style='mso-tab-count:1'>                                               </span></span></b><span
+style='color:black'>Lopez, Pedro A; Shew, Kenneth C; Yao, Willy; Pham,
+Phuong-Thuy<o:p></o:p></span></p>
+
+<p class=MsoNormal style='margin-left:120.0pt;text-indent:-120.0pt;tab-stops:
+120.0pt;mso-layout-grid-align:none;text-autospace:none'><b><span
+style='color:black'>Subject:<span style='mso-tab-count:1'>                                     </span></span></b><span
+style='color:black'>RE: STL SLIC - GOLD Interface<o:p></o:p></span></p>
+
+<p class=MsoNormal style='margin-left:120.0pt;text-indent:-120.0pt;tab-stops:
+120.0pt;mso-layout-grid-align:none;text-autospace:none'><b><span
+style='color:black'>Attachments:<span style='mso-tab-count:1'>                          </span></span></b><span
+style='color:black'>Larrys_transiton_document.docx<o:p></o:p></span></p>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><span style='color:black'>Attached document contains
+information about location of source, servers, cron, etc.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'>Currently, Development is on
+svappl04 and production is svappl60.&nbsp; If you chose to run on a different
+server then I suggest you insure it is configure as svappl04/60 is configure
+with regards to Unix and Oracle versions.&nbsp; If you chose to go with higher
+releases of Unix and Oracle, that is your call.&nbsp; However, I would suggest
+you not move the executable until you understand the interface.&nbsp; You’ll
+need to be able to connect to the SLIC instances for F15, F18, AV8, Harpoon and
+Launch, and you will need to be able to connect to *GOLDSL instances.&nbsp; I
+suggest you work that through Dan Eise (stl_prodsup01, stl_dprdsup [SLIC DBA])
+and Rob Curtis (pgoldsl, xgoldsl [Gold Oracle DBA]) to determine Oracle
+releases if you desire to run from different servers.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'>Cron, currently runs off of
+scmftp.&nbsp; Again, due to the time restraint I suggest you continue to run
+from that ID.&nbsp; Jobs run once a week.&nbsp; Here is how the Cron is coded:<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal style='margin-left:.5in'><span style='color:black'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+45&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+08&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+6&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+/data/scm/sh/slicgld_api_f18_sh 1 &gt;/data/scm/PROD/F18_slicgld_output
+2&gt;&amp;1<o:p></o:p></span></p>
+
+<p class=MsoNormal style='margin-left:.5in'><span style='color:black'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+00&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+07&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+6&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+/data/scm/sh/slicgld_api_f15_sh 1 &gt;/data/scm/PROD/F15_slicgld_output
+2&gt;&amp;1<o:p></o:p></span></p>
+
+<p class=MsoNormal style='margin-left:.5in'><span style='color:black'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+00&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+07&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+6&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+/data/scm/sh/slicgld_api_av8b_sh 1 &gt;/data/scm/PROD/AV8B_slicgld_output
+2&gt;&amp;1<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'>You can continue to run with the
+stlscm Oracle ID that connect to *GOLDSL, but do suggest you get your own
+ID.&nbsp; I still owe you the paperwork to get that ID.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'>You need to work through Joe
+Conley who owns the scmftp Unix ID.&nbsp; I do suggest for long term you get
+your own Application Unix ID and migrate to that ID.&nbsp; You will need to get
+your own person Unix ID.&nbsp; I refer you to the following URL, <a
+href="http://stl-unix.web.boeing.com/FAQs.html"><span style='font-family:"Times New Roman","serif"'>http://stl-unix.web.boeing.com/FAQs.html</span></a>,
+for how to get that id.&nbsp; You should at least specify Group of ‘PSIT’ and
+Net Group of ‘SLIC_ids’.&nbsp; Your id will have access to both svappl04 and
+svappl60 (assuming you specify Net Group of SLIC_ids).<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'>Not sure I answered all your
+questions, if I missed one let me know.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<div>
+
+<p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto'><span
+style='font-size:10.0pt;font-family:"Arial","sans-serif";color:black'>Thanks</span><span
+style='font-size:12.0pt;font-family:"Times New Roman","serif";color:black'> <o:p></o:p></span></p>
+
+<p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto'><span
+style='font-size:10.0pt;font-family:"Arial","sans-serif";color:black'>Larry D.
+Mills<br>
+Building</span><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'> 270D</span><span style='font-size:10.0pt;font-family:"Arial","sans-serif";
+color:black'>, Level 2, Post F2</span><span style='font-size:12.0pt;font-family:
+"Times New Roman","serif";color:black'><br>
+</span><span style='font-size:10.0pt;font-family:"Arial","sans-serif";
+color:black'>Email: <a href="mailto:larry.d.mills@boeing.com"><span
+style='mso-ascii-font-family:Arial;mso-hansi-font-family:Arial;mso-bidi-font-family:
+Arial'>larry.d.mills@boeing.com</span></a><br>
+Phone: (314) 232-3384 </span><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>&nbsp;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto'><b><span
+style='font-size:7.5pt;font-family:"MS Sans Serif","sans-serif";color:black'>NOTICE:&nbsp;
+This communication may contain privileged or other confidential
+information.&nbsp; If you are not the intended recipient, or believe that you
+have received this communication in error, please do not print, copy,
+retransmit, disseminate, or otherwise use the information.&nbsp; Also, please
+indicate to the sender that you have received this e-mail in error, and delete
+the copy you received.</span></b><span style='font-size:12.0pt;font-family:
+"Times New Roman","serif";color:black'><o:p></o:p></span></p>
+
+<p class=MsoNormal><b><span style='font-size:10.0pt;font-family:"Georgia","serif";
+color:black'>***********************************************************</span></b><span
+style='color:black'> <o:p></o:p></span></p>
+
+</div>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<div>
+
+<div style='border:none;border-top:solid #B5C4DF 1.0pt;padding:3.0pt 0in 0in 0in'>
+
+<p class=MsoNormal style='mso-outline-level:1'><b><span style='font-size:10.0pt;
+font-family:"Tahoma","sans-serif"'>From:</span></b><span style='font-size:10.0pt;
+font-family:"Tahoma","sans-serif"'> Elder, Douglas S <br>
+<b>Sent:</b> Wednesday, March 07, 2012 11:08 AM<br>
+<b>To:</b> Mills, Larry D<br>
+<b>Cc:</b> Lopez, Pedro A; Shew, Kenneth C; Yao, Willy; Pham, Phuong-Thuy<br>
+<b>Subject:</b> RE: STL SLIC - GOLD Interface<o:p></o:p></span></p>
+
+</div>
+
+</div>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Thanks for all the info.&nbsp; I
+found the stored procedures:<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+exec sql execute<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+begin<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+if_xs.create_inthdr(rtrim(:api_interface_name),<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+rtrim(:api_ext_app_name),<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+rtrim(:api_ext_app_id),<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+:api_status,<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+:api_intrfce_trans_tk);<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+end;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+end-exec;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+exec sql execute<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+begin<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+if_xs.vouch_int(:api_status,<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+:api_parent_key);<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+end;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+end-exec;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+exec sql execute<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+begin<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+if_xs.submit_int(:api_intrfce_trans_tk,<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; :api_misc_field1,<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; :api_misc_field2,<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; :api_status);<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+end;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:8.0pt'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+end-exec;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>in the GOLD release notes.
+&nbsp;Can you tell me if the pc files and header files are located in any
+particular directory structure.&nbsp; I was looking at the makefile and saw a
+couple of directory references:<o:p></o:p></span></p>
+
+<p class=MsoNormal style='margin-left:.5in'><b><span style='font-size:9.0pt;
+color:#365F91'>include $(ORACLE_HOME)/precomp/lib/env_precomp.mk<o:p></o:p></span></b></p>
+
+<p class=MsoNormal style='margin-left:.5in'><b><span style='font-size:9.0pt;
+color:#365F91'>#include /mcair/dev/appl/scm/work/c/env_precomp.mk<o:p></o:p></span></b></p>
+
+<p class=MsoNormal style='margin-left:.5in'><b><span style='font-size:9.0pt;
+color:#365F91'><o:p>&nbsp;</o:p></span></b></p>
+
+<p class=MsoNormal style='margin-left:.5in'><b><span style='font-size:9.0pt;
+color:#365F91'># SAMPLES is a list of the c proc sample programs.<o:p></o:p></span></b></p>
+
+<p class=MsoNormal style='margin-left:.5in'><b><span style='font-size:9.0pt;
+color:#365F91'># CPPSAMPLES is a list of the c++ proc sample programs.<o:p></o:p></span></b></p>
+
+<p class=MsoNormal style='margin-left:.5in'><b><span style='font-size:9.0pt;
+color:#365F91'># OBJECT_SAMPLES is a list of the proc sample programs using the
+new<o:p></o:p></span></b></p>
+
+<p class=MsoNormal style='margin-left:.5in'><b><span style='font-size:9.0pt;
+color:#365F91'># type features.&nbsp; You must install ott in addition to proc
+to run some<o:p></o:p></span></b></p>
+
+<p class=MsoNormal style='margin-left:.5in'><b><span style='font-size:9.0pt;
+color:#365F91'># of those samples.<o:p></o:p></span></b></p>
+
+<p class=MsoNormal style='margin-left:.5in'><b><span style='font-size:9.0pt;
+color:#365F91'>INCLUDE_SCM_DIR=/mcair/dev/appl/scm/includes<o:p></o:p></span></b></p>
+
+<p class=MsoNormal style='margin-left:.5in'><b><span style='font-size:9.0pt;
+color:#365F91'>SCMLIB=/mcair/dev/appl/scm/libs/scmlib64.a<o:p></o:p></span></b></p>
+
+<p class=MsoNormal style='margin-left:.5in'><b><span style='font-size:9.0pt;
+color:#365F91'>#SCMLIB=/mcair/dev/appl/scm/libs/scmlib.a<o:p></o:p></span></b></p>
+
+<p class=MsoNormal style='margin-left:.5in'><b><span style='font-size:9.0pt;
+color:#365F91'>PROCFLAGS= include=$(INCLUDE_SCM_DIR)<o:p></o:p></span></b></p>
+
+<p class=MsoNormal style='margin-left:.5in'><b><span style='font-size:9.0pt;
+color:#365F91'><o:p>&nbsp;</o:p></span></b></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Are these important
+directories?&nbsp; Also, would the maintenance programmer work on the same HP
+Unix server as you use or would the maintenance programmer be required to find
+a HP Unix server?&nbsp; If a different server were required, what software,
+like the Pro*C pre-compiler, would be required or would need to be installed on
+the server?&nbsp; Does the application run on a specific server?&nbsp; If it
+does, what is the process for a maintenance person to get access to that
+server?<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>How often does the batch process
+run?&nbsp; Is it a cron job?&nbsp; Are there logs that need to be
+reviewed?&nbsp; Is there an email distribution list for run time error
+notifications or job completions notifications?<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Thanks,<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><!--[if gte vml 1]><v:shapetype
+ id="_x0000_t75" coordsize="21600,21600" o:spt="75" o:preferrelative="t"
+ path="m@4@5l@4@11@9@11@9@5xe" filled="f" stroked="f">
+ <v:stroke joinstyle="miter"/>
+ <v:formulas>
+  <v:f eqn="if lineDrawn pixelLineWidth 0"/>
+  <v:f eqn="sum @0 1 0"/>
+  <v:f eqn="sum 0 0 @1"/>
+  <v:f eqn="prod @2 1 2"/>
+  <v:f eqn="prod @3 21600 pixelWidth"/>
+  <v:f eqn="prod @3 21600 pixelHeight"/>
+  <v:f eqn="sum @0 0 1"/>
+  <v:f eqn="prod @6 1 2"/>
+  <v:f eqn="prod @7 21600 pixelWidth"/>
+  <v:f eqn="sum @8 21600 0"/>
+  <v:f eqn="prod @7 21600 pixelHeight"/>
+  <v:f eqn="sum @10 21600 0"/>
+ </v:formulas>
+ <v:path o:extrusionok="f" gradientshapeok="t" o:connecttype="rect"/>
+ <o:lock v:ext="edit" aspectratio="t"/>
+</v:shapetype><v:shape id="Picture_x0020_1" o:spid="_x0000_i1025" type="#_x0000_t75"
+ alt="DouglasSElder" style='width:156pt;height:27pt'>
+ <v:imagedata src="RE%20STL%20SLIC%20-%20GOLD%20Interface_files/image001.jpg"
+  o:href="cid:image001.jpg@01CCFC58.A2BD2C50"/>
+</v:shape><![endif]--><![if !vml]><img border=0 width=208 height=36
+src="RE%20STL%20SLIC%20-%20GOLD%20Interface_files/image001.jpg"
+alt=DouglasSElder v:shapes="Picture_x0020_1"><![endif]><o:p></o:p></span></p>
+
+<p class=MsoNormal><i><span style='font-size:14.0pt;font-family:"Arial","sans-serif";
+color:#1F497D'>562-699-7361<o:p></o:p></span></i></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal style='mso-outline-level:1'><span style='font-size:10.0pt;
+font-family:"Tahoma","sans-serif"'>_____________________________________________<br>
+<b>From:</b> Mills, Larry D <br>
+<b>Sent:</b> Wednesday, March 07, 2012 6:10 AM<br>
+<b>To:</b> Elder, Douglas S<br>
+<b>Cc:</b> Shew, Kenneth C; Maniaci, Joseph M; Lopez, Pedro A<br>
+<b>Subject:</b> RE: STL SLIC - GOLD Interface<o:p></o:p></span></p>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>Doug, I’m sending you more information than you requested.&nbsp; I
+have included all background documentation, sorry it may not meet today’s
+design standard but this application was built back in 2001/2002 where there
+was a different standard being used in St. Louis.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>Is your intent to handle this process as your turnover and you are
+storing this stuff in your area.&nbsp; If so, then I need to start dumping
+additional tables and triggers.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>This interface updates only the St. Louis instance of GOLD
+(PGOLDSL).&nbsp; We’ll allow you to continue to use the current Oracle ID, but
+would like for Huntington Beach to get your own ID, since the ID this
+application runs under also is used by other interfaces in St. Louis.&nbsp; Our
+Gold Site support person is on LOA, so I’ll need to find out who is filling in
+for her.&nbsp; I’ll send you the process for getting the id.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>You asked for the stored procedure, this interface does not use a
+St. Louis developed stored procedure.&nbsp; The only stored procedure I can
+think you are referring to is the one use in gldCATAPIU.pc.&nbsp; This stored
+procedure is actually a Gold Stored stored procedure only found on GOLD
+instances and is part of the GOLD API process.&nbsp; If you need information on
+using the Gold Catalog API to the Gold Release Notes (See below link to that
+documentation).<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><b><u><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>Design Documentation:<o:p></o:p></span></u></b></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal>&lt;&lt; File: designdo.doc &gt;&gt;&nbsp; &lt;&lt; File:
+Processing Requirements.doc &gt;&gt;&nbsp; &lt;&lt; File: process_overview.ppt
+&gt;&gt;&nbsp; &lt;&lt; File: Architecture.vsd &gt;&gt; <span style='font-size:
+12.0pt;font-family:"Times New Roman","serif";color:black'><o:p></o:p></span></p>
+
+<p class=MsoNormal>&nbsp;&lt;&lt; File: SLIC_GOLD_Architecture.ppt &gt;&gt; <span
+style='font-size:12.0pt;font-family:"Times New Roman","serif";color:black'><o:p></o:p></span></p>
+
+<p class=MsoNormal>&nbsp;&lt;&lt; File: SLIC_GOLD_API_Process.vsd &gt;&gt; <span
+style='font-size:12.0pt;font-family:"Times New Roman","serif";color:black'><o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>As far as Table Definitions I will only provide those definitions
+related to the St. Louis Site.&nbsp; The SLIC and GOLD Table Definitions can be
+obtained from the individual instances.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><b><u><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>Table definitions</span></u></b><span style='font-size:12.0pt;
+font-family:"Times New Roman","serif";color:black'>.&nbsp; The SLIC/GOLD
+software that I’ve provided so far is written using Dynamic SQL and there is
+only one set of source code for F18, F15 and AV8 SLIC.&nbsp; I am only
+providing you just set of tables definitions used for capturing data off of the
+F18 Instance.&nbsp; SLIC/GOLD, unlike the SLIC/MS2 interface, is driven by
+Change Activity in SLIC, and there are triggers on SLIC (Add/Change/Delete)
+that feed data to the attached Table.&nbsp; Instead of dumping the entire SLIC
+Database and doing compares, this interface is driven by only what has changes
+occurred in SLIC since the last processing.&nbsp; The Table definitions for the
+F15 and AV8 SLIC are the same.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal>&lt;&lt; File: SLIC_HPX01_CHGS.sql &gt;&gt;&nbsp; &lt;&lt;
+File: SLIC_HA_CHGS.sql &gt;&gt;&nbsp; &lt;&lt; File: SLIC_HAX04_CHGS.sql
+&gt;&gt;&nbsp; &lt;&lt; File: SLIC_HB_CHGS.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SLIC_HD_CHGS.sql &gt;&gt;&nbsp; &lt;&lt; File: SLIC_HG_CHGS.sql &gt;&gt;&nbsp;
+&lt;&lt; File: SLIC_HGX01_CHGS.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SLIC_HGX01A_CHGS.sql &gt;&gt;&nbsp; &lt;&lt; File: SLIC_HP_CHGS.sql &gt;&gt; <span
+style='font-size:12.0pt;font-family:"Times New Roman","serif";color:black'><o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><b><u><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>Triggers.</span></u></b><span style='font-size:12.0pt;font-family:
+"Times New Roman","serif";color:black'>&nbsp; Like the above Table Definitions
+there are triggers on SLIC that feed changes and deletes to the above
+Tables.&nbsp; There is a separate set of Triggers for F18, F15 and AV8.&nbsp;
+I’ve only provided the F18 Definitions.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal>&lt;&lt; File: SCM_SLIC_HPX01A_UPDTE_TRIGGER.sql
+&gt;&gt;&nbsp; &lt;&lt; File: SCM_SLIC_HA_ADD_TRIGGER.sql &gt;&gt;&nbsp;
+&lt;&lt; File: SCM_SLIC_HA_DEL_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SCM_SLIC_HA_UPDT_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File: SCM_SLIC_HAX04_ADD_TRIGGER.sql
+&gt;&gt;&nbsp; &lt;&lt; File: SCM_SLIC_HAX04_DEL_TRIGGER.sql &gt;&gt;&nbsp;
+&lt;&lt; File: SCM_SLIC_HAX04_UPDT_TRIGGER.sql &gt;&gt; &nbsp;&lt;&lt; File:
+SCM_SLIC_HB_ADD_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SCM_SLIC_HB_DEL_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SCM_SLIC_HB_UPDT_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File: SCM_SLIC_HBX_DEL_TRIGGER.sql
+&gt;&gt;&nbsp; &lt;&lt; File: SCM_SLIC_HD_ADD_TRIGGER.sql &gt;&gt;&nbsp;
+&lt;&lt; File: SCM_SLIC_HD_DEL_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SCM_SLIC_HD_UPDT_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SCM_SLIC_HG_ADD_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SCM_SLIC_HG_DEL_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File: SCM_SLIC_HG_UPDT_TRIGGER.sql
+&gt;&gt;&nbsp; &lt;&lt; File: SCM_SLIC_HGX01_DELT_TRIGGER.sql &gt;&gt;&nbsp;
+&lt;&lt; File: SCM_SLIC_HGX01_INSRT_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SCM_SLIC_HGX01_UPDT_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SCM_SLIC_HGX01A_DELT_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SCM_SLIC_HGX01A_INSRT_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File: SCM_SLIC_HGX01A_UPDT_TRIGGER.sql
+&gt;&gt;&nbsp; &lt;&lt; File: SCM_SLIC_HP_ADD_TRIGGER.sql &gt;&gt;&nbsp;
+&lt;&lt; File: SCM_SLIC_HP_DEL_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SCM_SLIC_HP_UPDTE_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SCM_SLIC_HPX01_DEL_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SCM_SLIC_HPX01_INSRT_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SCM_SLIC_HPX01_UPDTE_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SCM_SLIC_HPX01A_DEL_TRIGGER.sql &gt;&gt;&nbsp; &lt;&lt; File:
+SCM_SLIC_HPX01A_INSRT_TRIGGER.sql &gt;&gt; <span style='font-size:12.0pt;
+font-family:"Times New Roman","serif";color:black'><o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><b><u><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>Gold Release Notes:<o:p></o:p></span></u></b></p>
+
+<p class=MsoNormal style='text-indent:.5in'><span style='font-size:12.0pt;
+font-family:"Times New Roman","serif";color:black'><a
+href="http://longbeach.ids.web.boeing.com/gcss/GOLDReleaseNotesWebHelp/index.htm">http://longbeach.ids.web.boeing.com/gcss/GOLDReleaseNotesWebHelp/index.htm</a>
+(Note: do a search on ‘catalog API’)&nbsp; <o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><b><u><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>Includes<o:p></o:p></span></u></b></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto'>&nbsp;&lt;&lt;
+File: slichp_chgrcd.h &gt;&gt;&nbsp; &lt;&lt; File: slichg_chgrcd.h
+&gt;&gt;&nbsp; &lt;&lt; File: slichb_chgrcd.h &gt;&gt;&nbsp; &lt;&lt; File:
+slichax04_chgrcd.h &gt;&gt;&nbsp; &lt;&lt; File: slicha_chgrcd.h &gt;&gt;&nbsp;
+&lt;&lt; File: gold685_whse_api_v2.h &gt;&gt;&nbsp; &lt;&lt; File: gold685_whse_api_FMT_v2.h
+&gt;&gt;&nbsp; &lt;&lt; File: gold685_venc_api_sort_cntrl.h &gt;&gt;&nbsp;
+&lt;&lt; File: gold685_venc_api.h &gt;&gt;&nbsp; &lt;&lt; File:
+gold685_prc1_api_FMT.h &gt;&gt;&nbsp; &lt;&lt; File: gold685_prc1_api.h
+&gt;&gt;&nbsp; &lt;&lt; File: gold685_cats_api.h &gt;&gt;&nbsp; &lt;&lt; File:
+gold685_cat1_api.h &gt;&gt;&nbsp; &lt;&lt; File: gold685_actd_api.h
+&gt;&gt;&nbsp; &lt;&lt; File: gold68_whse_delimit.h &gt;&gt;&nbsp; &lt;&lt;
+File: gold68_venn_api.h &gt;&gt;&nbsp; &lt;&lt; File: gold68_venc_delimit.h
+&gt;&gt;&nbsp; &lt;&lt; File: gold68_prc1_delimit.h &gt;&gt;&nbsp; &lt;&lt;
+File: gold68_cat1_delimit.h &gt;&gt; <span style='font-size:10.0pt;font-family:
+"Arial","sans-serif";color:black'>Thanks</span><span style='font-size:12.0pt;
+font-family:"Times New Roman","serif";color:black'> <o:p></o:p></span></p>
+
+<p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto'><span
+style='font-size:10.0pt;font-family:"Arial","sans-serif";color:black'>Larry D.
+Mills<br>
+Building</span><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'> 270D</span><span style='font-size:10.0pt;font-family:"Arial","sans-serif";
+color:black'>, Level 2, Post F2</span><span style='font-size:12.0pt;font-family:
+"Times New Roman","serif";color:black'><br>
+</span><span style='font-size:10.0pt;font-family:"Arial","sans-serif";
+color:black'>Email: <a href="mailto:larry.d.mills@boeing.com"><span
+style='mso-ascii-font-family:Arial;mso-hansi-font-family:Arial;mso-bidi-font-family:
+Arial'>larry.d.mills@boeing.com</span></a><br>
+Phone: (314) 232-3384 </span><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>&nbsp;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto'><b><span
+style='font-size:7.5pt;font-family:"MS Sans Serif","sans-serif";color:black'>NOTICE:&nbsp;
+This communication may contain privileged or other confidential
+information.&nbsp; If you are not the intended recipient, or believe that you
+have received this communication in error, please do not print, copy,
+retransmit, disseminate, or otherwise use the information.&nbsp; Also, please
+indicate to the sender that you have received this e-mail in error, and delete
+the copy you received.</span></b><span style='font-size:12.0pt;font-family:
+"Times New Roman","serif";color:black'><o:p></o:p></span></p>
+
+<p class=MsoNormal><b><span style='font-size:10.0pt;font-family:"Georgia","serif";
+color:black'>***********************************************************</span></b><span
+style='color:black'> <o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<div>
+
+<p class=MsoNormal style='mso-outline-level:1'><span style='font-size:10.0pt;
+font-family:"Tahoma","sans-serif"'>_____________________________________________<br>
+<b>From:</b> Elder, Douglas S <br>
+<b>Sent:</b> Tuesday, March 06, 2012 11:52 PM<br>
+<b>To:</b> Mills, Larry D<br>
+<b>Subject:</b> RE: STL SLIC - GOLD Interface<o:p></o:p></span></p>
+
+</div>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Also, where is the Oracle DDL
+for the tables and the PL/SQL code for the stored procedures?<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<div>
+
+<p class=MsoNormal style='mso-outline-level:1'><span style='font-size:10.0pt;
+font-family:"Tahoma","sans-serif"'>_____________________________________________<br>
+<b>From:</b> Elder, Douglas S <br>
+<b>Sent:</b> Tuesday, March 06, 2012 3:55 PM<br>
+<b>To:</b> Mills, Larry D<br>
+<b>Subject:</b> RE: STL SLIC - GOLD Interface<o:p></o:p></span></p>
+
+</div>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Thanks.&nbsp; Could you send the
+#include’s too?<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;/mcair/dev/appl/scm/includes/slicha_chgrcd.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;gold685_actd_api.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;gold685_cat1_api.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;gold685_cats_api.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;gold685_prc1_api.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;gold685_prc1_api_FMT.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;gold685_venc_api.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;gold685_venc_api_sort_cntrl.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include &quot;gold685_whse_api_FMT_v2.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;gold685_whse_api_v2.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;gold68_cat1_delimit.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;gold68_prc1_delimit.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;gold68_venc_delimit.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;gold68_venn_delimit.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;gold68_whse_delimit.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;slicha_chgrcd.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;slichax04_chgrcd.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;slichb_chgrcd.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;slichg_chgrcd.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>#include
+&quot;slichp_chgrcd.h&quot;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<div>
+
+<p class=MsoNormal style='mso-outline-level:1'><span style='font-size:10.0pt;
+font-family:"Tahoma","sans-serif"'>_____________________________________________<br>
+<b>From:</b> Mills, Larry D <br>
+<b>Sent:</b> Tuesday, March 06, 2012 1:19 PM<br>
+<b>To:</b> Elder, Douglas S<br>
+<b>Cc:</b> Lopez, Pedro A; Maniaci, Joseph M; Shew, Kenneth C; Pham,
+Phuong-Thuy; Yao, Willy; Ludwinski, Thomas A<br>
+<b>Subject:</b> RE: STL SLIC - GOLD Interface<o:p></o:p></span></p>
+
+</div>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><span style='color:black'>Slicgld_api_f18_sh is a shell
+script that I run.&nbsp; <o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto'>&lt;&lt;
+File: slicgldVENN.pc &gt;&gt;&nbsp; &lt;&lt; File: gldCATAPIU.pc &gt;&gt;&nbsp;
+&lt;&lt; File: slicgld_api_f18_sh &gt;&gt;&nbsp; &lt;&lt; File: slicgldFMT.pc
+&gt;&gt;&nbsp; &lt;&lt; File: slicgldHA.pc &gt;&gt;&nbsp; &lt;&lt; File:
+slicgldHB.pc &gt;&gt;&nbsp; &lt;&lt; File: slicgldHG.pc &gt;&gt;&nbsp; &lt;&lt;
+File: slicgldPRIME.pc &gt;&gt;&nbsp; &lt;&lt; File: slicgldSCcheck.pc &gt;&gt; <span
+style='font-size:10.0pt;font-family:"Arial","sans-serif";color:black'><o:p></o:p></span></p>
+
+<p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto'><span
+style='font-size:10.0pt;font-family:"Arial","sans-serif";color:black'>Thanks</span><span
+style='font-size:12.0pt;font-family:"Times New Roman","serif";color:black'> <o:p></o:p></span></p>
+
+<p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto'><span
+style='font-size:10.0pt;font-family:"Arial","sans-serif";color:black'>Larry D.
+Mills<br>
+Building</span><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'> 270D</span><span style='font-size:10.0pt;font-family:"Arial","sans-serif";
+color:black'>, Level 2, Post F2</span><span style='font-size:12.0pt;font-family:
+"Times New Roman","serif";color:black'><br>
+</span><span style='font-size:10.0pt;font-family:"Arial","sans-serif";
+color:black'>Email: <a href="mailto:larry.d.mills@boeing.com"><span
+style='font-family:"Times New Roman","serif"'>larry.d.mills@boeing.com</span></a><br>
+Phone: (314) 232-3384 </span><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>&nbsp;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto'><b><span
+style='font-size:7.5pt;font-family:"MS Sans Serif","sans-serif";color:black'>NOTICE:&nbsp;
+This communication may contain privileged or other confidential
+information.&nbsp; If you are not the intended recipient, or believe that you
+have received this communication in error, please do not print, copy,
+retransmit, disseminate, or otherwise use the information.&nbsp; Also, please
+indicate to the sender that you have received this e-mail in error, and delete
+the copy you received.</span></b><span style='font-size:12.0pt;font-family:
+"Times New Roman","serif";color:black'><o:p></o:p></span></p>
+
+<p class=MsoNormal><b><span style='font-size:10.0pt;font-family:"Georgia","serif";
+color:black'>***********************************************************</span></b><span
+style='color:black'> <o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<div>
+
+<p class=MsoNormal style='mso-outline-level:1'><span style='font-size:10.0pt;
+font-family:"Tahoma","sans-serif"'>_____________________________________________<br>
+<b>From:</b> Elder, Douglas S <br>
+<b>Sent:</b> Tuesday, March 06, 2012 12:13 PM<br>
+<b>To:</b> Mills, Larry D<br>
+<b>Cc:</b> Lopez, Pedro A; Maniaci, Joseph M; Shew, Kenneth C; Pham,
+Phuong-Thuy; Yao, Willy; Ludwinski, Thomas A<br>
+<b>Subject:</b> RE: STL SLIC - GOLD Interface<o:p></o:p></span></p>
+
+</div>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Thank you for the
+makefile.&nbsp; Yes, I would like to see the code too.&nbsp;&nbsp; Please send
+the code.&nbsp; <o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<div>
+
+<p class=MsoNormal style='mso-outline-level:1'><span style='font-size:10.0pt;
+font-family:"Tahoma","sans-serif"'>_____________________________________________<br>
+<b>From:</b> Ludwinski, Thomas A <br>
+<b>Sent:</b> Tuesday, March 06, 2012 9:43 AM<br>
+<b>To:</b> Mills, Larry D; Elder, Douglas S<br>
+<b>Cc:</b> Lopez, Pedro A; Maniaci, Joseph M; Shew, Kenneth C; Pham,
+Phuong-Thuy; Yao, Willy<br>
+<b>Subject:</b> RE: STL SLIC - GOLD Interface<o:p></o:p></span></p>
+
+</div>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Ken,<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Maybe you can meet with Larry
+sometime this week when you are in St. Louis.&nbsp; ??<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<div>
+
+<p class=MsoNormal style='mso-outline-level:1'><span style='font-size:10.0pt;
+font-family:"Tahoma","sans-serif"'>_____________________________________________<br>
+<b>From:</b> Mills, Larry D <br>
+<b>Sent:</b> Tuesday, March 06, 2012 9:32 AM<br>
+<b>To:</b> Elder, Douglas S<br>
+<b>Cc:</b> Lopez, Pedro A; Maniaci, Joseph M; Shew, Kenneth C; Pham,
+Phuong-Thuy; Yao, Willy; Ludwinski, Thomas A<br>
+<b>Subject:</b> RE: STL SLIC - GOLD Interface<o:p></o:p></span></p>
+
+</div>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>Doug, <o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>I don’t have any currently defined requirements that need to be
+put into the Application today.&nbsp; I am retiring on the 29<sup>th</sup> of
+March and am in the process of transitioning this application to Huntington
+Beach for their support from here on out.&nbsp; As a result of this transition
+effort I am finding out the F15 Program here in St. Louis need to stand-up the
+SLIC/MS2 Interface and wish to add the F15 Saudi data to the current data being
+sent to St. Louis Gold.&nbsp; There are possibilities that some changes MAY
+need to be made to the interface, and I would expect that those change will
+probably need to be made by the Huntington Beach IT area as part of their transitioning
+because of my retirement date.&nbsp; I am attempting to provide as much
+information and guidance as I can to your area to make the transitioning as
+smooth as it can.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>As to your questions.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoListParagraph style='text-indent:-.25in;mso-list:l0 level1 lfo2'><![if !supportLists]><span
+style='font-size:12.0pt;font-family:"Times New Roman","serif";mso-fareast-font-family:
+"Times New Roman";color:black'><span style='mso-list:Ignore'>1.<span
+style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span></span></span><![endif]><span
+style='font-size:12.0pt;font-family:"Times New Roman","serif";color:black'>Currently,
+the software is not in any Clearquest, sccs, or other configuration
+software.&nbsp; The reason is because it started out in a St. Louis home grown
+environment and then we needed to move to another environment and then they
+stopped supporting that environment.&nbsp; At that time there was other higher
+priority efforts going on and I was unable to move it to another
+environment.&nbsp; The software has been really stable and has not been put
+into another configuration tool.&nbsp; If you want copy of all the code I will
+send it.&nbsp; There will be about 10-15 applications.&nbsp; Please confirm you
+need me to pull it and I will send it to you.<o:p></o:p></span></p>
+
+<p class=MsoListParagraph style='text-indent:-.25in;mso-list:l0 level1 lfo2'><![if !supportLists]><span
+style='font-size:12.0pt;font-family:"Times New Roman","serif";mso-fareast-font-family:
+"Times New Roman";color:black'><span style='mso-list:Ignore'>2.<span
+style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span></span></span><![endif]><span
+style='font-size:12.0pt;font-family:"Times New Roman","serif";color:black'>I
+have attached a MAKEFILE that I have used to compile it.&nbsp; The makefile is
+pretty standard for all the application and is built off of the Oracle provided
+standard makefile for Pro-C programs.&nbsp; As to whether it meets the FAQ you
+mentioned, I’ll let you be the judge.<o:p></o:p></span></p>
+
+<p class=MsoNormal>&lt;&lt; File: makefile &gt;&gt; <span style='font-size:
+12.0pt;font-family:"Times New Roman","serif";color:black'><o:p></o:p></span></p>
+
+<p class=MsoListParagraph style='text-indent:-.25in;mso-list:l0 level1 lfo2'><![if !supportLists]><span
+style='font-size:12.0pt;font-family:"Times New Roman","serif";mso-fareast-font-family:
+"Times New Roman";color:black'><span style='mso-list:Ignore'>3.<span
+style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span></span></span><![endif]><span
+style='font-size:12.0pt;font-family:"Times New Roman","serif";color:black'>We
+run the Korn Shell.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>Let me know if you want the copies of the code.<o:p></o:p></span></p>
+
+<p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto'><span
+style='font-size:10.0pt;font-family:"Arial","sans-serif";color:black'>Thanks</span><span
+style='font-size:12.0pt;font-family:"Times New Roman","serif";color:black'> <o:p></o:p></span></p>
+
+<p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto'><span
+style='font-size:10.0pt;font-family:"Arial","sans-serif";color:black'>Larry D.
+Mills<br>
+Building</span><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'> 270D</span><span style='font-size:10.0pt;font-family:"Arial","sans-serif";
+color:black'>, Level 2, Post F2</span><span style='font-size:12.0pt;font-family:
+"Times New Roman","serif";color:black'><br>
+</span><span style='font-size:10.0pt;font-family:"Arial","sans-serif";
+color:black'>Email: <a href="mailto:larry.d.mills@boeing.com"><span
+style='font-family:"Times New Roman","serif"'>larry.d.mills@boeing.com</span></a><br>
+Phone: (314) 232-3384 </span><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>&nbsp;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto'><b><span
+style='font-size:7.5pt;font-family:"MS Sans Serif","sans-serif";color:black'>NOTICE:&nbsp;
+This communication may contain privileged or other confidential
+information.&nbsp; If you are not the intended recipient, or believe that you
+have received this communication in error, please do not print, copy,
+retransmit, disseminate, or otherwise use the information.&nbsp; Also, please
+indicate to the sender that you have received this e-mail in error, and delete
+the copy you received.</span></b><span style='font-size:12.0pt;font-family:
+"Times New Roman","serif";color:black'><o:p></o:p></span></p>
+
+<p class=MsoNormal><b><span style='font-size:10.0pt;font-family:"Georgia","serif";
+color:black'>***********************************************************</span></b><span
+style='color:black'> <o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<div>
+
+<p class=MsoNormal style='mso-outline-level:1'><span style='font-size:10.0pt;
+font-family:"Tahoma","sans-serif"'>_____________________________________________<br>
+<b>From:</b> Elder, Douglas S <br>
+<b>Sent:</b> Tuesday, March 06, 2012 11:00 AM<br>
+<b>To:</b> Mills, Larry D<br>
+<b>Cc:</b> Lopez, Pedro A; Maniaci, Joseph M; Shew, Kenneth C; Pham,
+Phuong-Thuy; Yao, Willy; Ludwinski, Thomas A<br>
+<b>Subject:</b> RE: STL SLIC - GOLD Interface<o:p></o:p></span></p>
+
+</div>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Larry,<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Pedro Lopez asked me to check
+out some aspects of the application to get an idea of its degree of difficulty.&nbsp;
+Also, I’m currently working for Willy Yao on some other projects: LRU and
+Repair Cost enhancements to our <a
+href="http://boeingitbusinesssys.web.boeing.com/index.aspx?com=27&amp;id=73"><span
+style='font-family:"Times New Roman","serif"'>AMD system</span></a>.&nbsp; So,
+he needs to be informed regarding the amount of work associated with your
+application.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Do you have some source code
+that you could send me?&nbsp; Also, is the code under some <a
+href="http://en.wikipedia.org/wiki/Source_Code_Control_System"><span
+style='font-family:"Times New Roman","serif"'>source code control system</span></a>
+like SCCS, RCS, ClearCase, or do you just keep the code on some HP Unix
+server?&nbsp; Do you have a Unix make script to build the application or is the
+number of source files relatively small so you just use the cc line command to
+compile the code?&nbsp;&nbsp; Also, is setup for the Pro*C compile similar to
+what is described in this <a href="http://www.orafaq.com/wiki/Pro*C"><span
+style='font-family:"Times New Roman","serif"'>Oracle FAQ about Pro*C</span></a>
+.&nbsp; <o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>What shell do you use for the
+batch process: <a href="http://en.wikipedia.org/wiki/Korn_shell"><span
+style='font-family:"Times New Roman","serif"'>Korn</span></a> Shell,&nbsp; <a
+href="http://en.wikipedia.org/wiki/Bourne_shell"><span style='font-family:"Times New Roman","serif"'>Bourne
+Shell</span></a> or some other <a href="http://en.wikipedia.org/wiki/C_shell"><span
+style='font-family:"Times New Roman","serif"'>Unix shell</span></a>?&nbsp; <o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Thanks,<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal>&lt;&lt; OLE Object: Picture (Device Independent Bitmap)
+&gt;&gt; <span style='color:#1F497D'><o:p></o:p></span></p>
+
+<p class=MsoNormal><i><span style='font-size:14.0pt;font-family:"Arial","sans-serif";
+color:#1F497D'>562-699-7361<o:p></o:p></span></i></p>
+
+<p class=MsoNormal><i><span style='font-size:14.0pt;font-family:"Arial","sans-serif";
+color:#1F497D'><o:p>&nbsp;</o:p></span></i></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<div>
+
+<p class=MsoNormal style='mso-outline-level:1'><span style='font-size:10.0pt;
+font-family:"Tahoma","sans-serif"'>_____________________________________________<br>
+<b>From:</b> Mills, Larry D <br>
+<b>Sent:</b> Tuesday, March 06, 2012 5:00 AM<br>
+<b>To:</b> Elder, Douglas S<br>
+<b>Cc:</b> Lopez, Pedro A; Maniaci, Joseph M; Shew, Kenneth C<br>
+<b>Subject:</b> RE: STL SLIC - GOLD Interface<o:p></o:p></span></p>
+
+</div>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><span style='color:black'>The portion of SLIC/GOLD I am
+transitioning does not have any Datastage development in it.&nbsp; However,
+there was an enhancement made to handle SMR Code reporting to Gold by another
+developer who decided to use Datastage.&nbsp; This interface has no direct
+connection with my code, but does run after my interface runs.&nbsp; I did not
+originally include this interface as being part of my transitioning requirement
+because I was not involved in the development of the interface and I am not
+responsible for it.&nbsp; I’ve also asked that this interface not be part of my
+transition effort because of the effort to get people access to the AIX servers
+that Datastage runs off of generally is not a quick process.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'>The programs that I am
+transitioning are written in Pro*C and run batch on HP Unix servers.&nbsp; They
+feed changes to GOLD directly into the Catalog API tables, and do not create
+XML. <o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto'><span
+style='font-size:10.0pt;font-family:"Arial","sans-serif";color:black'>Thanks</span><span
+style='font-size:12.0pt;font-family:"Times New Roman","serif";color:black'> <o:p></o:p></span></p>
+
+<p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto'><span
+style='font-size:10.0pt;font-family:"Arial","sans-serif";color:black'>Larry D.
+Mills<br>
+Building</span><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'> 270D</span><span style='font-size:10.0pt;font-family:"Arial","sans-serif";
+color:black'>, Level 2, Post F2</span><span style='font-size:12.0pt;font-family:
+"Times New Roman","serif";color:black'><br>
+</span><span style='font-size:10.0pt;font-family:"Arial","sans-serif";
+color:black'>Email: <a href="mailto:larry.d.mills@boeing.com"><span
+style='font-family:"Times New Roman","serif"'>larry.d.mills@boeing.com</span></a><br>
+Phone: (314) 232-3384 </span><span style='font-size:12.0pt;font-family:"Times New Roman","serif";
+color:black'>&nbsp;<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto'><b><span
+style='font-size:7.5pt;font-family:"MS Sans Serif","sans-serif";color:black'>NOTICE:&nbsp;
+This communication may contain privileged or other confidential
+information.&nbsp; If you are not the intended recipient, or believe that you
+have received this communication in error, please do not print, copy,
+retransmit, disseminate, or otherwise use the information.&nbsp; Also, please
+indicate to the sender that you have received this e-mail in error, and delete
+the copy you received.</span></b><span style='font-size:12.0pt;font-family:
+"Times New Roman","serif";color:black'><o:p></o:p></span></p>
+
+<p class=MsoNormal><b><span style='font-size:10.0pt;font-family:"Georgia","serif";
+color:black'>***********************************************************</span></b><span
+style='color:black'> <o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:black'><o:p>&nbsp;</o:p></span></p>
+
+<div>
+
+<p class=MsoNormal style='mso-outline-level:1'><span style='font-size:10.0pt;
+font-family:"Tahoma","sans-serif"'>_____________________________________________<br>
+<b>From:</b> Elder, Douglas S <br>
+<b>Sent:</b> Monday, March 05, 2012 5:54 PM<br>
+<b>To:</b> Mills, Larry D<br>
+<b>Subject:</b> FW: STL SLIC - GOLD Interface<o:p></o:p></span></p>
+
+</div>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Larry,<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Can you tell me how much
+Datastage knowledge is required for this process? <o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Is the software written in C or
+is it C++?&nbsp;&nbsp; Does it run on Windows and does it have a GUI or is it a
+batch system for Unix?&nbsp; Does it access Oracle?&nbsp; If it does access
+Oracle how does it connect via <a
+href="http://www.easysoft.com/developer/languages/c/odbc_tutorial.html"><span
+style='font-family:"Times New Roman","serif"'>ODBC</span></a>, <a
+href="http://en.wikipedia.org/wiki/Pro*C"><span style='font-family:"Times New Roman","serif"'>Pro*C</span></a>,&nbsp;
+<a href="http://www.orafaq.com/wiki/Oracle_Call_Interfaces"><span
+style='font-family:"Times New Roman","serif"'>Oracle’s OCI</span></a>, or does <a
+href="http://it.toolbox.com/blogs/infosphere/the-datastage-db2-and-oracle-connectors-and-moving-xml-33598"><span
+style='font-family:"Times New Roman","serif"'>Datastage somehow interface with
+the application and feed it data via XML</span></a>?<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<div>
+
+<p class=MsoNormal style='mso-outline-level:1'><span style='font-size:10.0pt;
+font-family:"Tahoma","sans-serif"'>_____________________________________________<br>
+<b>From:</b> Lopez, Pedro A <br>
+<b>Sent:</b> Monday, March 05, 2012 1:18 PM<br>
+<b>To:</b> Sun, John Z; Elder, Douglas S; Lee, Tony; Arko, Andrew J; Wang, Don;
+Tanaka, Julie; Williams, Linda G; Nguyen, Thuy T; Pham, Phuong-Thuy; Arreaga,
+Melissa A; Yao, Willy; Moriyama, Michele A; Hijjawi, Abbey; Cao, Huan G; Vu,
+Nina N<br>
+<b>Cc:</b> Rueff, Jim; Shew, Kenneth C; Ozdindar, Mediha; Roux, Edmund B;
+Hoang, Dean; Mattson, Garth R; Doan, Julian D<br>
+<b>Subject:</b> RE: STL SLIC - GOLD Interface<o:p></o:p></span></p>
+
+</div>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>This SLIC/GOLD interface also
+requires knowledge on ‘Datastage’, this is what I found out by Googling it:<o:p></o:p></span></p>
+
+<p><strong>IBM® InfoSphere® DataStage® integrates data on demand across many
+systems via a high performance parallel framework, extended metadata
+management, and enterprise connectivity.</strong></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>So, please advise on your ‘C’
+proficiency and tell me if you know anything about this ‘Datastage’ tool.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Thanks. <o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<div>
+
+<p class=MsoNormal style='mso-outline-level:1'><span style='font-size:10.0pt;
+font-family:"Tahoma","sans-serif"'>_____________________________________________<br>
+<b>From:</b> Lopez, Pedro A <br>
+<b>Sent:</b> Monday, March 05, 2012 11:28 AM<br>
+<b>To:</b> Sun, John Z; Elder, Douglas S; Lee, Tony; Arko, Andrew J; Wang, Don;
+Tanaka, Julie; Williams, Linda G; Nguyen, Thuy T; Pham, Phuong-Thuy<br>
+<b>Cc:</b> Rueff, Jim; Shew, Kenneth C<br>
+<b>Subject:</b> RE: STL SLIC - GOLD Interface<o:p></o:p></span></p>
+
+</div>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Team:<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>&nbsp;&nbsp;&nbsp; We have an
+urgent need to pick up a SLICwave/GOLD interface to be supported in the future
+by this group. The interface is written in ‘C’ and currently being supported
+out of St. Louis, by Larry Mills. Larry is retiring the 29<sup>th</sup> of this
+month. Only three weeks or so left to initiate and complete this interface
+transition to be supported by our group. Any volunteer for this challenge
+?&nbsp; <o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This
+interface, is the third one that Larry is transitioning to our group.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Please advise.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'>Thanks.<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='color:#1F497D'><o:p>&nbsp;</o:p></span></p>
+
+<div>
+
+<p class=MsoNormal style='mso-outline-level:1'><span style='font-size:10.0pt;
+font-family:"Tahoma","sans-serif"'>_____________________________________________<br>
+<b>From:</b> Rueff, Jim <br>
+<b>Sent:</b> Monday, March 05, 2012 11:10 AM<br>
+<b>To:</b> Lopez, Pedro A<br>
+<b>Subject:</b> STL SLIC - GOLD Interface<o:p></o:p></span></p>
+
+</div>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=MsoNormal><span style='font-size:10.0pt;font-family:"Arial","sans-serif"'>I
+saw Ken and told him about the C programming issue.&nbsp; He is very busy with
+meetings today and suggested that the following people might be proficient in
+C:<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:10.0pt;font-family:"Arial","sans-serif"'>John
+Sun<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:10.0pt;font-family:"Arial","sans-serif"'>Douglas
+Elder<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:10.0pt;font-family:"Arial","sans-serif"'>Tony
+Lee<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:10.0pt;font-family:"Arial","sans-serif"'>Andy
+Arko<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:10.0pt;font-family:"Arial","sans-serif"'>Don
+Wang<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:10.0pt;font-family:"Arial","sans-serif"'>Julie
+Tanaka<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:10.0pt;font-family:"Arial","sans-serif"'>Linda
+Williams<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:10.0pt;font-family:"Arial","sans-serif"'>Thuy
+Nguyen<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:10.0pt;font-family:"Arial","sans-serif"'>Thuy
+Pham<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:10.0pt;font-family:"Arial","sans-serif"'>Not
+sure about Mike Ross<o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:10.0pt;font-family:"Arial","sans-serif"'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:10.0pt;font-family:"Arial","sans-serif"'>Thanks,<o:p></o:p></span></p>
+
+<p class=MsoNormal><b><span style='font-size:9.0pt;font-family:"Tahoma","sans-serif";
+color:black'>Jim Rueff <o:p></o:p></span></b></p>
+
+<p class=MsoNormal><span style='font-size:9.0pt;font-family:"Tahoma","sans-serif";
+color:black'>Mobile Phone:&nbsp; 714-642-7746<br>
+e-mail:&nbsp; <a href="mailto:jim.rueff@boeing.com"><span style='font-family:
+"Times New Roman","serif"'>jim.rueff@boeing.com</span></a><o:p></o:p></span></p>
+
+<p class=MsoNormal><span style='font-size:9.0pt;font-family:"Tahoma","sans-serif";
+color:black'><o:p>&nbsp;</o:p></span></p>
+
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+
+</div>
+
+</body>
+
+</html>

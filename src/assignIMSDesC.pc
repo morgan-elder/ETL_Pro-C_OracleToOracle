@@ -1,0 +1,1278 @@
+/*     Program -  IMS Designator Code Assignment  */
+/* vim: ts=2:sw=2:sts=2:et:syntax=c:
+ **************************************************************************
+ *  PROGRAM NAME: assignIMSDesC.pc
+ *
+ *  PURPOSE: The purpose of this program is to process CAT1 records from an
+ *           activity file and assign the correct IMS Des Codes to the records
+ *           based on the following conditions:
+ *            1. The record is a 'Create'
+ *            2. When the Part = Prime, check the HPX01 table for a superseded
+ *               part.  If not found, check the HAX04 table to see what 
+ *               programs are assigned to the part.  If there is only one, use
+ *               the default IMS Des Code for that program. If there are more
+ *               than one, a process is used to assign the default des code for 
+ *               the program.  
+ *               The process is as follows:
+ *                  a. If the part is assigned to VPV and FIRST,
+ *                     the cog code will be looked at. If the cog 
+ *                     starts with '3' or '9', use VPV.
+ *                  b. If it is for FIRST and RAAF, use FIRST
+ *                  c. If it is for RAAF and VPV, use VPV
+ *                  d. If it is for RAAF, use RAAF
+ *            3. When the Part <> Prime, check to see if the Prime is in GOLD.
+ *               If it is found, assign the prime's des code for the part. 
+ *               If not found, check the HB table to retrieve the prime's
+ *               cage code.  If a record is found use the same procedure for
+ *               step 2  using the prime instead. 
+ *
+ *  INPUTS:   1. Unsorted CAT1 Activity file from the Format program
+ *
+ *
+ *  OUTPUTS:  1. CAT1 Activity file with updated IMS Des Codes, if any
+ *
+ *
+ *  CHANGE HISTORY:
+ *   REV     DATE    Programmer                 CHANGE
+ *   ---  --------   ----------------------     ------
+ *    00  05/07/01   Ben Barth                  Initial coding
+ *    00  05/22/01   Ben Barth                  Added code to check super-
+ *                                              sedure info on part
+ *    01  06/28/01   Nate Thrasher              Added code to pull pccn from
+ *                                              xc table. 
+ *    02  11/04/02   Ben Barth                  CHAR to VARCHAR conv.
+ *    03  01/24/06   Larry Mills		AV8B HISS Modificaitons
+ **************************************************************************
+*/
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+#include <assert.h>
+#include "gold685_cat1_api.h"
+#include "GetTime.h"
+
+#define NOTFND 	1403
+#define MULTI 	2112
+#define FND     0
+/* Include Oracle headers */
+EXEC SQL INCLUDE sqlca.h;
+EXEC SQL INCLUDE oraca.h;
+
+gold68_cat1_api_rcd cat1_api_rcd;
+char input_buffer[5000];
+char infile[70];
+char outfile[70];
+char desfile[70];
+char errfile[70];
+
+char part[33];
+char prime[33];
+char cage[6];
+char nsn[17];
+char ha_cage[6];
+char rsrefno[33];
+char rscagecd[6];
+short ha_cage_i = 0;
+short rsrefno_i = 0;
+short rscage_i = 0;
+
+char output_ims_desc[21];
+char default_ims_desc[21];
+
+varchar cat1_part[51];
+varchar cat1_prime[51];
+varchar model[10];
+varchar cat1_query_part[51];
+char query_part[51];
+char query_cage[6];
+char	model_eiac[11];
+int error;
+FILE *fp_in;
+FILE *fp_out;
+FILE *fp_des;
+FILE *fp_err;
+
+typedef struct
+{
+	char isFIRST;
+	char isVPV;
+	char isRAAF;
+	char isHISS;
+} scm_prgm_s;
+
+scm_prgm_s cur_hax;
+
+typedef struct
+{
+	char tbld_prime[51];
+	char tbld_ims_des_code[21];
+} prime_s;
+
+prime_s primes[50000];
+
+/* Counters */
+long rec_cnt = 0;
+long write_cnt = 0;
+long proc_cnt = 0;
+long err_cnt = 0;
+long desc_cnt = 0;
+long assgn_cnt = 0;
+long prime_cnt = 0;
+long first_cnt = 0;
+long vpv_cnt = 0;
+long raaf_cnt = 0;
+long first_def_cnt = 0;
+long vpv_def_cnt = 0;
+long raaf_def_cnt = 0;
+
+/* Timing Variables */
+long start;
+long stop;
+
+/* Function Declarations */
+void process_file();
+void initialize();
+int check_hpx01_table();
+int check_cat1_table(char *type);
+int check_prime_struct();
+int check_prime();
+int check_hb_table();
+int check_hax04_table();
+int assign_ims_desc();
+void write_output();
+void setup_error();
+void update_default_cnt();
+/*
+void db_err(char *procname);
+*/
+
+main(int argc, char *argv[])
+{
+	char runtime[25];
+	char temp[25];
+	/*
+	FILE *fp_in;
+	FILE *fp_out;
+	*/
+	int i = 0;
+	long elapsed = 0;
+	float mins = 0.0;
+	int errcode=0;
+
+	if(argc != 6)
+	{
+		printf("Usage: %s file_in file_out error_file defaults_file model\n",argv[0]);
+        exit(1);	
+	}
+
+	start = GetTime(runtime, sizeof(runtime));
+	printf("\n\nStarting Time of %s\n\n",runtime);
+	printf("\nAssign IMS Designator Program");
+
+	memset((char *) model.arr,' ',10);
+	printf("\nArg1 Input File (%s)",argv[1]);
+  assert(strlen(argv[1]) <= sizeof(infile) - 1) ;
+	strcpy(infile,argv[1]) ;
+	printf("\nArg2 Output File (%s)",argv[2]);
+  assert(strlen(argv[2]) <= sizeof(outfile) - 1) ;
+ 	strcpy(outfile,argv[2]) ;
+	printf("\nArg3 Error File (%s)",argv[3]);
+  assert(strlen(argv[3]) <= sizeof(errfile) - 1) ;
+  strcpy(errfile,argv[3]) ;
+	printf("\nArg4 Des Default File (%s)",argv[4]);
+  assert(strlen(argv[4]) <= sizeof(desfile) - 1) ;
+	strcpy(desfile,argv[4]) ;
+	printf("\nArg5 Model File (%s) (%d)",argv[5],strlen(argv[5]));
+  assert(strlen(argv[5]) <= sizeof(model.arr) - 1) ;
+	strcpy(model.arr,argv[5]) ;
+	model.len=strlen(argv[5]);
+
+	memset(default_ims_desc,' ',20);	
+	memset(model_eiac,' ',10);
+
+	/******************************
+	When defaults for different models are defined,
+	enter them in the conditions below
+	********************************/	
+	if(strncmp((char *) model.arr,"F18",3) == 0)
+	{
+		strncpy(default_ims_desc,"F18ZZZ",6);
+		strncpy(model_eiac,"F/A-18E/F",9);
+	}
+	else
+	{
+		if(strncmp((char *) model.arr,"AV8B",4) == 0)
+		{
+			strncpy(default_ims_desc,"HISSZZZ",6);
+			strncpy(model_eiac,"AV8B",4);
+		}
+		else
+		{
+			strncpy(default_ims_desc,"F18ZZZ",6);
+			strncpy(model_eiac,"F/A-18E/F",9);
+		}
+	}
+			
+	Login();
+    if(sqlca.sqlcode == 0)
+    {
+        printf("\nConnected to SLIC\n");
+    }
+    else
+    {
+        printf("\nConnection to SLIC was unsuccessful!\n");
+        db_err("login_to_slic");
+    }
+
+	errcode=A999_00_open_files();
+/*	printf("\nOpening Input File (%s)",infile);
+	fp_in = OpenFile(infile,"r"); */
+	if(errcode==0)
+	{
+		cat1_api_rcd.eol = '\0';
+		memset((char *)&cat1_api_rcd,' ',sizeof(gold68_cat1_api_rcd));
+		process_file();
+	}
+
+
+	printf("Total Records Read                      %9ld\n",rec_cnt);
+	printf("Total Records Processed (CAT1 Creates)  %9ld\n",proc_cnt);
+	printf("    Exact IMS Des Codes Assigned        %9ld\n",assgn_cnt);
+	printf("    Default IMS Des Codes Assigned      %9ld\n",desc_cnt);
+/*	printf("Total Errors                            %9ld\n",err_cnt); */
+
+    stop = GetTime(runtime, sizeof(runtime));
+    printf("\n\nEnding Time of %s\n\n",runtime);
+
+    elapsed = stop - start;
+    if(elapsed > 60)
+    {
+        mins = (float)elapsed / 60.0;
+        printf("Elapsed time of %.2f minutes\n\n",mins);
+    }
+    else
+        printf("Elapsed time of %ld seconds\n\n",elapsed);
+
+	if(err_cnt > 0)
+	{
+		fprintf(fp_err,"*****************************************\n");
+	}
+	/*
+	if(write_cnt == 0)
+		fp_out = OpenFile(outfile,"w");
+	*/
+
+	fclose(fp_in);
+	fclose(fp_out);
+	fclose(fp_err);
+	fclose(fp_des);
+	exit(0);
+}
+/*
+void db_err(char *procname)
+{
+	printf("\nDB_ERR Routine");
+	char msg[200];
+	unsigned long size = 200;
+	unsigned long msg_len;
+	printf("\n===========================================================");
+	printf("\n=");
+	printf("\n=\tError occurred in process %s",procname);
+	printf("\n=");
+	printf("\n=\tDatabase Error has Occurred:");
+	sqlglm(msg,&size,&msg_len);
+	sqlglm(msg,&size,&msg_len);
+	msg[msg_len] = '\0';
+	printf("\n=\t\t%s",msg);
+	printf("\n=\t\tSQLCODE: %d",sqlca.sqlcode);
+	printf("\n=\t\tSQLERR MSG %.*s",sqlca.sqlerrm.sqlerrml,sqlca.sqlerrm.sqlerrmc);
+	printf("\n=");
+	printf("\n===========================================================\n");
+
+	EXEC SQL ROLLBACK WORK RELEASE;
+
+	exit(500);
+}
+*/
+/*
+^L
+*/
+int    
+A999_00_open_files()
+{
+	int     errcode=0;
+
+	#if DEBUG
+		printf("\nA999_00_open_files");
+	#endif
+
+
+	if ((fp_in=fopen(infile,"r")) == NULL)
+	{
+		printf("\n***********************************************************");
+	    	printf("\n*                                                         *");
+		printf("\n* Could not open Input File (%s) ",infile);
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+		errcode=500;
+	}		
+	else
+	{
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		printf("\n~                                                                   ~");
+		printf("\n~  Processing Input File (%s) ",infile);
+		printf("\n~                                                                   ~");
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+	}
+
+	if ((fp_out=fopen(outfile,"w")) == NULL)
+	{
+		printf("\n***********************************************************");
+	    	printf("\n*                                                         *");
+		printf("\n* Could not open Output File (%s) ",outfile);
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+		errcode=500;
+	}		
+	else
+	{
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		printf("\n~                                                                   ~");
+		printf("\n~  Processing Output File (%s) ",outfile);
+		printf("\n~                                                                   ~");
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+	}
+
+	if ((fp_err=fopen(errfile,"w")) == NULL)
+	{
+		printf("\n***********************************************************");
+	    	printf("\n*                                                         *");
+		printf("\n* Could not open Output Error File (%s) ",errfile);
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+		errcode=500;
+	}		
+	else
+	{
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		printf("\n~                                                                   ~");
+		printf("\n~  Processing Output Error File (%s) ",errfile);
+		printf("\n~                                                                   ~");
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+	}
+	
+	if ((fp_des=fopen(desfile,"w")) == NULL)
+	{
+		printf("\n***********************************************************");
+	    	printf("\n*                                                         *");
+		printf("\n* Could not open Output Assigned IMS Des Code File (%s) ",desfile);
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+		errcode=500;
+	}		
+	else
+	{
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		printf("\n~                                                                   ~");
+		printf("\n~  Processing Output Assigned IMS Des Code File (%s) ",desfile);
+		printf("\n~                                                                   ~");
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+	}
+	
+	return(errcode);
+}
+/*
+^L
+*/
+void initialize()
+{
+	#if DEBUG
+		printf("\n************** initialize *******************");
+	#endif
+	memset(part,' ',32);
+	memset(prime,' ',32);
+	memset(cage,' ',5);
+	memset(nsn,' ',16);
+	memset(ha_cage,' ',5);
+	memset(rsrefno,' ',32);
+	memset(rscagecd,' ',5);
+	memset(query_cage,' ',5);
+	memset(output_ims_desc,' ',20);
+}
+/*
+
+*/
+void process_file()
+{
+	int status = 0;
+
+	printf("\nProcessing input\n");
+	initialize();
+
+	/*  Go to beginning of file  */
+/*	rewind(file); */
+	while(fgets(input_buffer,2500,fp_in) != NULL)
+	{
+		#if DEBUG
+			printf("\n************** process_file *******************");
+		#endif
+		error = 0;
+		rec_cnt++;
+		memset(output_ims_desc,' ',20);
+		strncpy(part,&input_buffer[20],32);
+		part[32] = '\0';
+
+		strncpy(prime,&input_buffer[162],32);
+		prime[32] = '\0';
+
+		strncpy(cage,&input_buffer[806],5);
+		cage[5] = '\0';
+
+		strncpy(nsn,&input_buffer[104],16);
+		nsn[16] = '\0';
+
+		#if DEBUG
+			printf("\nPart         (%s)\n",part);
+			printf("Prime        (%s)\n",prime);
+			printf("Cage         (%s)\n",cage);
+			printf("Action Code  (%c)\n",input_buffer[103]);
+		#endif
+
+		if(input_buffer[103] == 'C')
+		{
+			if(strncmp(part,prime,32) == 0)
+			{
+				#if DEBUG
+					printf("\nProcessing as a PRIME\n");
+				#endif	
+				strncpy(query_part,part,32);
+				query_part[32] = '\0';
+
+				strncpy(query_cage,cage,5);
+				query_cage[5] = '\0';
+
+				status = check_hpx01_table();
+				if(status)
+					status = check_cat1_table("PRIME");
+			}
+			else /*  Part is an alternate  */
+			{
+				#if DEBUG
+					printf("\nProcessing as a ALTERNATE\n");
+				#endif	
+				status = check_prime_struct();
+				if(!status)  /*  Prime not found in local structure  */
+				{
+					status = check_prime();
+					if(!status)
+					{
+						status = check_hb_table();
+						if(status)
+						{	
+							status = check_hpx01_table();
+							if(status)
+								status = check_cat1_table("ALTRN");
+						}
+					}
+					else
+					{
+						printf("\nPrime Part Not found in check_prime Status (%d) ",status);
+					}
+				}
+			}
+		
+			#if DEBUG
+				printf("\nprocess_file Status is %d\n",status);
+			#endif
+		
+			if(!status)
+			{
+				status = check_hax04_table();
+				if(!status)
+				{
+					strncpy(output_ims_desc,default_ims_desc,20);
+					first_def_cnt++;
+				}
+				else
+				{
+					memset(output_ims_desc,' ',20);
+				}
+	/*			update_default_cnt(); */
+			}
+
+			#if DEBUG
+				printf("\nprocess_file IMS DESC      (%s)\n",output_ims_desc);
+			#endif
+			proc_cnt++;
+		}
+		
+		#if DEBUG
+			printf("\nprocess_file Status is %d\n",status);
+		#endif
+		
+		if(status==0)
+		{
+			write_output();
+		}	
+	}
+}
+/*
+
+*/
+int check_hpx01_table()
+{
+	int found = 1;
+	int retval = 0;
+	char	mysql[2000];
+
+	#if DEBUG
+		printf("check_hpx01_table\n");
+		printf("QUERY PART  (%s)\n",query_part);
+		printf("QUERY CAGE  (%s)\n",query_cage);
+		printf("MODEL EIAC  (%s)\n",model_eiac);
+	#endif
+
+	memset(mysql,' ',2000);
+
+	strcpy(mysql,"select distinct rsrefno ");
+	strcat(mysql,"from ");
+	strncat(mysql,(char *) model.arr,model.len);
+	strcat(mysql,"_hpx01 ");
+	strcat(mysql,"where refnumha = '");
+	strcat(mysql,query_part);
+	strcat(mysql,"'  and cagecdxh = '");
+	strcat(mysql,query_cage);
+	strcat(mysql,"'  and rsind = 'R' and eiacodxa = '");
+	strcat(mysql,model_eiac);
+	strcat(mysql,"' ");
+
+	#if DEBUG
+		printf("\nSQL STATEMENT (%s)",mysql);
+	#endif
+
+	EXEC SQL PREPARE hpx01_csr_sql from :mysql;
+	EXEC SQL DECLARE hpx01_csr CURSOR FOR hpx01_csr_sql;
+	EXEC SQL OPEN hpx01_csr;
+
+	if(sqlca.sqlcode == 0)
+	{
+		while(found == 1)
+		{
+			EXEC SQL FETCH hpx01_csr INTO
+				:rsrefno:rsrefno_i;
+
+			if(sqlca.sqlcode == 0)
+			{
+				if(rsrefno_i != -1)
+				{
+					#if DEBUG
+						printf("\nRSREFNO (%s)\n",rsrefno);
+					#endif
+					strncpy((char *) cat1_query_part.arr,rsrefno,32);
+					rtrim((char *) cat1_query_part.arr);
+					cat1_query_part.len = strlen((char *) cat1_query_part.arr);
+					cat1_query_part.arr[cat1_query_part.len] = '\0';
+
+					retval++;
+					found = 0;
+				}
+			}		
+			else
+			{
+				if(sqlca.sqlcode == NOTFND)
+				{
+					setup_error();
+					fprintf(fp_err,"No Superseded part was found on HP table.\n");
+					found = 0;
+				}
+				else
+				{
+					printf("\nSQL (%s)",mysql);
+					db_err("check_hpx01_table");
+				}
+			}
+		}
+	}
+	else
+	{
+		printf("\nSQL (%s)",mysql);
+		db_err("check_hpx01_table");
+	}
+
+	EXEC SQL CLOSE hpx01_csr;
+
+	#if DEBUG
+		printf("Return %d\n",retval);
+	#endif
+
+	return(retval);
+}
+/*
+
+*/
+int check_prime_struct()
+{
+	char temp_prime[51];
+	int i;
+	int status = 0;
+
+
+	memset(temp_prime,' ',50);
+	strncpy(temp_prime,prime,32);
+/*	strncat(temp_prime,"                  ",18);
+	temp_prime[50] = '\0'; */
+
+	#if DEBUG
+		printf("check_prime_struct\n");
+		printf("TEMP PRIME (%s)\n",temp_prime);
+	#endif
+		
+	for(i = 0; i < prime_cnt; i++)
+	{
+		if(strncmp(temp_prime,primes[i].tbld_prime,50) == 0)
+		{
+			strncpy(output_ims_desc,primes[i].tbld_ims_des_code,20);
+			output_ims_desc[20] = '\0';
+			status = 1;
+		}
+	}
+	
+	#if DEBUG
+		printf("check_prime_struct status (%d)\n",status);
+	#endif
+
+	return(status);
+}
+/*
+
+*/
+int check_prime()
+{
+	varchar imsdesc[21];
+	short imsdesc_i = 0;
+	int retval = 0;
+
+	#if DEBUG
+		printf("check_prime\n");
+	#endif
+
+	memset(cat1_prime.arr,' ',50);
+	memset(cat1_part.arr,' ',50);
+	strncpy((char *) cat1_part.arr,part,32);
+/*	rtrim((char *) cat1_part.arr); */
+	cat1_part.len = strlen((char *) cat1_part.arr);
+	cat1_part.arr[cat1_part.len] = '\0';
+	
+	strncpy((char *) cat1_prime.arr,prime,32);
+/*	rtrim((char *) cat1_prime.arr); */
+	cat1_prime.len = strlen((char *) cat1_prime.arr);
+	cat1_prime.arr[cat1_prime.len] = '\0';
+
+	#if DEBUG
+		printf("CAT1 PART  (%s)\n",cat1_part.arr);
+		printf("CAT1 PRIME (%s) (%d)\n",(char *) cat1_prime.arr,strlen(cat1_prime.arr));
+	#endif
+	
+	EXEC SQL select c1.ims_designator_code
+		into :imsdesc:imsdesc_i
+		from cat1 c1, cat1 c2
+		where c1.part = c2.prime
+		  and c2.prime = :cat1_prime
+		  and c2.part = :cat1_prime;
+	
+	if(sqlca.sqlcode == 0)
+	{
+		if(imsdesc_i != -1)	
+		{
+			retval = 1;
+			memset(output_ims_desc,' ',20);
+			strncpy(output_ims_desc,(char *) imsdesc.arr,imsdesc.len);
+			assgn_cnt++;
+			#if DEBUG
+				printf("Part         (%s)\n",part);
+				printf("Prime        (%s)\n",cat1_prime);
+				printf("IMS Des Code (%s)\n",output_ims_desc);
+			#endif
+		}
+	}
+	else
+	{
+		if(sqlca.sqlcode == NOTFND)
+		{
+			setup_error();
+			fprintf(fp_err,"Part and/or Prime not found in GOLD\n");
+		}
+		else
+		{
+			printf("\nsqlcode (%d) ",sqlca.sqlcode);
+			printf("\nCAT1 PART  (%s)\n",cat1_part.arr);
+			printf("\nCAT1 PRIME (%s) (%d)\n",(char *) cat1_prime.arr,strlen((char *) cat1_prime.arr));
+			retval=sqlca.sqlcode;
+			db_err("check_prime");
+		}
+	}
+	#if DEBUG
+		printf("Return %d\n",retval);
+	#endif
+
+	return(retval);
+}
+/*
+
+*/
+int check_cat1_table(char *type)
+{
+	varchar imsdesc[21];
+	short imsdesc_i = 0;
+	int retval = 0;
+
+	#if DEBUG
+		printf("check_cat1_table\n");
+		printf("PART      (%s)\n",query_part);
+		printf("CAT1 PART (%s)\n",cat1_query_part.arr);
+	#endif
+
+	EXEC SQL select ims_designator_code
+		into :imsdesc:imsdesc_i
+		from cat1
+		where part = :cat1_query_part;
+
+	if(sqlca.sqlcode == 0)
+	{
+		if(imsdesc_i != -1 )
+		{
+			retval = 1;
+			strncpy(output_ims_desc,(char *) imsdesc.arr,imsdesc.len);
+			assgn_cnt++;
+			#if DEBUG1
+				printf("Part  (%s)\n",part);
+				printf("Prime (%s)\n",prime);
+				printf("IMS Des Cde (%s)\n",imsdesc.arr);
+			#endif
+		}
+	}
+	else
+	{
+		if(sqlca.sqlcode != NOTFND)
+		{
+			retval=sqlca.sqlcode;
+			printf("PART      (%s)\n",query_part);
+			printf("CAT1 PART (%s)\n",cat1_query_part.arr);
+			db_err("check_cat1_table");
+		}
+	}
+
+	if(retval == 0)
+	{
+		setup_error();
+		fprintf(fp_err,"Superseded part not found on CAT1 table\n");
+	}
+	else
+	{
+		if(strncmp(type,"PRIME",5) == 0)
+		{
+			strncpy(primes[prime_cnt].tbld_prime,(char *) cat1_query_part.arr,cat1_query_part.len);
+			strncpy(primes[prime_cnt].tbld_ims_des_code,output_ims_desc,20);
+			primes[prime_cnt].tbld_prime[cat1_query_part.len] = '\0';
+			primes[prime_cnt].tbld_ims_des_code[20] = '\0';
+			prime_cnt++;
+		}
+	}
+
+	if((retval==0) || (retval==1))
+		retval=0;
+
+	#if DEBUG
+		printf("check_cat1_table PRIME Count (%d)\n",prime_cnt);
+		printf("Return %d\n",retval);
+	#endif
+
+	return(retval);
+}
+/*
+
+*/
+int check_hb_table()
+{
+	int retval = 0;
+	char	mysql[2000];
+
+	#if DEBUG
+		printf("check_hb_table\n");
+	#endif
+
+	memset(mysql,' ',2000);
+
+	strcpy(mysql,"select cagecdhb ");
+	strcat(mysql,"from ");
+	strncat(mysql,(char *) model.arr,model.len);
+	strcat(mysql,"_hb ");
+	strcat(mysql,"where addrefhb = '");
+	strcat(mysql,part);
+	strcat(mysql,"' and adcagehb = '");
+	strcat(mysql,cage);
+	strcat(mysql,"' and refnumhb = '");
+	strcat(mysql,prime);
+	strcat(mysql,"' ");
+
+	#if DEBUG
+		printf("\nSQL STATEMENT (%s)",mysql);
+	#endif
+
+	EXEC SQL PREPARE chk_hb_csr_sql from :mysql;
+	EXEC SQL DECLARE chk_hb_csr CURSOR FOR chk_hb_csr_sql;
+	EXEC SQL OPEN chk_hb_csr;
+
+	if(sqlca.sqlcode == 0)
+	{
+		EXEC SQL FETCH chk_hb_csr
+			into :ha_cage:ha_cage_i;
+
+		if(sqlca.sqlcode == 0)
+		{
+			if(ha_cage_i != -1)
+			{
+				memset(query_part,' ',50);
+				strncpy(query_part,prime,32);
+				strncat(query_part," ",18);
+				query_part[50] = '\0';
+
+				strncpy(query_cage,ha_cage,5);
+				query_cage[5] = '\0';
+				retval = 1;
+			}
+		}
+		else
+		{
+			if(sqlca.sqlcode == NOTFND)
+			{
+				setup_error();
+				fprintf(fp_err,"Part and/or Prime not found on HB table\n");
+			}
+			else
+			{
+				printf("\nPart (%s) ",query_part);
+				printf("\nPrime (%s) ",prime);
+				retval=sqlca.sqlcode;
+				db_err("check_hb_table - fetch csr");
+			}
+		}
+	}
+	else
+	{
+		if(sqlca.sqlcode == NOTFND)
+		{
+			setup_error();
+			fprintf(fp_err,"Part and/or Prime not found on HB table\n");
+		}
+		else
+		{
+			printf("\nSQL (%s)",mysql);
+			retval=sqlca.sqlcode;
+			db_err("check_hb_table Open CSR");
+		}
+	}
+	#if DEBUG
+		printf("Return %d\n",retval);
+	#endif
+
+	return(retval);
+}
+/*
+
+*/
+int check_hax04_table()
+{
+	char prgm[11];
+	int i = 0;
+	int i1 = 0;
+	int found = 1;
+	char	mysql[2000];
+	
+	#if DEBUG
+		printf("check_hax04_table\n");
+	#endif
+
+	cur_hax.isFIRST = 'N';
+	cur_hax.isHISS = 'N';
+	cur_hax.isVPV = 'N';
+	cur_hax.isRAAF = 'N';
+
+	memset(mysql,' ',2000);
+
+	strcpy(mysql,"select distinct scm_program ");
+	if(strncmp((char *) model.arr,"F18",3)==0)
+	{
+		strcat(mysql,"from f18_hax04 ");
+	}
+	else
+	{
+		strcat(mysql,"from ");
+		strncat(mysql,(char *) model.arr,model.len);
+		strcat(mysql,"_haxscm ");
+	}
+	strcat(mysql,"where refnumha = '");
+	strcat(mysql,part);
+	strcat(mysql,"' and cagecdxh = '");
+	strcat(mysql,cage);
+	strcat(mysql,"' ");
+
+	#if DEBUG
+		printf("\nSQL STATEMENT (%s)",mysql);
+	#endif
+
+	EXEC SQL PREPARE HAX_CSR_SQL from :mysql;
+	EXEC SQL DECLARE HAX_CSR CURSOR FOR HAX_CSR_SQL;
+	EXEC SQL OPEN HAX_CSR;
+	if(sqlca.sqlcode == 0)
+	{
+		while(found == 1)
+		{
+			EXEC SQL FETCH HAX_CSR INTO :prgm;
+			#if DEBUG
+				printf("\ncheck_hax04 scm program (%s)",prgm);
+			#endif
+			if(sqlca.sqlcode == 0)
+			{
+				if(strncmp(prgm,"FIRST",5) == 0)
+					cur_hax.isFIRST = 'Y';
+				
+				if(strncmp(prgm,"VPV",3) == 0)
+					cur_hax.isVPV = 'Y';
+	
+				if(strncmp(prgm,"RAAF",4) == 0)
+					cur_hax.isRAAF = 'Y';
+
+				if(strncmp(prgm,"HISS",4) == 0)
+					cur_hax.isHISS = 'Y';
+
+				i++;
+			}
+			else
+			{
+				if(sqlca.sqlcode != NOTFND)
+				{
+					i1=sqlca.sqlcode;
+					printf("\nRefnumha (%s) ",part);
+					printf("\nCage (%s) ",cage);
+					db_err("check_hax04_table-FETCH CSR");
+				}
+				found = 0;
+			}
+		}
+	}
+	else
+	{
+		if(sqlca.sqlcode != NOTFND)
+		{
+			printf("\nSQL (%s)",mysql);
+			i1=sqlca.sqlcode;
+			db_err("check_hax04_table-OPEN CSR");
+		}
+	}
+
+	EXEC SQL CLOSE HAX_CSR;
+
+	#if DEBUG
+		printf("\ncheck_hax04 #1 - Return %d\n",i);
+	#endif
+	if(i > 0)
+	{
+		if(i == 1)
+		{
+			if(cur_hax.isRAAF == 'Y')
+				strncpy(output_ims_desc,"RAAF  ",6);
+			if(cur_hax.isFIRST == 'Y')
+				strncpy(output_ims_desc,"F18BZZ",6);
+			if(cur_hax.isHISS == 'Y')
+				strncpy(output_ims_desc,"HISS  ",6);
+			if(cur_hax.isVPV == 'Y')
+				strncpy(output_ims_desc,"VPV   ",6);
+		}
+		else
+		{
+			i1=assign_ims_desc();
+
+		}
+	}
+	#if DEBUG
+		printf("\ncheck_hax04 #2 - Return %d\n",i);
+	#endif
+
+	return(i1);
+}
+/*
+
+*/
+int	assign_ims_desc()
+{
+	char cog[3];
+	char	mysql[2000];
+	int	errcode=0;
+
+	#if DEBUG
+		printf("assign_ims_desc\n");
+	#endif
+
+/*	printf("%c %c %c %c\n",cur_hax.isFIRST,cur_hax.isRAAF,cur_hax.isVPV,cur_hax.isHISS); */
+
+	/*  FIRST and VPV  ot HISS and VPV */
+	if((cur_hax.isFIRST == 'Y' && cur_hax.isVPV == 'Y') ||
+	   (cur_hax.isHISS == 'Y' && cur_hax.isVPV == 'Y'))
+	{
+		memset(mysql,' ',2000);
+		strcpy(mysql,"select cognsnha ");
+		strcat(mysql,"from ");
+		strncat(mysql,(char *) model.arr,model.len);
+		strcat(mysql,"_ha ");
+		strcat(mysql,"where refnumha = '");
+		strcat(mysql,part);
+		strcat(mysql," and cagecdxh = '");
+		strcat(mysql,cage);
+		strcat(mysql,"' ");
+
+		#if DEBUG
+			printf("\nSQL STATEMENT (%s)",mysql);
+		#endif
+
+		EXEC SQL PREPARE chk_cog_csr_sql from :mysql;
+		EXEC SQL DECLARE chk_cog_csr CURSOR FOR chk_cog_csr_sql;
+		EXEC SQL OPEN chk_cog_csr;
+
+		if(sqlca.sqlcode == 0)
+		{
+			EXEC SQL FETCH chk_cog_csr
+			    into :cog;
+
+			if(sqlca.sqlcode == NOTFND)
+				strncpy(cog,"00",2);
+			else
+			{
+				if(sqlca.sqlcode == 0)
+				{
+					if(cog[0] == '9' || cog[0] == '3')
+						strncpy(output_ims_desc,"VPV",3);
+					else
+						strncpy(output_ims_desc,"F18BZZ",6);
+				}
+				else
+				{
+					errcode=sqlca.sqlcode;
+					db_err("assign_ims_desc - FETCH CSR");
+				}
+			}
+		}
+		else
+		{
+			if(sqlca.sqlcode == NOTFND)
+				strncpy(cog,"00",2);
+			else
+			{
+				printf("\nSQL (%s)",mysql);
+				errcode=sqlca.sqlcode;
+				db_err("assign_ims_desc - OPEN CSR");
+			}
+
+		}
+
+		EXEC SQL CLOSE chk_cog_csr;
+	}
+
+	if(strncmp((char *) model.arr,"F18",3)==0)
+	{
+		/*  Only RAAF  */
+		if(cur_hax.isFIRST == 'N' && cur_hax.isRAAF == 'Y' && cur_hax.isVPV == 'N')
+			strncpy(output_ims_desc,"RAAF",4);
+	
+		/*  FIRST and RAAF  */
+		if(cur_hax.isFIRST == 'Y' && cur_hax.isRAAF == 'Y' && cur_hax.isVPV == 'N')
+			strncpy(output_ims_desc,"F18BZZ",6);
+
+		/*  VPV and RAAF  */
+		if(cur_hax.isFIRST == 'N' && cur_hax.isRAAF == 'Y' && cur_hax.isVPV == 'Y')
+			strncpy(output_ims_desc,"VPV",3);
+	}
+	else
+	{
+		if(strncmp((char *) model.arr,"AV8B",4)==0)
+		{
+			/*  Only RAAF  */
+			if(cur_hax.isHISS == 'N' && cur_hax.isRAAF == 'Y' && cur_hax.isVPV == 'N')
+			strncpy(output_ims_desc,"RAAF",4);
+	
+			/*  HISS and RAAF  */
+			if(cur_hax.isHISS == 'Y' && cur_hax.isRAAF == 'Y' && cur_hax.isVPV == 'N')
+				strncpy(output_ims_desc,"HISS  ",6);
+
+			/*  VPV and RAAF  */
+			if(cur_hax.isHISS == 'N' && cur_hax.isRAAF == 'Y' && cur_hax.isVPV == 'Y')
+				strncpy(output_ims_desc,"VPV",3);
+		}
+	}
+	
+	return(errcode);
+}
+/*
+
+*/
+void write_output()
+{
+
+	#if DEBUG
+		printf("write_output\n");
+	#endif
+
+	char out[2500];
+	
+	memcpy((char *)&cat1_api_rcd,input_buffer,sizeof(gold68_cat1_api_rcd));
+
+	/*
+	if(write_cnt == 0)
+		fp_out = OpenFile(outfile,"w");
+		*/
+	if(input_buffer[103] == 'C')
+	{
+		strncpy((char *)cat1_api_rcd.ims_designator_code,output_ims_desc,20);
+		if(strncmp(output_ims_desc,"F18",3) == 0)
+			first_cnt++;
+		else if(strncmp(output_ims_desc,"VPV",3) == 0)
+			vpv_cnt++;
+		else
+			raaf_cnt++;
+	}
+
+	if(strncmp((char *)cat1_api_rcd.ims_designator_code,"F18 ",4) == 0)
+		strncpy((char *)cat1_api_rcd.ims_designator_code,"F18BZZ",6);	
+
+	strncpy(out,(char *)&cat1_api_rcd,sizeof(gold68_cat1_api_rcd));
+	out[sizeof(gold68_cat1_api_rcd)] = '\0';
+
+	if(fwrite(out,sizeof(gold68_cat1_api_rcd),1,fp_out) != 1)
+	{
+		printf("Error writing to output file\n");
+		exit(2);
+	}
+	else
+		write_cnt++;
+}
+/**/
+void setup_error()
+{
+	/*
+	if(err_cnt == 0)
+		fp_err = OpenFile(errfile,"w");
+		*/
+	
+	if(error == 0)
+	{
+		fprintf(fp_err,"*****************************************\n");
+		fprintf(fp_err,"PART  %s\nPRIME %s\nCAGE  %s\n",part,prime,cage);
+		error = 1;
+		err_cnt++;
+	}
+}
+/**/
+void update_default_cnt()
+{
+	char lsaconxb[19];
+	char flsacnxg[19] = " "; short flsacnxg_i = 0;
+
+	char refnumha[51]; /* From xref table */
+	char cagecdxh[6]; /* From xref table */
+	char eiacodxa[11]; /* From xref table */
+ 	char altlcnxb[3]; /* From xref table */
+	char lcntypxb; /* From xref table */
+	char falcncxg[3] = " "; short falcncxg_i = 0;/* From xref table */
+	char suplyrcd[6] = " "; short suplyrcd_i = 0;/* From xref table */
+	char eiacode[11] = "F/A-18E/F";
+	char pccnumxc[7] = " "; short pccnumxc_i = 0;/* From XC table */
+	/*
+	varchar	query_part2[50];
+
+	memset(query_part2.arr,' ',50);
+	strncpy(query_part2.arr,query_part,32);
+	query_part2.arr[32]='\0';
+	query_part2.len=strlen(query_part2.arr);
+	*/
+
+	EXEC SQL DECLARE xref_cursor CURSOR FOR
+		SELECT DISTINCT refnumha, cagecdxh, eiacodxa, lsaconxb, altlcnxb, lcntypxb, flsacnxg, falcncxg, suplyrcd
+		FROM scm.f18_slic_hgxg_xref_XXX
+		WHERE eiacodxa = rtrim(:eiacode)
+		AND refnumha = rtrim(:query_part)
+		AND cagecdxh = :query_cage;
+ 
+	EXEC SQL OPEN xref_cursor;
+	
+	if(desc_cnt == 0)
+	{
+		/*
+		fp_des = OpenFile(desfile,"w");
+		*/
+		fprintf(fp_des,"Assigned default IMS Des Code: %s\n\n", output_ims_desc);
+		fprintf(fp_des,"Part%28sCage%8sNSN%10sLCN%17sALC  F/LCN%15sF/ALC  Supplier%2sPCCN\n", " ", " ", " ", " ", " "," ");
+
+fprintf(fp_des,"--------------------------------------------------------------------------------------------------------------------------------\n");
+	}
+	desc_cnt++;
+
+	if (sqlca.sqlcode == FND)
+	{
+		EXEC SQL FETCH xref_cursor INTO
+			:refnumha, 
+			:cagecdxh, 
+			:eiacodxa, 
+			:lsaconxb, 
+			:altlcnxb, 
+			:lcntypxb, 
+			:flsacnxg:flsacnxg_i,
+			:falcncxg:falcncxg_i, 
+      			:suplyrcd:suplyrcd_i;
+
+        if (sqlca.sqlcode == FND)
+		{
+			EXEC SQL SELECT DISTINCT f18_xc.pccnumxc
+      	 		INTO :pccnumxc:pccnumxc_i
+			FROM f18_xc, f18_ho
+			WHERE f18_ho.can_int = 0
+			  AND f18_ho.can_int = f18_xc.can_int
+		   	  and f18_ho.refnumho = :refnumha
+			  AND f18_ho.cagecdho = :cagecdxh
+			  AND f18_ho.lsaconho = :lsaconxb
+			  AND f18_ho.altlcnho = :altlcnxb
+			  AND f18_ho.eiacodxa = :eiacodxa
+			  AND f18_ho.lcntypxb = :lcntypxb
+		      	  AND f18_xc.eiacodxa = f18_ho.eiacodxa
+        	  	  AND f18_xc.altlcnxb = f18_ho.alcseiho
+              		  AND f18_xc.lsaconxb = f18_ho.lcnseiho
+			  AND f18_xc.lcntypxb = f18_ho.lcntypxb;
+		
+			#if DEBUG
+				printf("PCCNUMXC    (%s)\n",pccnumxc);
+				printf("PCCNUMXC_i  (%d)\n",pccnumxc_i);
+			#endif	
+			if (pccnumxc_i < 0) 
+			{
+               			fprintf(fp_des,"%s%s %16s  %19s  %3s %19s %3s %9s %10s\n",part,cage,nsn,lsaconxb,altlcnxb,flsacnxg,falcncxg,suplyrcd," ");
+			}
+			else
+			{
+       				fprintf(fp_des,"%s%s %16s  %19s  %3s %19s %3s %9s %10s\n",part,cage,nsn,lsaconxb,altlcnxb,flsacnxg,falcncxg,suplyrcd,pccnumxc);
+			}
+		}
+		else 
+		{
+			fprintf(fp_des, "%s%s %16s      \n", part, cage,nsn); 			
+		}
+	}
+	else if (sqlca.sqlcode == NOTFND)
+	{
+		strcpy(pccnumxc, "      ");
+		fprintf(fp_des,"%s%s %s   %s %s %s %s %s %s\n",part,cage, nsn,lsaconxb,altlcnxb,flsacnxg,falcncxg,suplyrcd,pccnumxc);
+	}
+	else
+		db_err("update_default_cnt");
+	
+	EXEC SQL CLOSE xref_cursor;
+}

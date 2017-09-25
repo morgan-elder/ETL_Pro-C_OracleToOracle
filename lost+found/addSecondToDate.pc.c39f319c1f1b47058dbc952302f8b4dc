@@ -1,0 +1,23 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+EXEC SQL INCLUDE sqlca;
+int addSecondToDate(char *str)
+{
+	int errcode = 0;
+	char new_date[25];
+
+	EXEC SQL select to_char(to_date(:str,'yyyymmddHH24MISS')+1/86400,'yyyymmddHH24MISS')
+		into :new_date
+		from dual;
+
+	errcode = sqlca.sqlcode;
+	if(errcode == 0)
+	{
+		strncpy(str,new_date,14);
+		str[14] = '\0';
+	}
+
+	return errcode;
+}

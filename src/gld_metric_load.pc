@@ -1,0 +1,2010 @@
+/* ************************************************************** */
+/* Title:  GLD Metric Load                                        */
+/* Author: Andy Wickersham                                        */
+/* Description: This program loads Metric data from GOLD          */
+/*              into the gld_reqmtrc table in SLIC.               */
+/*                                                                */
+/*                                                                */
+/* Created: 01/24/2002   					  */
+/* Modified: 09/26/2002						  */
+/* Modified: 10/08/2002						  */
+/* Modified: 03/27/2003	PBL Cage Code added			  */
+/* Modified: 07/21/2003 Modified FIRST Release Date		  */
+/* Modified: 07/29/2003 Modified Auto Process Indicator Flag      */
+/* Modified: 03/09/2005 Added Manufacturing Cage Code (SKT)       */
+/* Modified: 08/31/2005 Added ECD from req1 (SKT)                 */ 
+/* Modified: 07/10/2009 Added UNIONS to cursors (JIK)		  */
+/* Modified: 11/12/2010 Added DVD segcodes       		  */
+/************************************************************** */
+
+
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+#include <unistd.h>
+
+EXEC SQL INCLUDE sqlca.h;
+EXEC SQL INCLUDE oraca.h;
+
+
+#define NOTFND 1403
+#define MAX 50
+#define FND 0
+#define MULTI -2112
+
+/* Declare Record Sets */
+
+
+/* Declare database ids */
+char *slic_db = "slic_db";
+char *gold_db = "gold_db";
+
+char slic_dsn[20];
+char gold_dsn[20];
+
+/*  Global variables  */
+varchar request_id[21];short request_id_i;
+char request_id_pos7;short request_id_pos7_i;
+varchar req_id[21];short req_id_i;
+varchar shipment_ctrl_no[18];short shipment_ctrl_no_i;
+varchar part[51];short part_i;
+varchar temp_part[51];short temp_part_i;
+varchar sc[21];short sc_i;
+varchar proj_cd[4];short proj_cd_i;
+varchar priority[3];short priority_i;
+varchar rdd[4];short rdd_i;
+varchar reviewed_userid[21];short reviewed_userid_i;
+varchar smrc[7];short smrc_i;
+varchar nsn[17];short nsn_i;
+varchar cog[3];short cog_i;
+varchar pbl_cage[21];short pbl_cage_i;
+varchar fund_code[3];short fund_code_i;
+varchar deliver_to_dodaac[21];short deliver_to_dodaac_i;
+varchar reserve_dt[15];short reserve_dt_i;
+varchar mindatetime[15];short mindatetime_i;
+varchar shipdatetime[15];short shipdatetime_i;
+varchar recdatetime[15];short recdatetime_i;
+varchar need_dt[15];short need_dt_i;
+varchar moveit_dt[15];short moveit_dt_i;
+varchar req1_createddatetime[15];short req1_createddatetime_i;
+varchar trhi_createddatetime[15];short trhi_createddatetime_i;
+varchar location[4];short location_i;
+varchar carrier[26];short carrier_i;
+varchar ctn[21];short ctn_i;
+varchar jdate[9];short jdate_i;
+varchar select_from_serial[21];short select_from_serial_i;
+varchar ims_designator_code[21];short ims_designator_code_i;
+varchar venc_vendor_code[21];short venc_vendor_code_i;
+varchar manuf_cage[5];short manuf_cage_i; /*SKT added 3/9/05*/
+varchar req1_ecd[15];short req1_ecd_i; /*SKT added 8/31/05*/
+char run_scope[8];
+char trimmed_sc[22];
+char auto_process;short auto_process_i;
+char include_flag;short include_flag_i;
+char seg_code[21];
+char status;short status_i;
+char req1_status;short req1_status_i;
+double metric;short metric_i;
+int qty_req;short qty_req_i;
+int qty_open;short qty_open_i;
+int qty_issued;short qty_issued_i;
+int qty_bo;short qty_bo_i;
+int qty_can;short qty_can_i;
+int afp;short afp_i;
+int found = 1;
+int out_cnt = 0;
+int duplicate = 0;
+int i;
+
+
+void req_cursor();
+void boeing_split_cursor();
+void navy_split_cursor();
+void exception_cursor();
+void read_req_cursor();
+void read_boeing_cursor();
+void read_navy_cursor();
+void read_exception_cursor();
+void open_req_cursor();
+void open_boeing_cursor();
+void open_navy_cursor();
+void open_exception_cursor();
+void close_req_cursor();
+void close_boeing_cursor();
+void close_navy_cursor();
+void close_exception_cursor();
+void get_created_date();
+void get_more_info();
+void getpart();
+void getmaxdate();
+void getDateShipped();
+void get_release_date();
+void get_carrier_info();
+void sum_qty();
+void get_trhi();
+void update_check();
+void check_include();
+void get_afp();
+void insert();
+void update();
+
+void db_err(char[]);
+
+static void usage() {
+  fprintf(stderr,"Usage: gld_metric_load [ -o ora_login_path -p ora_pwd_file -u ora_uid_file ] seg_code slic_db gold_db run_scope\n") ;
+}
+
+int main(int argc, char **argv){
+	int i;
+  char oraLogin[256] ;
+  char path_ora_uid[256] ;
+  char path_ora_pwd[256] ;
+  char oraPwd[256] ;
+  char oraUid[256] ;
+
+  printf("%s compiled on %s\n",__FILE__,__DATE__) ;
+
+  strcpy(oraPwd,".SCM_LB_pass") ;
+  strcpy(oraUid,".SCM_LB_destn") ;
+
+  strcpy(oraLogin,"/home/scmftp") ; 
+
+ {
+  char c ;
+  while ((c = getopt (argc, argv, "o:p:u:")) != -1)
+    switch (c)
+      {
+      case 'o':
+        strcpy(oraLogin,optarg); /* command line override env var and default */
+        break;
+      case 'p':
+        strcpy(oraPwd,optarg);
+        break;
+      case 'u':
+        strcpy(oraUid,optarg);
+        break;
+      case '?':
+        if (optopt == 'o')
+          fprintf (stderr, "Option -%c requires an directory path.\n", optopt);
+        else if (optopt == 'p')
+          fprintf (stderr, "Option -%c requires an Oracle password file.\n", optopt);
+        else if (optopt == 'u')
+          fprintf (stderr, "Option -%c requires an Oracle user id file.\n", optopt);
+        else if (isprint (optopt))
+          fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+        else
+          fprintf (stderr,
+                   "Unknown option character `\\x%x'.\n",
+                   optopt);
+        usage() ;
+        exit(1);
+      default:
+        exit(2);
+      }
+  }
+
+
+
+  strcpy(path_ora_uid,oraLogin) ;
+  strcat(path_ora_uid,"/") ;
+  strcat(path_ora_uid,oraUid) ;
+
+  strcpy(path_ora_pwd,oraLogin) ;
+  strcat(path_ora_pwd,"/") ;
+  strcat(path_ora_pwd,oraPwd) ;
+
+	auto_process = ' ';
+	include_flag = ' ';
+	status = ' ';
+	req1_status = ' ';
+	memset(seg_code,' ',21);
+
+	if(argc - optind != 4){
+#ifdef DEBUG
+    { int i ;
+      printf("argc=%d optind=%d\n", argc, optind) ;
+      for (i=0; i< argc;i++) {
+        printf("%d. %s\n",i+1, argv[i]) ;
+      }
+    }
+#endif
+    usage();
+		exit(1);
+	}
+
+	strncpy(seg_code, argv[1], strlen(argv[1]));
+	strncpy(slic_dsn, argv[2], strlen(argv[2]));
+	strncpy(gold_dsn, argv[3], strlen(argv[3]));
+	strncpy(run_scope, argv[4], strlen(argv[4]));
+
+	printf("The scope of this run is %s\n", run_scope);
+	/*  Connect to SLIC  */
+	printf("Before Login2\n");
+
+	Login2(path_ora_uid,path_ora_pwd,slic_db,slic_dsn);
+	if(sqlca.sqlcode == 0)
+		printf("Connected to SLIC.\n");
+	else{
+		printf("Error connecting to SLIC.  Exiting.\n");
+		exit(2);
+	}
+
+	/*  Connect to GOLD  */
+	fflush(stdout);
+	Login2(path_ora_uid,path_ora_pwd,gold_db,gold_dsn);
+	if(sqlca.sqlcode == 0)
+
+		printf("Connected to GOLD.\n");
+	else{
+
+		printf("Error connecting to GOLD.  Exiting.\n");
+		exit(2);
+	}
+
+	strncpy(trimmed_sc,seg_code,20);
+	for(i = 0; i < 20; i++){
+
+		if(seg_code[i] != ' ')
+			trimmed_sc[i] = seg_code[i];
+		else
+			break;
+	}
+	trimmed_sc[i] = '%';
+	trimmed_sc[i+1] = '\0';
+
+	req_cursor();
+	open_req_cursor();
+
+	if(sqlca.sqlcode == 0){
+		while(found){
+			read_req_cursor();
+		}
+	}
+	printf("\ntotal non split records: %d\n", out_cnt);
+	close_req_cursor();
+
+	
+	
+	out_cnt = 0;
+	found = 1;
+	boeing_split_cursor();
+	open_boeing_cursor();
+
+	if(sqlca.sqlcode == 0){
+		while(found){
+			read_boeing_cursor();
+		}
+	}
+	printf("\ntotal boeing split records: %d\n", out_cnt);
+	close_boeing_cursor();
+	
+	/*
+
+	out_cnt = 0;
+	found = 1;
+
+    if (strncmp(trimmed_sc, "F18001H01%", 10) == 0){ */
+
+	/*
+		navy_split_cursor();
+		open_navy_cursor();
+
+		if(sqlca.sqlcode == 0){
+			while(found){
+				read_navy_cursor();
+			}
+		}
+		printf("\ntotal navy split records: %d\n", out_cnt);
+		close_navy_cursor(); */
+
+		/*
+		out_cnt = 0;
+		found = 1;
+		exception_cursor();
+		open_exception_cursor();
+
+		if(sqlca.sqlcode == 0)
+		{
+			while(found)
+			{
+				read_exception_cursor();
+			}
+		}
+		printf("\ntotal exception records: %d\n", out_cnt);
+		close_exception_cursor();*/
+	/*}*/
+
+
+	return 0;
+
+}
+
+/****************************************************************************************
+* Function: REQ_CURSOR
+* Description: This cursor will retrieve all non split requisitions.
+*
+*
+****************************************************************************************/
+
+void req_cursor(){
+
+	/*AND (add_months(r.date_receipt_processed, 2) > sysdate
+		   		    OR r.date_receipt_processed is null)*/
+#ifdef DEBUG
+  printf("req_cursor\n") ;
+  printf("run_scope=%s\n", run_scope) ;
+  printf("seg_code=%s\n", seg_code) ;
+  printf("trimmed_sc=%s\n", trimmed_sc) ;
+#endif
+	if (strncmp(seg_code, "F18001H", 7) == 0 || strncmp(seg_code, "F18001J", 7) == 0){
+
+		if (strncmp(run_scope, "some", 4) == 0){
+#ifdef DEBUG
+  printf("req_cursor 1\n") ;
+#endif
+			EXEC SQL AT :gold_db DECLARE req_cursor CURSOR FOR
+			SELECT request_id,substr(request_id,7,1)
+			  FROM req1$merged r 
+			 WHERE r.select_from_segregation_code like :trimmed_sc   
+			   AND length(r.request_id) = 14 
+			   and r.mils_source_dic is not null
+			   AND ((r.status in ('H','O','U','R','S')
+				     and (add_months(r.date_receipt_processed, 1) > sysdate 
+					      OR r.date_receipt_processed is null)) 
+				OR (r.status = 'C' and add_months(r.created_on, 1) > sysdate));
+		} else {
+#ifdef DEBUG
+  printf("req_cursor 2\n") ;
+#endif
+			EXEC SQL AT :gold_db DECLARE req_cursor2 CURSOR FOR
+			SELECT request_id,substr(request_id,7,1)
+			  FROM req1$merged r 
+			 WHERE r.select_from_segregation_code like :trimmed_sc   
+			   AND length(r.request_id) = 14 
+			   and r.mils_source_dic is not null			   
+			   AND ((r.status in ('H','O','U','R','S')
+				     and (add_months(r.date_receipt_processed, 10) > sysdate 
+					      OR r.date_receipt_processed is null)) 
+			        OR (r.status = 'C' and add_months(r.created_on, 10) > sysdate));
+			        
+			/* and r.status in ('H','O','U','R','S','C'); */			        
+		}
+	} else {
+		if (strncmp(seg_code, "VPV9406", 7) == 0 || strncmp(seg_code, "1ASLSCM", 7) == 0){
+
+			/*AND (add_months(r.satisfied_datetime, 2) > sysdate
+						OR r.satisfied_datetime is null)*/
+
+			if (strncmp(run_scope, "some", 4) == 0) {
+
+#ifdef DEBUG
+  printf("req_cursor 3\n") ;
+#endif
+				EXEC SQL AT :gold_db DECLARE req_cursor1 CURSOR FOR
+				SELECT request_id,substr(request_id,7,1)
+				  FROM req1$merged r 
+				 WHERE r.select_from_segregation_code like :trimmed_sc   
+				   AND length(r.request_id) = 14 
+				   AND ((r.status in ('H','O','U','R','S')
+					and (add_months(r.satisfied_on, 1) > sysdate 
+						OR r.satisfied_on is null)) 
+					OR (r.status = 'C' and add_months(r.created_on, 1) > sysdate))
+					UNION
+					SELECT distinct r.request_id,substr(request_id,7,1)
+    					      FROM req1$merged r
+       					    WHERE (r.select_from_segregation_code like 'VPV9406%' or r.select_from_segregation_code like '1ASLSCM%')
+					           AND r.status in ('H','O','U','R','S','C')
+  						   AND length(r.request_id) = 15
+					           AND r.created_on > '08-JUN-09'
+					           AND not exists (SELECT *
+						                    FROM req1_ext rx
+						                    WHERE substr(rx.request_id,1,14) = substr(r.request_id,1,14)
+							                    AND substr(rx.request_id,1,15) <> substr(r.request_id,1,15)
+                   					)
+   						  AND ((r.status in ('H','O','U','R','S')
+						  and (add_months(r.satisfied_on, 2) > sysdate 
+					 	   OR r.satisfied_on is null)) 
+					          OR (r.status = 'C' and add_months(r.created_on, 2) > sysdate));
+
+			} else {
+
+#ifdef DEBUG
+  printf("req_cursor 4\n") ;
+#endif
+				EXEC SQL AT :gold_db DECLARE req_cursor3 CURSOR FOR
+				SELECT request_id,substr(request_id,7,1)
+				  FROM req1$merged r 
+				 WHERE r.select_from_segregation_code like :trimmed_sc   
+				   AND length(r.request_id) = 14 
+				   AND ((r.status in ('H','O','U','R','S')
+					and (add_months(r.satisfied_on, 7) > sysdate 
+						OR r.satisfied_on is null)) 
+					OR (r.status = 'C' and add_months(r.created_on, 7) > sysdate))
+					UNION
+					SELECT distinct r.request_id,substr(request_id,7,1)
+          FROM req1$merged r
+           WHERE (r.select_from_segregation_code like 'VPV9406%' or r.select_from_segregation_code like '1ASLSCM%')
+           AND r.status in ('H','O','U','R','S','C')
+           AND length(r.request_id) = 15
+           AND r.created_on > '08-JUN-09'
+           AND not exists (SELECT *
+                    FROM req1_ext rx
+                    WHERE substr(rx.request_id,1,14) = substr(r.request_id,1,14)
+                    AND substr(rx.request_id,1,15) <> substr(r.request_id,1,15)
+                   )
+           AND ((r.status in ('H','O','U','R','S')
+					and (add_months(r.satisfied_on, 7) > sysdate 
+						OR r.satisfied_on is null)) 
+					OR (r.status = 'C' and add_months(r.created_on, 7) > sysdate));
+
+			}
+		}
+	}
+
+	if(sqlca.sqlcode != 0){
+		if(sqlca.sqlcode == 1403){
+			printf("No requisitions found!!!\n");
+			printf("Exiting\n");
+			found = 0;
+			exit(2);
+		} else {
+			db_err("req_cursor");
+		}
+	}
+
+}
+
+/****************************************************************************************
+* Function: BOEING_SPLIT_CURSOR
+* Description: This cursor will retrieve all Boeing split requisitions.
+*
+*
+****************************************************************************************/
+
+void boeing_split_cursor(){
+
+	/* Declare the cursor */
+	EXEC SQL AT :gold_db DECLARE boeing_cursor CURSOR FOR
+		SELECT distinct substr(r.request_id,1,14),substr(r.request_id,7,1)
+          FROM mils m, req1$merged r,
+               (SELECT distinct substr(d.request_id,1,14) req
+                   FROM mils a, mils b, req1$merged c, req1$merged d
+                  WHERE c.request_id = a.request_id (+)
+                    AND d.request_id = b.request_id (+)
+                    AND c.status in ('H','O','U','R','S')
+                    AND d.status in ('H','O','U','R','S')
+                    AND c.select_from_segregation_code like :trimmed_sc
+                    AND d.select_from_segregation_code like :trimmed_sc
+                    AND substr(c.request_id,1,14) = substr(d.request_id,1,14)
+                    AND substr(c.request_id,15,1) <> substr(d.request_id,15,1)
+                    AND (a.status_line like 'A4%' OR a.status_line like 'A0%')
+                    AND length(c.request_id) = 15
+                    AND length(d.request_id) = 15
+                    AND not exists (SELECT e.request_id
+                                      FROM mils e
+                                     WHERE e.request_id = b.request_id
+                                       AND (e.status_line like 'A4%'
+                                            OR e.status_line like 'A0%')
+                                       AND e.sc like :trimmed_sc)) e
+         WHERE r.request_id = m.request_id
+           AND substr(m.request_id,1,14) = e.req (+)
+           AND e.req is null
+           AND r.select_from_segregation_code like :trimmed_sc
+           AND m.sc like :trimmed_sc
+           AND r.status in ('H','O','U','R','S','C')
+           AND length(r.request_id) = 15
+AND not exists (SELECT substr(mm.status_line,1,2)
+FROM mils mm
+						   WHERE mm.request_id = m.request_id
+							 AND mm.sc like :trimmed_sc
+							AND (mm.status_line like 'A4%' OR mm.status_line like 'A0%')) 
+UNION   
+SELECT distinct substr(r.request_id,1,14),substr(r.request_id,7,1)
+          FROM req1$merged r, req1$merged r1
+           WHERE (r.select_from_segregation_code like 'VPV9406%' or r.select_from_segregation_code like '1ASLSCM%')
+           AND r.status in ('H','O','U','R','S','C')
+           AND substr(r.request_id,1,14) = substr(r1.request_id,1,14)
+           AND substr(r.request_id,15,1) <> substr(r1.request_id,15,1)
+           AND length(r.request_id) = 15
+           AND r.created_on > '08-JUN-09'
+           AND 0 < (SELECT count( distinct customer_item)
+                    FROM req1_ext rx
+                    WHERE substr(rx.request_id,1,14) = substr(r.request_id,1,14));
+
+
+	if(sqlca.sqlcode != 0){
+		if(sqlca.sqlcode == 1403){
+			printf("No boeing split requisitions found!!!\n");
+		}
+		else{
+			db_err("boeing_split_cursor");
+		}
+	}
+}
+
+
+/****************************************************************************************
+* Function: NAVY_SPLIT_CURSOR
+* Description: This cursor will retrieve all Navy split requisitions.
+*
+*
+****************************************************************************************/
+
+void navy_split_cursor(){
+
+	/* Declare the cursor */
+	EXEC SQL AT :gold_db DECLARE navy_cursor CURSOR FOR
+		SELECT distinct substr(r.request_id,1,14)
+          FROM mils m, req1$merged r,
+               (SELECT distinct substr(d.request_id,1,14) req
+                   FROM mils a, mils b, req1$merged c, req1$merged d
+                  WHERE c.request_id = a.request_id (+)
+                    AND d.request_id = b.request_id (+)
+                    AND c.status in ('H','O','U','R','S')
+                    AND d.status in ('H','O','U','R','S')
+                    AND c.select_from_segregation_code like :trimmed_sc
+                    AND d.select_from_segregation_code like :trimmed_sc
+                    AND substr(c.request_id,1,14) = substr(d.request_id,1,14)
+                    AND substr(c.request_id,15,1) <> substr(d.request_id,15,1)
+                    AND (a.status_line like 'A4%' OR a.status_line like 'A0%')
+                    AND length(c.request_id) = 15
+                    AND length(d.request_id) = 15
+                    AND not exists (SELECT e.request_id
+                                      FROM mils e
+                                     WHERE e.request_id = b.request_id
+                                       AND (e.status_line like 'A4%'
+                                            OR e.status_line like 'A0%')
+                                       AND e.sc like :trimmed_sc)) e
+         WHERE r.request_id = m.request_id
+           AND substr(r.request_id,1,14) = e.req (+)
+           AND e.req is null
+           AND r.select_from_segregation_code like :trimmed_sc
+           AND m.sc like :trimmed_sc
+           AND r.status in ('H','O','U','R','S','C')
+           AND length(r.request_id) = 15
+           AND (m.status_line like 'A4%' OR m.status_line like 'A0%')
+           AND to_number(substr(m.status_line,25,5)) = r.quantity_requested
+UNION   
+SELECT distinct substr(r.request_id,1,14)
+          FROM req1$merged r, req1$merged r1
+           WHERE r.select_from_segregation_code like :trimmed_sc
+           AND r.status in ('H','O','U','R','S','C')
+           AND substr(r.request_id,1,14) = substr(r1.request_id,1,14)
+           AND substr(r.request_id,15,1) <> substr(r1.request_id,15,1)
+           AND length(r.request_id) = 15
+           AND r.created_on > '08-JUN-09'
+           AND 1 < (SELECT count(distinct customer_item)
+                    FROM req1_ext rx
+                    WHERE substr(rx.request_id,1,14) = substr(r.request_id,1,14)
+                    and sub_contract_number is not null
+                    and customer_item is not null)
+           AND  0 = (SELECT count (*) from req1_ext a, req1_ext b 
+                     where a.sub_contract_number = b.sub_contract_number 
+                     and a.customer_item = b.customer_item
+                     and a.request_id <> b.request_id
+                     AND substr(a.request_id,1,14) = substr(b.request_id,1,14)
+                     AND substr(r.request_id,1,14) = substr(b.request_id,1,14));
+
+
+	if(sqlca.sqlcode != 0){
+		if(sqlca.sqlcode == 1403){
+			printf("No navy split requisitions found!!!\n");
+		}
+		else{
+			db_err("navy_split_cursor");
+		}
+	}
+}
+
+
+/****************************************************************************************
+* Function: EXCEPTION_CURSOR
+* Description: This cursor will retrieve all split requisitions not found in the Boeing cursor
+*              or the Navy cursor.
+*
+****************************************************************************************/
+
+void exception_cursor(){
+
+	/* Declare the cursor */
+	EXEC SQL AT :gold_db DECLARE exception_cursor CURSOR FOR
+            SELECT distinct substr(d.request_id,1,14),substr(d.request_id,7,1)
+	   FROM mils a, mils b, req1$merged c, req1$merged d
+	  WHERE c.request_id = a.request_id (+)
+		AND d.request_id = b.request_id (+)
+		AND c.status in ('H','O','U','R','S')
+		AND d.status in ('H','O','U','R','S')
+		AND c.select_from_segregation_code like :trimmed_sc
+		AND d.select_from_segregation_code like :trimmed_sc
+		AND substr(c.request_id,1,14) = substr(d.request_id,1,14)
+		AND substr(c.request_id,15,1) <> substr(d.request_id,15,1)
+		AND (a.status_line like 'A4%' OR a.status_line like 'A0%')
+		AND length(c.request_id) = 15
+		AND length(d.request_id) = 15
+		AND a.created_datetime > to_date('04/01/2002', 'MM/DD/YYYY')
+		AND b.created_datetime > to_date('04/01/2002', 'MM/DD/YYYY')
+		AND not exists (SELECT e.request_id
+						  FROM mils e
+						 WHERE e.request_id = b.request_id
+						   AND (e.status_line like 'A4%'
+								OR e.status_line like 'A0%')
+						   AND e.sc like :trimmed_sc)
+UNION   
+SELECT distinct substr(r.request_id,1,14),substr(r.request_id,7,1)
+          FROM req1$merged r, req1$merged r1
+           WHERE r.select_from_segregation_code like :trimmed_sc
+           AND r.status in ('H','O','U','R','S','C')
+           AND substr(r.request_id,1,14) = substr(r1.request_id,1,14)
+           AND substr(r.request_id,15,1) <> substr(r1.request_id,15,1)
+           AND length(r.request_id) = 15
+           AND r.created_on > '08-JUN-09'
+           AND 1 < (SELECT count(distinct customer_item)
+                    FROM req1_ext rx
+                    WHERE substr(rx.request_id,1,14) = substr(r.request_id,1,14)
+                    and sub_contract_number is not null
+                    and customer_item is not null)
+           AND  0 < (SELECT count (*) from req1_ext a, req1_ext b 
+                     where a.sub_contract_number = b.sub_contract_number 
+                     and a.customer_item = b.customer_item
+                     and a.request_id <> b.request_id
+                     AND substr(a.request_id,1,14) = substr(b.request_id,1,14)
+                     AND substr(r.request_id,1,14) = substr(b.request_id,1,14));
+
+
+	if(sqlca.sqlcode != 0){
+		if(sqlca.sqlcode == 1403){
+			printf("No exception requisitions found!!!\n");
+		}
+		else{
+			db_err("exception_cursor");
+		}
+	}
+}
+
+
+/****************************************************************************************
+* Function: READ_REQ_CURSOR
+* Description: Read in the non split requisitions.
+*
+*
+****************************************************************************************/
+void read_req_cursor(){
+
+	i = 0;
+	if(sqlca.sqlcode == 0){
+		if (strncmp(seg_code, "F18001H", 7) == 0 || strncmp(seg_code, "F18001J", 7) == 0){
+			if (strncmp(run_scope, "some", 4) == 0){
+			EXEC SQL FETCH req_cursor
+				INTO
+			 	:request_id:request_id_i,
+				:request_id_pos7:request_id_pos7_i;
+			 } else {
+			 EXEC SQL FETCH req_cursor2
+			 	INTO
+			 	:request_id:request_id_i,
+				:request_id_pos7:request_id_pos7_i;
+			 }
+		} else {
+			if (strncmp(run_scope, "some", 4) == 0) {
+				EXEC SQL FETCH req_cursor1
+					INTO :request_id:request_id_i,
+					     :request_id_pos7:request_id_pos7_i;
+			} else {
+				EXEC SQL FETCH req_cursor3
+					INTO :request_id:request_id_i,
+					     :request_id_pos7:request_id_pos7_i;
+			}
+		}
+
+		if (sqlca.sqlcode == 0){
+
+			request_id.arr[request_id.len] = '\0';
+			
+/*			printf("\nProcessing Seg code - %s Request ID %s Request_id Pos 7 (%c)", seg_code,request_id.arr,request_id_pos7);  */
+			if (isalpha(request_id_pos7))
+			{
+/*				printf("\nPOS 7 is Alpha Processing Seg code - %s Request ID %s Request ID Pos 7 %c ", seg_code,request_id.arr,request_id_pos7); */
+			}
+			else
+			{
+				get_created_date();
+			}
+		} else {
+			if (sqlca.sqlcode == NOTFND){
+				printf("No records from req cursor for %s\n", seg_code);
+				found = 0;
+				sqlca.sqlcode = 0;
+			} else {
+				printf("read_req_cursor error\n");
+				printf("Last sqlcode: %d\n", sqlca.sqlcode);
+				found = 0;
+			}
+		}
+	}
+}
+
+/****************************************************************************************
+* Function: READ_BOEING_CURSOR
+* Description: Read Boeing split requisitions.
+*
+*
+****************************************************************************************/
+void read_boeing_cursor(){
+
+	if(sqlca.sqlcode == 0){
+		EXEC SQL FETCH boeing_cursor
+			INTO
+			 :request_id:request_id_i,
+		         :request_id_pos7:request_id_pos7_i;
+
+		if (sqlca.sqlcode == 0){
+
+			request_id.arr[request_id.len] = '\0';
+/*			printf("\nProcessing Seg code - %s Request ID %s Request ID Pos 7 %c ", seg_code,request_id.arr,request_id_pos7); */
+
+			if (isalpha(request_id_pos7))
+			{
+/*				printf("\nPOS 7 is Alpha Processing Seg code - %s Request ID %s Request ID Pos 7 %c ", seg_code,request_id.arr,request_id_pos7); */
+			}
+			else
+			{
+					get_created_date();
+			}
+		} else {
+			if (sqlca.sqlcode == NOTFND){
+				printf("No records from boeing cursor for %s\n", seg_code);
+				found = 0;
+				sqlca.sqlcode = 0;
+			} else {
+				printf("cursor 9200 fetch error\n");
+				printf("Last sqlcode: %d\n", sqlca.sqlcode);
+				found = 0;
+			}
+		}
+	}
+}
+
+/****************************************************************************************
+* Function: READ_NAVY_CURSOR
+* Description: Read Navy split requisitions.
+*
+*
+****************************************************************************************/
+void read_navy_cursor(){
+
+	if(sqlca.sqlcode == 0){
+		EXEC SQL FETCH navy_cursor
+			INTO
+			 :request_id:request_id_i;
+
+		if (sqlca.sqlcode == 0){
+
+			request_id.arr[request_id.len] = '\0';
+
+			if (isalpha(request_id_pos7))
+			{
+/*				printf("\nPOS 7 is Alpha Processing Seg code - %s Request ID %s Request ID Pos 7 %c ", seg_code,request_id.arr,request_id_pos7); */
+			}
+			else
+			{
+				get_created_date();
+			}
+		} else {
+			if (sqlca.sqlcode == NOTFND){
+				printf("No records from navy cursor for %s\n", seg_code);
+				found = 0;
+				sqlca.sqlcode = 0;
+			} else {
+				printf("cursor 9200 fetch error\n");
+				printf("Last sqlcode: %d\n", sqlca.sqlcode);
+				found = 0;
+			}
+		}
+	}
+}
+
+/****************************************************************************************
+* Function: READ_EXCEPTION_CURSOR
+* Description: Read exception requisitions.
+*
+*
+****************************************************************************************/
+void read_exception_cursor(){
+
+	if(sqlca.sqlcode == 0){
+		EXEC SQL FETCH exception_cursor
+			INTO
+			 :request_id:request_id_i,
+			 :request_id_pos7:request_id_pos7_i;
+
+		if (sqlca.sqlcode == 0){
+
+			request_id.arr[request_id.len] = '\0';
+
+			get_more_info();
+		} else {
+			if (sqlca.sqlcode == NOTFND){
+				printf("No records from exception cursor for %s\n", seg_code);
+				found = 0;
+				sqlca.sqlcode = 0;
+			} else {
+				printf("cursor 9200 fetch error\n");
+				printf("Last sqlcode: %d\n", sqlca.sqlcode);
+				found = 0;
+			}
+		}
+	}
+}
+
+/****************************************************************************************
+* Function: GET_CREATED_DATE
+* Description:
+*
+*
+****************************************************************************************/
+void get_created_date(){
+
+	EXEC SQL AT :gold_db
+	SELECT distinct to_char(m.created_datetime, 'YYYYMMDDHH24MISS') cdate,substr(m.status_line,52,2) fund_code
+          INTO     :mindatetime:mindatetime_i
+        ,:fund_code:fund_code_i
+          FROM mils m
+         WHERE m.request_id like :request_id|| '%'
+           AND rownum < 2
+           AND m.created_datetime = (SELECT max(mm.created_datetime)
+                                       FROM mils mm
+                                      WHERE mm.request_id = m.request_id
+                                        AND (mm.status_line like 'A4%'
+                                            OR mm.status_line like 'A0%'));
+                              
+                                            
+if (sqlca.sqlcode == NOTFND){
+EXEC SQL AT :gold_db
+select distinct to_char(r.created_doc_date, 'YYYYMMDDHH24MISS') cdate, null fund_code
+INTO     :mindatetime:mindatetime_i
+        ,:fund_code:fund_code_i
+        FROM req1 r
+        WHERE r.request_id = (Select min(r2.request_id) 
+                              from req1 r2, req1_ext e 
+                              where r2. request_id = e.request_id 
+                              AND r2.request_id like :request_id|| '%') 
+        AND not exists (SELECT distinct to_char(m.created_datetime, 'YYYYMMDDHH24MISS'),substr(m.status_line,52,2) fund_code
+          FROM mils m
+         WHERE m.request_id like :request_id || '%'
+           AND rownum < 2
+           AND m.created_datetime = (SELECT max(mm.created_datetime)
+                                       FROM mils mm
+                                      WHERE mm.request_id = m.request_id
+                                        AND (mm.status_line like 'A4%'
+                                            OR mm.status_line like 'A0%')));
+}                                            
+					
+	if (sqlca.sqlcode == 0){
+
+		fund_code.arr[fund_code.len] = '\0';
+		get_more_info();
+	} else {
+		
+		
+		if (sqlca.sqlcode == NOTFND){
+			printf("No records from get_created_date for %s\t%s\n", seg_code, request_id.arr);
+			sqlca.sqlcode = 0;
+
+			mindatetime.len = 0;
+			mindatetime.arr[mindatetime.len] = '\0';
+			fund_code.len = 0;
+			fund_code.arr[fund_code.len] = '\0';
+		} else {
+			printf("get_created_date error\n");
+			printf("Last sqlcode: %d\n", sqlca.sqlcode);
+			found = 0;
+		}
+	}
+
+}
+
+/****************************************************************************************
+* Function: GET_MORE_INFO
+* Description:
+*
+* Added c.manuf_cage 3/9/05 by SKT
+* Added r.ecd 8/31/05 by SKT
+****************************************************************************************/
+void get_more_info(){
+
+	EXEC SQL AT :gold_db
+		SELECT 	distinct r.project_code,
+				r.request_priority, 
+				r.special_rdd, 
+				r.deliver_to_dodaac,
+			  	NVL (w.ims_designator_code, c.ims_designator_code),
+		                r.select_from_segregation_code, 
+				c.smrc, 
+				c.nsn,
+			   	c.cognizance_code, 
+				c.user_ref15 pbl_cage,
+			   	decode(substr(r.request_id,8,3), '366',to_char(to_date(substr(r.request_id,7,4) - 1, 'YDDD'), 'MMDDYYYY'), to_char(to_date(substr(r.request_id,7,4), 'YDDD'), 'MMDDYYYY')),
+			   	to_char(r.created_on, 'YYYYMMDDHH24MISS'),
+			   	nvl(r.reviewed_userid,' '), r.status, v.vendor_code, 
+				c.manuf_cage, 
+				to_char(r.estimated_completed_on, 'YYYYMMDDHH24MISS')
+		  INTO
+				 :proj_cd:proj_cd_i
+				,:priority:priority_i
+				,:rdd:rdd_i
+				,:deliver_to_dodaac:deliver_to_dodaac_i
+				,:ims_designator_code:ims_designator_code_i
+				,:sc:sc_i
+				,:smrc:smrc_i
+				,:nsn:nsn_i
+				,:cog:cog_i
+				,:pbl_cage:pbl_cage_i
+				,:jdate:jdate_i
+				,:req1_createddatetime:req1_createddatetime_i
+				,:reviewed_userid:reviewed_userid_i
+				,:req1_status:req1_status_i
+				,:venc_vendor_code:venc_vendor_code_i
+				,:manuf_cage:manuf_cage_i
+				,:req1_ecd:req1_ecd_i
+		  FROM cat1 c, 
+			venc v, 
+			req1$merged r, 
+			whse w
+		 WHERE r.select_from_part = c.part
+		   AND c.part = v.part(+)
+		   AND v.vendor_flag(+) = 'V'
+		   AND v.vendor_code(+) = '76823'
+		   AND r.select_from_part = w.part(+)
+		   AND r.select_from_segregation_code = w.sc(+)
+		   AND r.select_from_segregation_code like :trimmed_sc
+		   AND r.request_id like :request_id || '%'
+		   AND r.status in ('H','O','U','R','S','C')
+		   AND rownum < 2
+		   AND length(r.request_id) > 2
+		   AND r.created_on = (
+						  SELECT max(created_on)
+							FROM req1$merged
+						   WHERE request_id like :request_id || '%');
+
+		if (sqlca.sqlcode == 0){
+
+			proj_cd.arr[proj_cd.len] = '\0';
+			priority.arr[priority.len] = '\0';
+			rdd.arr[rdd.len] = '\0';
+			deliver_to_dodaac.arr[deliver_to_dodaac.len] = '\0';
+			sc.arr[sc.len] = '\0';
+			ims_designator_code.arr[ims_designator_code.len] = '\0';
+			smrc.arr[smrc.len] = '\0';
+			nsn.arr[nsn.len] = '\0';
+			cog.arr[cog.len] = '\0';
+			pbl_cage.arr[pbl_cage.len] = '\0';
+			jdate.arr[jdate.len] = '\0';
+			req1_createddatetime.arr[req1_createddatetime.len] = '\0';
+			reviewed_userid.arr[reviewed_userid.len] = '\0';
+			venc_vendor_code.arr[venc_vendor_code.len] = '\0';
+			manuf_cage.arr[manuf_cage.len] = '\0';
+			req1_ecd.arr[req1_ecd.len] = '\0';
+
+			getpart();
+		} else {
+			if (sqlca.sqlcode == NOTFND){
+
+				proj_cd.len = 0;
+				proj_cd.arr[proj_cd.len] = '\0';
+				priority.len = 0;
+				priority.arr[priority.len] = '\0';
+				rdd.len = 0;
+				rdd.arr[rdd.len] = '\0';
+				deliver_to_dodaac.len = 0;
+				deliver_to_dodaac.arr[deliver_to_dodaac.len] = '\0';
+				sc.len = 0;
+				sc.arr[sc.len] = '\0';
+				ims_designator_code.len = 0;
+				ims_designator_code.arr[ims_designator_code.len] = '\0';
+				smrc.len = 0;
+				smrc.arr[smrc.len] = '\0';
+				nsn.len = 0;
+				nsn.arr[nsn.len] = '\0';
+				cog.len = 0;
+				cog.arr[cog.len] = '\0';
+				pbl_cage.len = 0;
+				pbl_cage.arr[pbl_cage.len] = '\0';
+				jdate.len = 0;
+				jdate.arr[jdate.len] = '\0';
+				req1_createddatetime.len = 0;
+				req1_createddatetime.arr[req1_createddatetime.len] = '\0';
+				reviewed_userid.len = 0;
+				reviewed_userid.arr[reviewed_userid.len] = '\0';
+				req1_status = ' ';
+				venc_vendor_code.len = 0;
+				venc_vendor_code.arr[venc_vendor_code.len] = '\0';
+				manuf_cage.len = 0;
+				manuf_cage.arr[manuf_cage.len] = '\0';
+				req1_ecd.len = 0;
+				req1_ecd.arr[req1_ecd.len] = '\0';
+				printf("No records from getmoreinfo for %s\t%s\n", trimmed_sc, request_id.arr);
+				sqlca.sqlcode = 0;
+				getpart();
+			} else {
+				printf("get_more_info error: %s\n", request_id.arr);
+				printf("Last sqlcode: %d\n", sqlca.sqlcode);
+				printf("proj_cd: %s\n", proj_cd.arr);
+				printf("Seg Code (%s)\n",trimmed_sc);
+				printf("Request Id (%s)\n",request_id.arr);
+				exit;
+			}
+		}
+
+}
+
+/****************************************************************************************
+* Function: GETPART
+* Description:
+*
+*
+****************************************************************************************/
+void getpart(){
+
+
+	EXEC SQL AT :gold_db
+		SELECT max(r.select_from_part)
+	      INTO :part:part_i
+	      FROM req1$merged r
+	     WHERE r.request_id like :request_id || '%'
+	       AND r.select_from_segregation_code like :trimmed_sc;
+
+	if (sqlca.sqlcode == 0){
+
+		part.arr[part.len] = '\0';
+
+		getmaxdate();
+	} else {
+		if (sqlca.sqlcode == NOTFND){
+			printf("No records from getpart for %s\n", trimmed_sc);
+			sqlca.sqlcode = 0;
+
+			part.len = 0;
+			part.arr[part.len] = '\0';
+
+			getmaxdate();
+		} else {
+			printf("getpart error\n");
+			printf("Last sqlcode: %d\n", sqlca.sqlcode);
+		}
+	}
+
+}
+
+/****************************************************************************************
+* Function: GETMAXDATE
+* Description:
+*
+*
+****************************************************************************************/
+void getmaxdate(){
+	if (strncmp(seg_code, "F18001H", 7) == 0 || strncmp(seg_code, "F18001J", 7) == 0){
+		EXEC SQL AT :gold_db
+			SELECT	to_char(rs.shipped_datetime, 'YYYYMMDDHH24MISS')
+				, to_char(r.need_date, 'YYYYMMDDHH24MISS')
+				, to_char(t.created_datetime, 'YYYYMMDDHH24MISS')
+				,(TO_DATE(TO_CHAR(R.DATE_RECEIPT_PROCESSED, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS') -
+        			TO_DATE(:mindatetime, 'YYYYMMDDHH24MISS'))*24 METRIC
+			  INTO
+			    	  :shipdatetime:shipdatetime_i
+			 	, :need_dt:need_dt_i
+			 	, :moveit_dt:moveit_dt_i
+			  	, :metric:metric_i
+			  FROM trhi t, 
+				rsv1 rv, 
+				req1$merged r, 
+				reqs rs
+			 WHERE	rv.tcn = 'DII'
+			   AND  t.tcn(+) = 'DII'
+			   AND  r.status in ('H','O','U','R','S','C')
+			   AND  rs.request_id = t.request_id
+			   AND 	rs.request_id = r.request_id
+			   AND  rs.request_id = rv.request_id
+			   AND length(r.request_id) > 2
+			   AND  r.select_from_segregation_code like :trimmed_sc
+			   AND  t.sc like :trimmed_sc
+			   AND  rv.to_sc like :trimmed_sc
+			   AND 	t.request_id like :request_id || '%'
+			   AND 	rv.request_id like :request_id || '%'
+			   AND 	rs.request_id like :request_id || '%';
+
+
+		if (sqlca.sqlcode == 0){
+
+			get_release_date();
+			get_carrier_info();
+			sum_qty();
+			update_check();
+		} else {
+			if (sqlca.sqlcode == NOTFND){
+				shipdatetime.len = 0;
+				shipdatetime.arr[shipdatetime.len] = '\0';
+				need_dt.len = 0;
+				need_dt.arr[need_dt.len] = '\0';
+				moveit_dt.len = 0;
+				moveit_dt.arr[moveit_dt.len] = '\0';
+				metric = 0;
+
+				sqlca.sqlcode = 0;
+
+				get_release_date();
+				get_carrier_info();
+				sum_qty();
+				update_check();
+			} else {
+				if(sqlca.sqlcode == MULTI){
+					sqlca.sqlcode = 0;
+
+					get_release_date();
+					get_carrier_info();
+					sum_qty();
+					update_check();
+				} else {
+					printf("cursor getmaxdate error\n");
+					printf("Last sqlcode: %d\n", sqlca.sqlcode);
+					printf("moveit_dt: %s\n", moveit_dt.arr);
+					printf("request_id: %s\n", request_id.arr);
+				}
+			}
+		}
+
+	} else {
+		if (strncmp(seg_code, "VPV9406", 7) == 0 || strncmp(seg_code, "1ASLSCM", 7) == 0){
+			EXEC SQL AT :gold_db
+				SELECT	to_char(r.need_date, 'YYYYMMDDHH24MISS')
+					, to_char(t.created_datetime, 'YYYYMMDDHH24MISS')
+					, (TO_DATE( TO_CHAR(rs.shipped_datetime, 'YYYYMMDDHH24MISS'), 'YYYYMMDDHH24MISS') -
+        				TO_DATE(:mindatetime, 'YYYYMMDDHH24MISS'))*24 METRIC
+			  	  INTO
+		  			  :need_dt:need_dt_i
+		  			, :moveit_dt:moveit_dt_i
+		  			, :metric:metric_i
+			  	  FROM	rsv1 rv, 
+					trhi t, 
+					req1$merged r, 
+					reqs rs
+			 	 WHERE	rv.tcn = 'DII'
+				   AND  t.tcn(+) = 'DII'
+				   AND  r.status in ('H','O','U','R','S','C')
+				   AND  rs.request_id = t.request_id
+				   AND 	rs.request_id = r.request_id
+				   AND  rs.request_id = rv.request_id
+				   AND  r.select_from_segregation_code like :trimmed_sc
+				   AND  length(r.request_id) > 2
+				   AND  t.sc like :trimmed_sc
+				   AND  rv.to_sc like :trimmed_sc
+				   AND 	t.request_id like :request_id || '%'
+				   AND 	rv.request_id like :request_id || '%'
+				   AND 	rs.request_id like :request_id || '%'
+			       AND 	rs.shipped_datetime = (SELECT max(r1.shipped_datetime)
+			   								    FROM reqs r1
+			   								   WHERE r1.request_id like
+			   										 		:request_id || '%');
+
+			if (sqlca.sqlcode == 0){
+				getDateShipped();
+				get_carrier_info();
+				sum_qty();
+				update_check();
+			} else {
+				if (sqlca.sqlcode == NOTFND){
+
+					shipdatetime.len = 0;
+					shipdatetime.arr[shipdatetime.len] = '\0';
+					need_dt.len = 0;
+					need_dt.arr[need_dt.len] = '\0';
+					moveit_dt.len = 0;
+					moveit_dt.arr[moveit_dt.len] = '\0';
+					metric = 0;
+
+					sqlca.sqlcode = 0;
+
+					getDateShipped();
+					get_carrier_info();
+					sum_qty();
+					update_check();
+				} else {
+					if(sqlca.sqlcode == MULTI){
+
+						sqlca.sqlcode = 0;
+
+						getDateShipped();
+						get_carrier_info();
+						sum_qty();
+						update_check();
+					} else {
+
+						printf("cursor getmaxdate error\n");
+						printf("Last sqlcode: %d\n", sqlca.sqlcode);
+						printf("moveit_dt: %s\n", moveit_dt.arr);
+						printf("request_id: %s\n", request_id.arr);
+					}
+				}
+			}
+		}
+	}
+
+}
+
+/***************************************************************************************
+* Function: GET_DATE_SHIPPED
+* Description: VPV 856 date shipped
+*
+*
+*
+****************************************************************************************/
+void getDateShipped() {
+
+	EXEC SQL AT :slic_db
+		SELECT to_char(date_shipped_856, 'YYYYMMDDHH24MISS')
+		  INTO :shipdatetime:shipdatetime_i
+		  FROM scm.edi_shipments
+		 WHERE request_id = :request_id;
+
+
+
+	if (sqlca.sqlcode == NOTFND){
+
+		shipdatetime.len = 0;
+		shipdatetime.arr[shipdatetime.len] = '\0';
+		sqlca.sqlcode = 0;
+	} else if (sqlca.sqlcode != 0) {
+		if(sqlca.sqlcode == MULTI) {
+			sqlca.sqlcode = 0;
+		} else {
+			printf("getDateShipped error\n");
+			printf("Last sqlcode: %d\n", sqlca.sqlcode);
+			printf("request_id: %s\n", request_id.arr);
+		}
+	}
+
+}
+
+/****************************************************************************************
+* Function: GET_RELEASE_DATE
+* Description:
+*
+*
+****************************************************************************************/
+void get_release_date(){
+	EXEC SQL AT :gold_db
+	SELECT	to_char(rv.created_datetime, 'YYYYMMDDHH24MISS')
+	INTO  :reserve_dt:reserve_dt_i
+	FROM rsv1 rv
+	 WHERE	rv.tcn = 'DII'
+	   AND  length(rv.request_id) > 2
+	   AND  rv.to_sc like :trimmed_sc
+	   AND 	rv.request_id like :request_id || '%';
+
+
+	if (sqlca.sqlcode == NOTFND){
+	 	reserve_dt.len = 0;
+		reserve_dt.arr[reserve_dt.len] = '\0';
+	}
+
+}
+
+
+/****************************************************************************************
+* Function: GET_CARRIER_INFO
+* Description:
+*
+*
+****************************************************************************************/
+void get_carrier_info(){
+	int t;
+	int pos = 0;
+	varchar scac[6];
+	ctn_i = 0;
+
+	EXEC SQL AT :gold_db
+		SELECT request_id, 
+			to_char(date_receipt_processed, 'YYYYMMDDHH24MISS')
+		  INTO :req_id:req_id_i
+		     , :recdatetime:recdatetime_i
+		  FROM req1$merged
+		 WHERE select_from_segregation_code like :trimmed_sc
+ 		   AND request_id like :request_id || '%'
+ 		   AND length(request_id) > 2
+ 		   AND status in ('H','O','U','R','S','C')
+ 		   AND rownum < 2
+ 		   AND date_receipt_processed =
+					(SELECT max(r1.date_receipt_processed)
+					   FROM req1$merged r1
+					  WHERE r1.select_from_segregation_code like :trimmed_sc
+						AND r1.request_id like :request_id || '%'
+						AND r1.status in ('H','O','U','R','S','C'));
+
+	if (sqlca.sqlcode == FND){
+
+		req_id.arr[req_id.len] = '\0';
+
+		EXEC SQL AT :gold_db
+			SELECT shipment_ctrl_no
+		  	  INTO :shipment_ctrl_no:shipment_ctrl_no_i
+		   	  FROM reqs
+		 	 WHERE request_id like :req_id || '%'
+		 	   AND rownum < 2
+		 	   AND shipped_datetime = (
+				            SELECT max(s.shipped_datetime)
+                              FROM reqs s
+                     	     WHERE s.request_id like :request_id || '%');
+
+		if (sqlca.sqlcode == FND){
+
+			shipment_ctrl_no.arr[shipment_ctrl_no.len] = '\0';
+			for (t = 0; t < 18; t++){
+				if (shipment_ctrl_no.arr[t] == '-'){
+					pos = t;
+				}
+			}
+
+			if (pos > 0){
+				strncpy((char *) scac.arr, (char *) shipment_ctrl_no.arr, pos);
+				scac.arr[pos] = '\0';
+				scac.len = pos;
+
+				strncpy((char *) ctn.arr, (char *) &shipment_ctrl_no.arr[pos+1], strlen((char *) shipment_ctrl_no.arr)-(pos));
+				ctn.arr[strlen((char *) ctn.arr)] = '\0';
+				ctn.len = strlen((char *) ctn.arr);
+
+				if (strncmp(scac.arr, "BOEING", 6) == 0){
+
+					strncpy((char *) carrier.arr, (char *) scac.arr, strlen((char *) scac.arr));
+					carrier.arr[strlen((char *) scac.arr)] = '\0';
+				} else {
+					EXEC SQL AT :slic_db
+						SELECT carrier
+				 	  	  INTO :carrier:carrier_i
+				  	  	  FROM scm.carrier_info
+				 	  	 WHERE scac = :scac;
+
+					if (sqlca.sqlcode == NOTFND){
+						carrier.len = 0;
+						carrier.arr[carrier.len] = '\0';
+					} else {
+						carrier.arr[carrier.len] = '\0';
+					}
+				}
+
+			} else {
+				carrier.len = 0;
+				carrier.arr[carrier.len] = '\0';
+				ctn.len = 0;
+				ctn.arr[ctn.len] = '\0';
+				ctn_i = -1;
+			}
+		} else {
+			if (sqlca.sqlcode == NOTFND){
+				shipment_ctrl_no.len = 0;
+				shipment_ctrl_no.arr[shipment_ctrl_no.len] = '\0';
+				carrier.len = 0;
+				carrier.arr[carrier.len] = '\0';
+				ctn.len = 0;
+				ctn.arr[ctn.len] = '\0';
+				ctn_i = -1;
+
+				sqlca.sqlcode = 0;
+			}
+		}
+	} else {
+		if (sqlca.sqlcode == NOTFND){
+
+			recdatetime.len = 0;
+			recdatetime.arr[recdatetime.len] = '\0';
+			carrier.len = 0;
+			carrier.arr[carrier.len] = '\0';
+			ctn.len = 0;
+			ctn.arr[ctn.len] = '\0';
+			ctn_i = -1;
+
+			sqlca.sqlcode = 0;
+		}
+	}
+
+}
+
+/****************************************************************************************
+* Function: SUM_QTY
+* Description:
+*
+*
+****************************************************************************************/
+void sum_qty(){
+	EXEC SQL AT :gold_db
+	     SELECT sum(nvl(quantity_requested,0) - nvl(quantity_issued,0) - nvl(quantity_canceled,0)) qty_open,
+	            sum(nvl(quantity_requested,0)) qty_req,
+	            sum(nvl(quantity_issued,0)) qty_issued,
+		    sum(nvl(qty_to_order,0)) qty_bo,
+		    sum(nvl(quantity_canceled,0)) qty_canc
+	       INTO :qty_open:qty_open_i
+	           ,:qty_req:qty_req_i
+		   ,:qty_issued:qty_issued_i
+		   ,:qty_bo:qty_bo_i
+	 	   ,:qty_can:qty_can_i
+	       FROM req1$merged
+		  WHERE request_id like :request_id || '%'
+		    AND  length(request_id) > 2
+		    AND status in ('H','O','U','R','S','C');
+
+    if (sqlca.sqlcode == 0){
+		if ((qty_open) > 0){
+			status = 'O';
+		}
+
+		if ((qty_open) == 0){
+			status = 'S';
+		}
+
+		if ((qty_req - qty_can) == 0){
+			status = 'C';
+		}
+
+		qty_bo = qty_open;
+		if (qty_bo_i == -1){
+			qty_bo_i = 0;
+		}
+	} else {
+    	if (sqlca.sqlcode == NOTFND){
+			qty_open = 0;
+	    	qty_req = 0;
+	    	qty_issued = 0;
+	    	qty_bo = 0;
+	    	qty_can = 0;
+
+	    	sqlca.sqlcode = 0;
+		} else {
+			if(sqlca.sqlcode == MULTI){
+				sqlca.sqlcode = 0;
+			} else {
+				printf("sum qty error\n");
+				printf("Last sqlcode: %d\n", sqlca.sqlcode);
+				sqlca.sqlcode = 0;
+			}
+		}
+	}
+
+}
+
+/****************************************************************************************
+* Function: GET_TRHI
+* Description:
+*
+*
+****************************************************************************************/
+void get_trhi(){
+
+	EXEC SQL AT :gold_db
+		SELECT to_char(created_datetime, 'YYYYMMDDHH24MISS') c_date
+				, substr(ft_to_location,1,3) location
+		  INTO :trhi_createddatetime:trhi_createddatetime_i
+			   ,:location:location_i
+		  FROM trhi
+		 WHERE request_id like :request_id || '%'		   
+		   AND sc like :trimmed_sc
+		   AND rownum < 2;
+
+	if (sqlca.sqlcode == 0){
+
+	} else {
+		if (sqlca.sqlcode == NOTFND){
+			trhi_createddatetime.len = 0;
+			trhi_createddatetime.arr[trhi_createddatetime.len] = '\0';
+			location.len = 0;
+			location.arr[location.len] = '\0';
+
+			sqlca.sqlcode = 0;
+		} else {
+
+			printf("get_trhi error\n");
+			printf("Last sqlcode: %d\n", sqlca.sqlcode);
+		}
+	}
+
+}
+
+/****************************************************************************************
+* Function: UPDATE_CHECK
+* Description:
+*
+*
+****************************************************************************************/
+void update_check(){
+	varchar uc_request_id[21];short uc_request_id_i;
+
+	EXEC SQL AT :slic_db
+		SELECT request_id
+		  INTO :uc_request_id:uc_request_id_i
+		  FROM scm.gld_reqmtrc
+		 WHERE request_id = :request_id;
+
+	if (sqlca.sqlcode == 0){
+
+		update();
+	} else {
+
+		sqlca.sqlcode = 0;
+		insert();
+	}
+
+}
+
+/****************************************************************************************
+* Function: CHECK_INCLUDE
+* Description:
+*
+*
+****************************************************************************************/
+void check_include(){
+
+	EXEC SQL AT :slic_db
+		SELECT part_no
+		  INTO :temp_part:temp_part_i
+		  FROM scm.non_event_list
+		 WHERE part_no = :part
+		   AND afp = :afp;
+
+	if (sqlca.sqlcode == 0){
+		include_flag = 'N';
+	} else {
+		include_flag = 'Y';
+	}
+
+}
+
+/****************************************************************************************
+* Function: GET_AFP
+* Description:
+*
+*
+****************************************************************************************/
+void get_afp(){
+
+	EXEC SQL AT :slic_db
+		SELECT afp
+		  INTO :afp:afp_i
+		  FROM scm.first_afp
+		 WHERE to_date(substr(:mindatetime,1,8), 'YYYYMMDD') >= start_date
+		   AND to_date(substr(:mindatetime,1,8), 'YYYYMMDD') <= end_date;
+
+	if (sqlca.sqlcode == 0){
+
+	} else {
+
+		afp = 0;
+		printf("get_afp error: %d\t%s\t%s\n", sqlca.sqlcode, request_id.arr, mindatetime.arr);
+	}
+
+}
+
+/****************************************************************************************
+* Function: INSERT
+* Description:
+*
+* Added manuf_cage to insert 3/9/05 by SKT
+* Added req1_ecd to insert 8/31/05 by SKT
+****************************************************************************************/
+void insert(){
+
+	get_trhi();
+
+	if (strncmp(jdate.arr+4, "2005", 4) > 0){
+
+		strncpy(jdate.arr+4, "199", 3);
+	}
+
+	if ((strncmp(reviewed_userid.arr, " ",1) == 0) && (status == 'S')){
+
+		auto_process = 'Y';
+	} else {
+
+		auto_process = 'N';
+	}
+
+	if (strncmp(seg_code, "F18001H", 7) == 0 || strncmp(seg_code, "F18001J", 7) == 0){
+
+		get_afp();
+		check_include();
+	} else {
+
+		afp = 0;
+		include_flag = 'Y';
+	}
+
+	if (strncmp(seg_code, "VPV9406", 7) == 0 || strncmp(seg_code, "1ASLSCM", 7) == 0){
+
+		recdatetime.len = 0;
+		recdatetime.arr[recdatetime.len] = '\0';
+	}
+
+	if (pbl_cage.len == 0 && venc_vendor_code.len > 0) {
+		strcpy((char *) pbl_cage.arr, (char *) venc_vendor_code.arr);
+	}
+
+
+		EXEC SQL AT :slic_db
+			INSERT
+				INTO scm.gld_reqmtrc
+				(request_id
+				,part
+				,sc
+				,proj_code
+				,priority
+				,special_rdd
+				,status
+				,smrc
+				,nsn
+				,cog
+				,pbl_cage
+				,need_dt
+				,moveit_dt
+				,minmils_dt
+				,date_receipt_processed
+				,metric
+				,deliver_to_dodaac
+				,shipped_datetime
+				,reserve_dt
+				,qty_requested
+				,qty_delivered
+				,qty_bo
+				,qty_can
+				,carrier
+				,ctn
+				,req_date
+				,des_code
+				,fund_code
+				,req1_createddatetime
+				,auto_process
+				,trhi_createddatetime
+				,location
+				,include_flag
+				,afp
+				,req1_status
+				,manuf_cage
+				,req1_ecd)
+			VALUES
+				(:request_id:request_id_i
+				,:part:part_i
+				,:sc:sc_i
+				,:proj_cd:proj_cd_i
+				,:priority:priority_i
+				,:rdd:rdd_i
+				,:status:status_i
+				,:smrc:smrc_i
+				,:nsn:nsn_i
+				,:cog:cog_i
+				,:pbl_cage:pbl_cage_i
+				,to_date(:need_dt:need_dt_i, 'YYYYMMDDHH24MISS')
+				,to_date(:moveit_dt:moveit_dt_i, 'YYYYMMDDHH24MISS')
+				,to_date(:mindatetime:mindatetime_i, 'YYYYMMDDHH24MISS')
+				,to_date(:recdatetime:recdatetime_i, 'YYYYMMDDHH24MISS')
+				,:metric:metric_i
+				,:deliver_to_dodaac:deliver_to_dodaac_i
+				,to_date(:shipdatetime:shipdatetime_i, 'YYYYMMDDHH24MISS')
+				,to_date(:reserve_dt:reserve_dt_i, 'YYYYMMDDHH24MISS')
+				,:qty_req:qty_req_i
+				,:qty_issued:qty_issued_i
+				,:qty_bo:qty_bo_i
+				,:qty_can:qty_can_i
+				,:carrier:carrier_i
+				,:ctn:ctn_i
+				,to_date(:jdate:jdate_i, 'MMDDYYYY')
+				,:ims_designator_code:ims_designator_code_i
+				,:fund_code:fund_code_i
+				,to_date(:req1_createddatetime:req1_createddatetime_i, 'YYYYMMDDHH24MISS')
+				,:auto_process:auto_process_i
+				,to_date(:trhi_createddatetime:trhi_createddatetime_i, 'YYYYMMDDHH24MISS')
+				,:location:location_i
+				,:include_flag
+				,:afp:afp_i
+				,:req1_status:req1_status_i
+				,:manuf_cage:manuf_cage_i
+				,to_date(:req1_ecd:req1_ecd_i, 'YYYYMMDDHH24MISS'));
+
+	if (sqlca.sqlcode == 0)	{
+		out_cnt = out_cnt + 1;
+		if ((out_cnt % 100) == 0){
+
+			EXEC SQL AT :slic_db COMMIT;
+			printf("Commit: %d\n", out_cnt);
+		}
+	} else {
+
+		if (sqlca.sqlcode == -1){
+
+			printf("Duplicate:  %s  %d\n", request_id.arr, sqlca.sqlcode);
+			duplicate = duplicate + 1;
+			sqlca.sqlcode = 0;
+		} else {
+
+			printf("Insert error  %s\n", request_id.arr);
+			printf("Last SQLCODE: %d\n", sqlca.sqlcode);
+		}
+	}
+
+}
+
+/****************************************************************************************
+* Function: UPDATE
+* Description:
+*
+* Added manuf_cage to update 3/9/05 by SKT
+* Added req1_ecd to update 8/31/05 by SKT
+****************************************************************************************/
+void update(){
+
+	get_trhi();
+
+	if (strncmp(jdate.arr+4, "2005", 4) > 0){
+
+		strncpy(jdate.arr+4, "199", 3);
+	}
+
+	/* Check to see if reviewed userid is null */
+	/* If it is null then the req is auto processed */
+
+	if ((strncmp(reviewed_userid.arr, " ",1) == 0) && (status == 'S')){
+
+		auto_process = 'Y';
+	} else {
+
+		auto_process = 'N';
+	}
+
+	if (pbl_cage.len == 0 && venc_vendor_code.len > 0) {
+		strcpy((char *) pbl_cage.arr, (char *) venc_vendor_code.arr);
+		pbl_cage_i = venc_vendor_code_i;
+		pbl_cage.len = venc_vendor_code.len;
+	}
+
+	if (strncmp(seg_code, "F18001H", 7) == 0 || strncmp(seg_code, "F18001J", 7) == 0){
+
+		get_afp();
+		check_include();
+	} else {
+
+		afp = 0;
+		include_flag = 'Y';
+	}
+
+	if (strncmp(seg_code, "VPV9406", 7) == 0 || strncmp(seg_code, "1ASLSCM", 7) == 0){
+
+		recdatetime.len = 0;
+		recdatetime.arr[recdatetime.len] = '\0';
+	}
+
+	EXEC SQL AT :slic_db
+		UPDATE scm.gld_reqmtrc
+		   SET part = :part:part_i
+			,sc = :sc:sc_i
+			,proj_code = :proj_cd:proj_cd_i
+			,priority = :priority:priority_i
+			,special_rdd = :rdd:rdd_i
+			,status = :status:status_i
+			,smrc = :smrc:smrc_i
+			,nsn = :nsn:nsn_i
+			,cog = :cog:cog_i
+			,pbl_cage = :pbl_cage:pbl_cage_i
+			,need_dt = to_date(:need_dt:need_dt_i, 'YYYYMMDDHH24MISS')
+			,moveit_dt = to_date(:moveit_dt:moveit_dt_i, 'YYYYMMDDHH24MISS')
+			,minmils_dt = to_date(:mindatetime:mindatetime_i, 'YYYYMMDDHH24MISS')
+			,date_receipt_processed = to_date(:recdatetime:recdatetime_i, 'YYYYMMDDHH24MISS')
+			,metric = :metric:metric_i
+			,deliver_to_dodaac = :deliver_to_dodaac:deliver_to_dodaac_i
+			,shipped_datetime = to_date(:shipdatetime:shipdatetime_i, 'YYYYMMDDHH24MISS')
+			,reserve_dt = to_date(:reserve_dt:reserve_dt_i, 'YYYYMMDDHH24MISS')
+			,qty_requested = :qty_req:qty_req_i
+			,qty_delivered = :qty_issued:qty_issued_i
+			,qty_bo = :qty_bo:qty_bo_i
+			,qty_can = :qty_can:qty_can_i
+			,carrier = :carrier:carrier_i
+			,ctn = :ctn:ctn_i
+			,req_date = to_date(:jdate:jdate_i, 'MMDDYYYY')
+			,des_code = :ims_designator_code:ims_designator_code_i
+			,fund_code = :fund_code:fund_code_i
+			,req1_createddatetime = to_date(:req1_createddatetime:req1_createddatetime_i, 'YYYYMMDDHH24MISS')
+			,auto_process = :auto_process:auto_process_i
+			,trhi_createddatetime = to_date(:trhi_createddatetime:trhi_createddatetime_i, 'YYYYMMDDHH24MISS')
+			,location = :location:location_i
+			,afp = :afp:afp_i
+			,include_flag = :include_flag
+			,req1_status = :req1_status:req1_status_i
+			,manuf_cage = :manuf_cage:manuf_cage_i
+			,req1_ecd = to_date(:req1_ecd:req1_ecd_i, 'YYYYMMDDHH24MISS')
+		WHERE request_id = :request_id;
+
+
+	if (sqlca.sqlcode == 0){
+
+		out_cnt = out_cnt + 1;
+
+		if ((out_cnt % 100) == 0){
+
+			EXEC SQL AT :slic_db COMMIT;
+			printf("Commit: %d\n", out_cnt);
+		}
+	} else {
+
+		if (sqlca.sqlcode == -1){
+
+			printf("Duplicate:  %s  %d\n", request_id.arr, sqlca.sqlcode);
+			duplicate = duplicate + 1;
+			sqlca.sqlcode = 0;
+
+		} else {
+
+			printf("Update error  %s\n", request_id.arr);
+			printf("Last SQLCODE: %d\n", sqlca.sqlcode);
+		}
+	}
+
+}
+
+/****************************************************************************************
+* Function: OPEN_REQ_CURSOR
+* Description:
+*
+*
+****************************************************************************************/
+void open_req_cursor(){
+
+	if (strncmp(seg_code, "F18001H", 7) == 0 || strncmp(seg_code, "F18001J", 7) == 0){
+
+		if (strncmp(run_scope, "some", 4) == 0){
+			EXEC SQL OPEN req_cursor;
+		} else {
+			EXEC SQL OPEN req_cursor2;
+		}
+	} else {
+		if (strncmp(run_scope, "some", 4) == 0) {
+                	EXEC SQL OPEN req_cursor1;        
+		} else {
+			EXEC SQL OPEN req_cursor3;
+                        }
+	}
+
+	printf("OPEN Req Cursor sqlcode: %d\n", sqlca.sqlcode);
+}
+
+/****************************************************************************************
+* Function: OPEN_BOEING_CURSOR
+* Description:
+*
+*
+****************************************************************************************/
+void open_boeing_cursor(){
+
+	EXEC SQL OPEN boeing_cursor;
+
+	printf("OPEN Boeing Cursor sqlcode: %d\n", sqlca.sqlcode);
+}
+
+/****************************************************************************************
+* Function: OPEN_NAVY_CURSOR
+* Description:
+*
+*
+****************************************************************************************/
+void open_navy_cursor(){
+
+	EXEC SQL OPEN navy_cursor;
+
+	printf("OPEN Navy Cursor sqlcode: %d\n", sqlca.sqlcode);
+}
+
+/****************************************************************************************
+* Function: OPEN_EXCEPTION_CURSOR
+* Description:
+*
+*
+****************************************************************************************/
+void open_exception_cursor(){
+
+	EXEC SQL OPEN exception_cursor;
+
+	printf("OPEN Exception Cursor sqlcode: %d\n", sqlca.sqlcode);
+}
+
+/****************************************************************************************
+* Function: CLOSE_REQ_CURSOR
+* Description:
+*
+*
+****************************************************************************************/
+void close_req_cursor(){
+
+	printf("close_req_cursor\n");
+
+	EXEC SQL AT :slic_db COMMIT;
+	if (strncmp(seg_code, "F18001H", 7) == 0 || strncmp(seg_code, "F18001J", 7) == 0){
+		if (strncmp(run_scope, "some", 4) == 0){
+			EXEC SQL CLOSE req_cursor;
+		} else {
+			EXEC SQL CLOSE req_cursor2;
+		}
+	} else {
+		if (strncmp(run_scope, "some", 4) == 0) {
+                	EXEC SQL CLOSE req_cursor1;        
+		} else {
+			EXEC SQL CLOSE req_cursor3;
+		}
+	}
+}
+
+/****************************************************************************************
+* Function: CLOSE_BOEING_CURSOR
+* Description:
+*
+*
+****************************************************************************************/
+void close_boeing_cursor(){
+
+	printf("close_boeing_cursor\n");
+
+	EXEC SQL AT :slic_db COMMIT;
+	EXEC SQL CLOSE boeing_cursor;
+}
+
+/****************************************************************************************
+* Function: CLOSE_NAVY_CURSOR
+* Description:
+*
+*
+****************************************************************************************/
+void close_navy_cursor(){
+
+	printf("close_navy_cursor\n");
+
+	EXEC SQL AT :slic_db COMMIT RELEASE;
+	EXEC SQL CLOSE navy_cursor;
+}
+
+/****************************************************************************************
+* Function: CLOSE_EXCEPTION_CURSOR
+* Description:
+*
+*
+****************************************************************************************/
+void close_exception_cursor(){
+
+	printf("close_exception_cursor\n");
+
+	EXEC SQL AT :slic_db COMMIT RELEASE;
+	EXEC SQL CLOSE exception_cursor;
+}
+
+/****************************************************************************************
+* Function: DB_ERR
+* Description:
+*
+*
+****************************************************************************************/
+void db_err(char *procname){
+
+    char msg[200];
+    int size = 200;
+    int msg_len;
+
+    printf("\n===========================================================");
+    /*printf("\n%d records written before error occurred.", rec_count);*/
+    printf("\n=");
+    printf("\n=\tError occurred in process %s",procname);
+    printf("\n=");
+    printf("\n=\tDatabase Error has Occurred:");
+    sqlglm(msg,&size,&msg_len);
+    sqlglm(msg,&size,&msg_len);
+    msg[msg_len] = '\0';
+    printf("\n=\t\t%s",msg);
+    printf("\n=\t\tSQLCODE: %d",sqlca.sqlcode);
+    printf("\n=\t\tSQLERR MSG %.*s",sqlca.sqlerrm.sqlerrml,sqlca.sqlerrm.sqlerrmc);
+    printf("\n=");
+    printf("\n===========================================================\n");
+
+    exit(2);
+}

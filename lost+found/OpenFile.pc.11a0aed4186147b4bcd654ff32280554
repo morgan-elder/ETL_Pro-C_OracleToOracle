@@ -1,0 +1,18 @@
+/**************************************************
+ * Open file specified by input parameter.
+ * 
+ * Returns:  Pointer to the file
+ **************************************************/
+#include <string.h>
+#include <stdio.h>
+
+FILE *OpenFile(char *name,char *type)
+{
+    FILE *file;
+    if((file = fopen(name,type)) == NULL)
+    {
+        printf("Unable to open file %s\n",name);
+        exit(2);
+    }
+    return(file);
+}

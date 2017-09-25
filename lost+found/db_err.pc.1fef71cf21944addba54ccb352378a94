@@ -1,0 +1,32 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <assert.h>
+#include "db_err.h"
+EXEC SQL INCLUDE sqlca.h;
+EXEC SQL INCLUDE sqlcpr.h;
+
+void db_err(char *procname)
+{
+	char msg[513];
+	size_t size = sizeof(msg) ;
+	size_t msg_len;
+
+        assert(procname != NULL) ;
+
+	printf("\n===========================================================");
+	printf("\n=");
+	printf("\n=\tError occurred in process %s",procname);
+	printf("\n=");
+	printf("\n=\tDatabase Error has Occurred:");
+	sqlglm(msg,&size,&msg_len);
+	msg[msg_len] = '\0';
+	printf("\n=\t\t%s",msg);
+	printf("\n=\t\tSQLCODE: %d",sqlca.sqlcode);
+	printf("\n=\t\tSQLERR MSG %.*s",sqlca.sqlerrm.sqlerrml,sqlca.sqlerrm.sqlerrmc);
+	printf("\n=");
+	printf("\n===========================================================\n");
+
+	EXEC SQL ROLLBACK WORK RELEASE;
+
+	exit(500);
+}

@@ -1,0 +1,324 @@
+#!/bin/sh
+# ACDCBuildDataM_sh
+# Author: Douglas S. Elder
+# Date: 3/13/15
+# Desc:
+
+usage() {
+ echo >&2 "Usage: $0 [ -d -m -o filename -s step ] email_addr"
+ echo >&2 "  -d turn on debug"
+ echo >&2 "  -m show step menu"
+ echo >&2 "  -n stepname where stepname is one of the steps in this script"
+ echo >&2 "  -o SYSOUT filename"
+ echo >&2 "  -s stepnum where stepnum is 0 to 23"
+ echo >&2 "  email_addr - default is joseph.t.conley@boeing.com unless being executed by zf297a"
+}
+
+stepnum=0
+
+while getopts dmn:o:s: o
+do  case "$o" in
+  d)  DEBUG=Y 
+      DBGECHO=echo
+      set -x ;;
+  m)  STEP=menu ;;
+  n)  STEP=$OPTARG ;;
+  o)  SYSOUT=$OPTARG ;;
+  s)  stepnum=$OPTARG ;;
+[?])  usage
+      exit 1;;
+  esac
+done
+shift $(( $OPTIND - 1))
+
+if (($#>0)) ; then
+  RECIPIENTS=$1,
+else
+  if [ `logname` = "zf297a" ] ; then
+    RECIPIENTS=douglas.s.elder@boeing.com
+  else
+    RECIPIENTS=joseph.t.conley@boeing.com
+  fi
+fi
+
+. /mcair/rel/appl/pss_shared/public/set_pss_env_no_login
+. /data/scm/public/setup_scm_sh
+
+
+set -o pipefail
+
+if [ -z "$SYSOUT" ] ; then
+  current_time=$(date "+%Y_%m_%d_%H_%M_%S")
+  SYSOUT=/tmp/${current_time}_ACDCBuildData_M_out.txt
+fi
+
+
+
+setup() {
+  echo "----------------------------------------------------------------"
+  echo "--- Build ACDC Build Order Data `date`                     -----"
+  echo "---          ACDCBuildData_sh                              -----"
+  echo "----------------------------------------------------------------"
+
+  ####################################################################################
+  #export TWO_TASK=stl_prodsup01
+  ####################################################################################
+
+  echo "Command being executed - "$0
+  echo "Arguments being Passed - "$*
+  echo "Number of Arguments "$#
+  echo "PSS_DB  "$PSS_DB
+  echo "PSS_ENV  "$PSS_ENV
+  echo "HOSTNAME "`hostname`
+  PARMFILE=$scm_home/load;export PARMFILE
+
+  echo "TWO_TASK "$TWO_TASK
+
+  if [ $PSS_ENV = "TEST" ]
+      then
+      echo "Processing Test" $PSS_ENV
+      export dta_scm=$dta_scm/TEST
+      echo $scm_exe
+      echo $scm_sql
+  else
+      echo "Processing Production" $PSS_ENV
+      export dta_scm=$dta_scm/PROD
+      echo $scm_exe
+      echo $scm_sql
+  fi
+
+  echo "Data Directory " $dta_scm
+
+  rc=0
+
+}
+
+
+buildACDCdataTabe() {
+# step 0
+  echo $dta_scm/ACDC/acdc_HISS_table_loads.txt
+  if [ ! -d $dta_scm/ACDC ] ; then
+    mkdir $dta_scm/ACDC
+    chmod 770 $dta_scm/ACDC
+  fi
+  touch $dta_scm/ACDC/acdc_HISS_table_loads.txt
+  chmod 777 $dta_scm/ACDC/acdc_HISS_table_loads.txt
+  echo "SQL FILE "$scm_sql
+
+  NOW=`date "+%m%d%y%H%M%S"`
+  echo $NOW
+  OUTPUT=$dta_scm"/ACDC_ORDER_DATA_"$NOW".xls"
+  echo File Name - $OUTPUT
+
+
+
+  echo "#----------------------------------------------------------------------------------------#"
+  echo "#------------ Build ACDC Data Table `date`                -------------------------------#"
+  echo "#----------------------------------------------------------------------------------------#"
+
+  $scm_exe/ACDCBuildDataM i $OUTPUT
+  rc=$?
+
+  if [ $rc -eq 0 ]
+    then
+    echo "*******************************************************************************"
+    echo "***      Sucessful Completion of Build ACDC Data Table `date`               ***"
+    echo "*******************************************************************************"
+  else
+    rc=110
+    echo "*******************************************************************************"
+    echo "***      Abnormal Termination of Build ACDC Data Table `date`               ***"
+    echo "*******************************************************************************"
+  fi
+  return $rc
+}
+
+
+buildPartBasicAvgPriceTable() {
+# step 1
+    echo "#----------------------------------------------------------------------------------------#"
+    echo "#------------ Build Part Basic Avg Price Table `date`     -------------------------------#"
+    echo "#----------------------------------------------------------------------------------------#"
+    SCHEMA=`cat $ORALOGIN/.SCM_LB_destn`
+    ACCESS=`cat $ORALOGIN/.SCM_LB_pass`
+    CONNECT=$SLICSRV
+
+
+    sqlplus ${SCHEMA}@${CONNECT}/${ACCESS}  @$scm_sql/ACDC_Build_PartBasic_Avg_Price_M.sql
+    rc=$?
+    let stepnum=$stepnum+1
+    if [ $rc -ne 0 ]
+       then
+      rc=115
+      echo "*******************************************************************************"
+      echo "***      Abnormal Termination of SQL Build Part Basic Avg Price Table `date` **"
+      echo "*******************************************************************************"
+    else
+      echo "*******************************************************************************"
+      echo "***      Successful Completion of SQL Build Part Basic Avg Price Table `date` *"
+      echo "*******************************************************************************"
+    fi
+
+    return $rc
+
+}
+
+buildNIINavgPriceTabe() {
+# step 2
+    echo "#----------------------------------------------------------------------------------------#"
+    echo "#------------ Build NIIN Average Price Table `date`       -------------------------------#"
+    echo "#----------------------------------------------------------------------------------------#"
+    SCHEMA=`cat $ORALOGIN/.SCM_LB_destn`
+    ACCESS=`cat $ORALOGIN/.SCM_LB_pass`
+    CONNECT=$SLICSRV
+
+    sqlplus ${SCHEMA}@${CONNECT}/${ACCESS}  @$scm_sql/ACDC_Build_NIIN_Avg_Price_M.sql
+    rc=$?
+    let stepnum=$stepnum+1
+    if [ $rc -ne 0 ]
+       then
+      rc=120
+      echo "*******************************************************************************"
+      echo "***      Abnormal Termination of SQL Build NIIN Average Price `date`        ***"
+      echo "*******************************************************************************"
+    else
+      echo "*******************************************************************************"
+      echo "***      Successful Completion of SQL Build NIIN Average Price `date`       ***"
+      echo "*******************************************************************************"
+    fi
+
+    return $rc
+
+}
+
+buildNounAvgPriceTable() {
+# step 3
+    echo "#----------------------------------------------------------------------------------------#"
+    echo "#------------ Build Noun Average Price Table `date`       -------------------------------#"
+    echo "#----------------------------------------------------------------------------------------#"
+    SCHEMA=`cat $ORALOGIN/.SCM_LB_destn`
+    ACCESS=`cat $ORALOGIN/.SCM_LB_pass`
+    CONNECT=$SLICSRV
+
+  # cat $SQLFILE
+    sqlplus ${SCHEMA}@${CONNECT}/${ACCESS} @$scm_sql/ACDC_Build_Noun_Avg_Price_M.sql
+    rc=$?
+    if [ $rc -ne 0 ]
+       then
+      rc=125
+      echo "*******************************************************************************"
+      echo "***      Abnormal Termination of SQL Build Noun Average Price `date`        ***"
+      echo "*******************************************************************************"
+    else
+      echo "*******************************************************************************"
+      echo "***      Successful Completion of SQL Build Noun Average Price `date`       ***"
+      echo "*******************************************************************************"
+    fi
+
+    return $rc
+}
+
+recalcExtendedPrice() {
+# step 4
+    echo "#----------------------------------------------------------------------------------------#"
+    echo "#------------ Recalculate Extended Price `date`       -------------------------------#"
+    echo "#----------------------------------------------------------------------------------------#"
+    SCHEMA=`cat $ORALOGIN/.SCM_LB_destn`
+    ACCESS=`cat $ORALOGIN/.SCM_LB_pass`
+    CONNECT=$SLICSRV
+
+  # cat $SQLFILE
+    sqlplus ${SCHEMA}@${CONNECT}/${ACCESS} @$scm_sql/ACDC_Recalc_Extnded_Price_M.sql
+    rc=$?
+    if [ $rc -ne 0 ]
+       then
+      rc=130
+      echo "*******************************************************************************"
+      echo "***      Abnormal Termination of SQL Recalculate Extended Price  `date`        ***"
+      echo "*******************************************************************************"
+    else
+      echo "*******************************************************************************"
+      echo "***      Successful Completion of SQL Recalculate Extended Price `date`       ***"
+      echo "*******************************************************************************"
+    fi
+    return $rc
+}
+
+menu() {
+  echo "0. buildACDCdataTable"
+  echo "1. buildPartBasicAvgPriceTable"
+  echo "2. buildNIINavgPriceTable"
+  echo "3. buildNounAvgPriceTable"
+  echo "4. recalcExtendedPrice"
+}
+
+main() {
+
+
+  if [ $stepnum -eq 0 ] ; then
+    buildACDCdataTabe
+    rc=$?
+    let stepnum=$stepnum+1
+  fi
+
+  if [ $rc -eq 0 -a $stepnum -eq 1 ]
+  then
+    buildPartBasicAvgPriceTable
+    rc=$?
+    let stepnum=$stepnum+1
+  fi
+
+  if [ $rc -eq 0 -a $stepnum -eq 2 ]
+  then
+    buildNIINavgPriceTabe
+    rc=$?
+    let stepnum=$stepnum+1
+  fi
+
+  if [ $rc -eq 0 -a $stepnum -eq 3 ]
+  then
+    buildNounAvgPriceTable
+    rc=$?
+    let stepnum=$stepnum+1
+  fi
+
+  if [ $rc -eq 0 -a $stepnum -eq 4 ]
+  then
+    recalcExtendedPrice
+    rc=$?
+    let stepnum=$stepnum+1
+  fi
+
+  echo "---------------------------------------------------------------------------"
+  echo "--- Completion of Build ACDC Build Data `date`                        -----"
+  echo "--- Return Code " $rc
+  echo "---------------------------------------------------------------------------"
+
+  return $rc
+
+}
+
+{
+  setup
+  if [ "$STEP" = "menu" ] ; then
+    menu
+  elif [ -n "$STEP" ] ; then
+    $STEP ; [[ $? == 0 ]] || (echo "Step $STEP does not exist in this script" && usage)
+  else  
+    main
+  fi
+} 2>&1 | tee -a $SYSOUT
+rc=$?
+
+if [ "$STEP" = "menu" ] ; then
+  exit 0
+fi
+
+if [ $rc -eq 0 ]
+   then
+  echo -e "From: ACDCBuildDataM Script\nSubject: Successful Completion Test ACDC Build Order Data Tables\nTo: ${RECIPIENTS}" | more $SYSOUT | sed '/^~/s/~//' | sendmail -t
+else
+  echo -e "From: ACDCBuildDataM Script\nSubject: Abnormal Termination Test ACDC Build Order Data Tables\nTo: ${RECIPIENTS}" | more $SYSOUT | sed '/^~/s/~//' | sendmail -t
+fi
+chmod 660 $SYSOUT
+exit $rc

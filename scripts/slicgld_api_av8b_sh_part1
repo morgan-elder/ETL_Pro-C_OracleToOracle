@@ -1,0 +1,858 @@
+#!/bin/sh
+#
+echo "\n"
+
+. /mcair/rel/appl/pss_shared/public/set_pss_env_no_login
+rc=$?
+
+echo "\n#*******************************************************************#" 
+echo "* Start of SLIC/GOLD Extract - " `date` 
+echo "* Processing Environment - " $PSS_ENV 
+echo "#*******************************************************************#" 
+
+PROCESSING_MODEL="AV8B";export PROCESSING_MODEL
+if [ $rc -ne 0 ]
+then
+	echo "\n##############################################################" 
+	echo "\nExit Code from set_common_env " $rc 
+	echo "\nProcessing of $PROCESSING_MODEL SLIC/Gold Extract Program was not Successfully Completed - `date`" 
+	echo "\n##############################################################" 
+	errcode=500
+	echo "SLIC/Gold Interface Exit Code " $errcode 
+	exit $errcode
+fi
+
+#. /mcair/dev/appl/scm/public/setup_scm_sh
+. /data/scm/public/setup_scm_sh
+
+scm_public=/data/scm/public;export scm_public
+scm_exe=/data/scm/c/exe;export scm_exe
+#
+echo "SCM_EXE "$scm_exe
+
+PATH=$PATH:$scm_public:
+export PATH
+echo $scm_public
+
+. $scm_public/setup_scm_sh
+
+echo $GOLDSRV
+echo $SLICSRV
+
+PROCESSING_MODEL="AV8B";export PROCESSING_MODEL
+
+DOMAINNAME=`domainname`
+
+echo $DOMAINNAME 
+echo $PSS_ENV 
+
+#
+#  Setup output Datasets
+#
+
+if [ $PSS_ENV = "PRODN" ]
+then
+        DATA_DIR=/data/scm/PROD;export DATA_DIR
+else
+        DATA_DIR=/data/scm/TEST;export DATA_DIR
+fi
+
+
+echo "\n#*******************************************************************#" 
+echo "#     Extract HAX04 Change Activity - " `date`
+echo "#*******************************************************************#" 
+echo "#" 
+SLICGLD_HAX04=$DATA_DIR/$PROCESSING_MODEL"_api_slicgld_hax04.dta";export SLICGLD_HAX04
+
+$scm_exe/slicgldHAX04 -a$SLICGLD_HAX04 -b$PROCESSING_MODEL
+rc=$?
+echo "Return Code = " $rc 
+if [ $rc -eq 0 ]
+then
+	echo "\n*************************************************************" 
+	echo "* Successful completion of SLIC/Gold HAX04 Change Activity Extract Program - `date`" 
+	echo "*************************************************************" 
+	errcode=0
+else
+
+	echo "\n##############################################################" 
+	echo "# Unsuccessful completion of SLIC/Gold HAX04 Change Activity Extract Program - `date`" 
+	echo "##############################################################" 
+	errcode=10
+fi
+
+if [ $rc -eq 0 ]
+then
+	echo "\n#*******************************************************************#" 
+	echo "#     Extract HA Change Activity - "`date` 
+	echo "#*******************************************************************#" 
+	echo "#" 
+	SLICGLD_HA=$DATA_DIR/$PROCESSING_MODEL"_api_slicgld_ha.dta";export SLICGLD_HA
+	$scm_exe/slicgldHA -a$SLICGLD_HA -b$PROCESSING_MODEL
+	rc=$?
+	echo "Return Code = " $rc 
+	if [ $rc -eq 0 ]
+	then
+		echo "\n*************************************************************" 
+		echo "* Successful completion of SLIC/Gold HA Change Activity Extract Program - `date`" 
+		echo "*************************************************************" 
+		errcode=0
+	else
+		echo "\n##############################################################" 
+		echo "# Unsuccessful completion of SLIC/Gold HA Change Activity Extract Program - `date`" 
+		echo "##############################################################" 
+		errcode=20
+	fi
+fi
+
+if [ $rc -eq 0 ]
+then
+	SLICGLD_HB=$DATA_DIR/$PROCESSING_MODEL"_api_slicgld_hb.dta";export SLICGLD_HB
+	SLICGLD_HB_REPORT=$DATA_DIR/$PROCESSING_MODEL"_api_slicgld_hb_report.dta";export SLICGLD_HB_REPORT
+	echo "\n#*******************************************************************#" 
+	echo "#     Extract HB Change Activity - "`date`
+	echo "# SLIC HB Change File "$SLICGLD_HB 
+	echo "# SLIC HB Error Report "$SLICGLD_HB_REPORT
+	echo "#*******************************************************************#" 
+	echo "#" 
+	$scm_exe/slicgldHB -a$SLICGLD_HB -b$SLICGLD_HB_REPORT -d$PROCESSING_MODEL
+	rc=$?
+	echo "Return Code = " $rc 
+	if [ $rc -eq 0 ]
+	then
+		echo "\n*************************************************************" 
+		echo "* Successful completion of SLIC/Gold HB Change Activity Extract Program - `date`" 
+		echo "*************************************************************" 
+		errcode=0
+	else
+		echo "\n##############################################################" 
+		echo "# Unsuccessful completion of SLIC/Gold HB Change Activity Extract Program - `date`" 
+		echo "##############################################################" 
+		errcode=30
+	fi
+fi
+
+if [ $rc -eq 0 ]
+then
+	SLICGLD_HP=$DATA_DIR/$PROCESSING_MODEL"_api_slicgld_hp.dta";export SLICGLD_HP
+	SLICGLD_HP_RPT=$DATA_DIR/$PROCESSING_MODEL"_api_slicgld_hp_rpt.dta";export SLICGLD_HP_RPT
+	echo "\n#*******************************************************************#" 
+	echo "#     Extract HP Change Activity - "`date` 
+	echo "#Output HP Activity "$SLICGLD_HP
+	echo "#Output HP Mail File "$SLICGLD_HP_RPT
+	echo "#*******************************************************************#" 
+	echo "#" 
+	$scm_exe/slicgldHP -a$SLICGLD_HP -b$SLICGLD_HP_RPT -c$PROCESSING_MODEL
+	rc=$?
+	echo "Return Code = " $rc 
+	if [ $rc -eq 0 ]
+	then
+		nbr_of_rcds=`wc -l $SLICGLD_HP_RPT|awk '{ print $1 }'`
+		if [ $nbr_of_rcds -gt 0 ] 
+   			then
+				:
+#			more $scm_sh/api_hp_msg_template>$DATA_DIR/$PROCESSING_MODEL"_api_hp_mail_msg";
+#			more $SLICGLD_HP_RPT|sort -u>>$DATA_DIR/$PROCESSING_MODEL"_api_hp_mail_msg";
+#			more $DATA_DIR/$PROCESSING_MODEL"_api_hp_mail_msg"|mailx -m -s"SLIC Supersedure Information" larry.d.mills@boeing.com,gary.l.atchison@boeing.com
+		else
+			echo "No Supersedure Information to Report"	
+		fi
+		echo "\n*************************************************************" 
+		echo "* Successful completion of SLIC/Gold HP Change Activity Extract Program - `date`" 
+		echo "*************************************************************" 
+		errcode=0
+	else
+		echo "\n##############################################################" 
+		echo "# Unsuccessful completion of SLIC/Gold HP Change Activity Extract Program - `date`" 
+		echo "##############################################################" 
+		errcode=40
+	fi
+fi
+
+if [ $rc -eq 0 ]
+then
+	echo "\n#*******************************************************************#" 
+	echo "#     Extract HG Change Activity - "`date` 
+	echo "#*******************************************************************#" 
+	echo "#" 
+	SLICGLD_HG=$DATA_DIR/$PROCESSING_MODEL"_api_slicgld_hg.dta";export SLICGLD_HG
+	$scm_exe/slicgldHG -a$SLICGLD_HG -b$PROCESSING_MODEL
+	rc=$?
+	echo "Return Code = " $rc 
+	if [ $? -eq 0 ]
+	then
+		echo "\n*************************************************************" 
+		echo "* Successful completion of SLIC/Gold HG Change Activity Extract Program - `date`" 
+		echo "*************************************************************" 
+		errcode=0
+	else
+		echo "\n##############################################################" 
+		echo "# Unsuccessful completion of SLIC/Gold HG Change Activity Extract Program - `date`" 
+		echo "##############################################################" 
+		errcode=45
+	fi
+fi
+if [ $rc -eq 0 ]
+then
+	echo "\n#*******************************************************************#" 
+	echo "#     Sort Consolidated Change Activity - "`date` 
+	echo "#*******************************************************************#" 
+	echo "#" 
+	API_CNSLDTD_SLICGLD_SRTD_CHG_ACTY=$DATA_DIR/$PROCESSING_MODEL"_api_slicgld_srtd_chg.dta";export API_CNSLDTD_SLICGLD_SRTD_CHG_ACTY
+	echo "\n#*******************************************************************#" 
+	echo "#Sortin HB Activity\t"$SLICGLD_HB 
+	echo "#Sortin HP Activity\t"$SLICGLD_HP 
+	echo "#Sortin HG Activity\t"$SLICGLD_HG 
+	echo "#Sortin HA Activity\t"$SLICGLD_HA 
+	echo "#Sortin HAX04 Activity\t"$SLICGLD_HAX04 
+	echo "#Sortout Activity\t"$API_CNSLDTD_SLICGLD_SRTD_CHG_ACTY
+	echo "#*******************************************************************#" 
+	sort -u -o$API_CNSLDTD_SLICGLD_SRTD_CHG_ACTY $SLICGLD_HB $SLICGLD_HP $SLICGLD_HG $SLICGLD_HA $SLICGLD_HAX04
+	rc=$?
+	echo "Return Code = " $rc 
+	if [ $rc -eq 0 ]
+	then
+		echo "\n*************************************************************" 
+		echo "* Successful completion of Change Activity Sort - `date`" 
+		echo "*\t"|wc -l $API_CNSLDTD_SLICGLD_SRTD_CHG_ACTY
+		echo "*************************************************************" 
+		errcode=0
+	else
+		echo "\n##############################################################" 
+		echo "# Unsuccessful Completed of Change Activity Sort - `date`" 
+		echo "##############################################################" 
+		errcode=50
+	fi
+fi
+
+echo "\n#################################################################################################"
+echo "\n#################################################################################################"
+echo "\n#################################################################################################"
+echo "\n##     Temporary Termination before SLICGOLD FORMAT PROCESSING                                 ##"
+echo "\n#################################################################################################"
+echo "\n#################################################################################################"
+echo "\n#################################################################################################"
+more /data/scm/PROD/AV8_slicgld_output|mailx -m -s"AV8 SLIC/GOLD Interface" larry.d.mills@boeing.com
+exit $errcode 
+
+if [ $rc -eq 0 ]
+then
+	echo "\n#*******************************************************************#"
+	echo "* Start of SLIC/GOLD Extract - " `date`
+	echo "* Processing Environment - " $PSS_ENV
+	echo "#*******************************************************************#"
+	echo $DATA_DIR
+	API_CNSLDTD_SLICGLD_SRTD_CHG_ACTY=$DATA_DIR/$PROCESSING_MODEL"_slicgld_incr_test_file.txt";export API_CNSLDTD_SLICGLD_SRTD_ACTY_FILE
+#	API_CNSLDTD_SLICGLD_SRTD_CHG_ACTY=$DATA_DIR/$PROCESSING_MODEL"_api_slicgld_srtd_chg.dta";export API_CNSLDTD_SLICGLD_SRTD_ACTY_FILE
+	API_UNSORTED_CAT1_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_unsorted_cat1_output.dta";export API_UNSORTED_CAT1_FILE
+	API_UNSORTED_CATS_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_unsorted_cats_output.dta";export API_UNSORTED_CATS_FILE
+	API_UNSORTED_WHSE_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_unsorted_whse_output.dta";export API_UNSORTED_WHSE_FILE
+	API_UNSORTED_PRC1_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_unsorted_prc1_output.dta";export API_UNSORTED_PRC1_FILE
+	API_UNSORTED_VENC_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_unsorted_venc_output.dta";export API_UNSORTED_VENC_FILE
+	API_EXCEPTION_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_exception_file.dta";export API_EXCEPTION_FILE
+	SHELF_LIFE_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_shelf_life_output.dta";export SHELF_LIFE_FILE
+
+	echo "\n#*******************************************************************#"
+	echo "#     Create SLIC/GOLD API Rcds                                       #"
+	echo "# Input Candidate File "$API_CNSLDTD_SLICGLD_SRTD_CHG_ACTY
+	echo "# Output Unsorted CAT1 File (Option B) "$API_UNSORTED_CAT1_FILE
+	echo "# Output WHSE File (Option F) "$API_UNSORTED_WHSE_FILE
+	echo "# Output VENC File (Option D) "$API_UNSORTED_VENC_FILE
+	echo "# Output Exception File (Option H) "$API_EXCEPTION_FILE
+	echo "# Output PRC1 File (Option J) "$API_UNSORTED_PRC1_FILE
+	echo "# Output CATS File (Option K) "$API_UNSORTED_CATS_FILE
+	echo "# Output Shelf Life File (Option L) "$SHELF_LIFE_FILE
+	echo "# Processing Model (Option G) "$PROCESS_MODEL
+	echo "# Create API File (Option Z) Y "
+	echo "#*******************************************************************#"
+	echo "#"
+	#
+	# Option A - Input File
+	# Option B - Output CAT1 File
+	# Option C - 
+	# Option D - Output VENC File
+	# Option E - Output Vendor Site File
+	# Option F - Output WHSE File
+	# Option J - Output PRC1 File
+	# Option K - Output CATS File
+	# Option L - Output Shelf Life File
+	#
+	$scm_exe/slicgldFMT -a$API_CNSLDTD_SLICGLD_SRTD_CHG_ACTY -b$API_UNSORTED_CAT1_FILE -cN -d$API_UNSORTED_VENC_FILE -f$API_UNSORTED_WHSE_FILE -g$PROCESSING_MODEL -h$API_EXCEPTION_FILE -j$API_UNSORTED_PRC1_FILE -k$API_UNSORTED_CATS_FILE -l$SHELF_LIFE_FILE -zY
+	rc=$?
+	echo "Return Code = " $rc
+	if [ $rc -eq 0 ]
+	then
+		echo "\n*************************************************************"
+		echo "* Successful completion of SLIC/Gold API Rcds Create - `date`"
+		echo "*************************************************************"
+		errcode=0
+	else
+		echo "\n##############################################################"
+		echo "# Unsuccessful completion of SLIC/Gold API Rcds Create - `date`"
+		echo "# Return Code "$rc
+		echo "##############################################################"
+		errcode=60
+		echo "Errcode - "$errcode
+	fi
+fi
+
+if [ $rc -eq 0 ]
+then
+	API_SORTED_CAT1_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_sorted_cat1.dta";export API_SORTED_CAT1_RCDS
+	echo "\n#*******************************************************************#"
+	echo "#             Sort Duplicate CAT1 Records"
+	echo "# Output Unsorted CAT1 File "$API_UNSORTED_CAT1_FILE
+	echo "# Sortout CAT1 File "$API_SORTED_CAT1_FILE
+	echo "#*******************************************************************#"
+	sort -u -o$API_SORTED_CAT1_FILE $API_UNSORTED_CAT1_FILE
+	rc=$?
+	echo "Return Code = " $rc
+	if [ $rc -eq 0 ]
+	then
+		echo "\n*************************************************************"
+		echo "* Successful completion of CAT1 File Sort - `date`"
+		echo "*************************************************************"
+		errcode=0
+	else
+		echo "\n##############################################################"
+		echo "# Unsuccessful Completed of CAT1 File Sort - `date`"
+		echo "# Return Code "$rc
+		echo "##############################################################"
+		errcode=65
+		echo "Errcode - "$errcode
+	fi
+fi
+
+if [ $rc -eq 0 ]
+then
+	API_PURGED_CAT1_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_purged_cat1.dta";export API_PURGED_CAT1_RCDS
+	API_REJECTD_CAT1_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_rejectd_cat1.dta";export API_REJECTD_CAT1_RCDS
+	echo "\n#*******************************************************************#"
+	echo "#             Remove Duplicate CAT1 Parts"
+	echo "# Sortout CAT1 File "$API_SORTED_CAT1_FILE
+	echo "# Purged CAT1 File "$API_PURGED_CAT1_FILE
+	echo "# Rejected CAT1 File "$API_REJECTD_CAT1_FILE
+	echo "#*******************************************************************#"
+	$scm_exe/slicgldCAT1 -a$API_SORTED_CAT1_FILE -b$API_PURGED_CAT1_FILE -c$API_REJECTD_CAT1_FILE
+	rc=$?
+	echo "Return Code = " $rc
+	if [ $rc -eq 0 ]
+	then
+		echo "\n*************************************************************"
+		echo "* Successful completion of Removal of Duplicate CAT1 Parts - `date`"
+		echo "*************************************************************"
+		errcode=0
+	else
+		echo "\n##############################################################"
+		echo "* Unsuccessful completion of Removal of Duplicate CAT1 Parts - `date`"
+		echo "# Return Code "$rc
+		echo "##############################################################"
+		errcode=66
+		echo "Errcode - "$errcode
+	fi
+fi
+
+if [ $rc -eq 0 ]
+then
+	export API_PURGED_CAT1_PRIMES_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_purged_cat1_primes.dta"
+	export API_PURGED_CAT1_ALTERNATES_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_purged_cat1_alts.dta"
+	export API_SORTED_CAT1_PRIMES_ALTERNATES_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_sorted_cat1_primes_alts.dta"
+	echo "\n#**********************************************************************************#"
+	echo "#             Sort Primes and Alternates"
+	echo "# Input CAT1 File "$API_PURGED_CAT1_FILE
+	echo "# Sorted CAT1 Primes and Alternates File "$API_SORTED_CAT1_PRIMES_ALTERNATES_FILE
+	echo "#**********************************************************************************#"
+	$scm_exe/sortAltPrimes $API_PURGED_CAT1_FILE $API_PURGED_CAT1_PRIMES_FILE $API_PURGED_CAT1_ALTERNATES_FILE
+	rc=$?
+	echo "Return Code = "$rc
+	if [ $rc -eq 0 ]
+	then
+		echo "\n*************************************************************"
+		echo "* Successful completion of Prime and Alternate Sort - `date`"
+		echo "*************************************************************"
+		cat $API_PURGED_CAT1_ALTERNATES_FILE >> $API_PURGED_CAT1_PRIMES_FILE
+		cat $API_PURGED_CAT1_PRIMES_FILE > $API_SORTED_CAT1_PRIMES_ALTERNATES_FILE
+		rm -f $API_PURGED_CAT1_ALTERNATES_FILE $API_PURGED_CAT1_PRIMES_FILE
+		errcode=0
+	else
+		echo "\n##############################################################"
+		echo "* Unsuccessful completion of Prime and Alternate Sort - `date`"
+		echo "# Return Code "$rc
+		echo "##############################################################"
+		errcode=68
+		echo "Errcode - "$errcode
+	fi
+fi
+
+#if [ $rc -eq 0 ]
+#then
+	API_ASSIGND_IMS_DES_CDS=$DATA_DIR/$PROCESSING_MODEL"_api_assignd_ims_des_cds.dta";export API_ASSIGND_IMS_DES_CDS
+	API_ASSIGND_IMS_DES_CDS_ERRS=$DATA_DIR/$PROCESSING_MODEL"_api_assignd_ims_des_cds_errs.dta";export API_ASSIGND_IMS_DES_CDS_ERRS
+	API_ASSIGND_IMS_DES_CDS_DEFLTS=$DATA_DIR/$PROCESSING_MODEL"_api_assignd_ims_des_cds_deflts.txt";export API_ASSIGND_IMS_DES_CDS_DEFLTS
+	API_ASSIGND_IMS_DES_CDS_MAIL_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_assignd_ims_des_mail_file.dta";export API_ASSIGND_IMS_DES_CDS_MAIL_FILE
+#	echo "\n#*******************************************************************#"
+#	echo "#             Assign IMS Designator Processing"
+#	echo "# Input CAT1 File "$API_SORTED_CAT1_PRIMES_ALTERNATES_FILE
+	echo "# Assigned IMS Des Cde CAT1 File "$API_ASSIGND_IMS_DES_CDS
+#	echo "# IMS Des Code Error File File "$API_ASSIGND_IMS_DES_CDS_ERRS
+#	echo "# Assigned IMS Des Cde Default Mail File "$API_ASSIGND_IMS_DES_CDS_DEFLTS
+#	echo "#*******************************************************************#"
+#	export TWO_TASK=$SLICSRV
+#-----------------------------------------------------------------------------------------------------------------
+#----------------     assignIMSDesC Program not being run for AV8 ------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------
+	sort -o $API_ASSIGND_IMS_DES_CDS $API_SORTED_CAT1_PRIMES_ALTERNATES_FILE
+	wc -l $API_SORTED_CAT1_PRIMES_ALTERNATES_FILE
+	wc -l $API_ASSIGND_IMS_DES_CDS
+
+if [ $rc -eq 0 ]
+then
+	API_UNSORTED_ACTD_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_unsorted_actd_output.dta";export API_UNSORTED_ACTD_FILE
+	API_ACTD_EXCEPTION_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_actd_errors.dta";export API_ACTD_EXCEPTION_FILE
+	API_ACTD_DELETION_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_actd_delete_file.dta";export API_ACTD_DELETION_FILE
+	API_CAT1_ACTD_UPDATE_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_cat1_actd_output.dta";export API_CAT1_ACTD_UPDATE_FILE
+	
+	echo "\n#*******************************************************************#"
+	echo "#             Create ACTD File"
+	echo "# Input Shelf Life File "$SHELF_LIFE_FILE
+	echo "# Output ACTD API File "$API_UNSORTED_ACTD_FILE
+	echo "# ACTD Errors File "$API_ACTD_EXCEPTION_FILE
+	echo "# ACTD Delete File "$API_ACTD_DELETION_FILE
+	echo "#*******************************************************************#"
+	
+	$scm_exe/slicgldACTD $SHELF_LIFE_FILE $API_UNSORTED_ACTD_FILE $API_ACTD_EXCEPTION_FILE $API_ACTD_DELETION_FILE $API_ASSIGND_IMS_DES_CDS $API_CAT1_ACTD_UPDATE_FILE
+	rc=$?
+	
+	if [ rc -eq 0 ]
+	  then
+		echo "\n*************************************************************"
+		echo "* Successful completion of Create ACTD File - `date`"
+		echo "*************************************************************"
+		errcode=0
+	else
+	
+		echo "\n##############################################################"
+		echo "# Unsuccessful Completion of Create ACTD File - `date`"
+		echo "# Return Code "$rc
+		echo "##############################################################"
+		errcode=75
+		echo "Errcode - "$errcode
+	fi
+fi
+
+
+if [ $rc -eq 0 ]
+then
+    API_MERGED_CAT1_ACTD_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_merged_cat1_actd_output.dta";export API_MERGED_CAT1_ACTD_FILE
+    echo "\n#*******************************************************************#"
+    echo "#                     Merge CAT1 Records                              #"
+    echo "# Input Unsorted ACTD File "$API_UNSORTED_ACTD_FILE
+    echo "# CAT1 File                "$API_ASSIGND_IMS_DES_CDS
+    echo "# CAT1 Merged File         "$API_MERGED_CAT1_ACTD_FILE
+    echo "#*******************************************************************#"
+    echo "#"
+    sort -u -o $API_MERGED_CAT1_ACTD_FILE $API_ASSIGND_IMS_DES_CDS $API_UNSORTED_ACTD_FILE
+    rc=$?
+    echo "Return Code = " $rc
+
+    if [ $rc -eq 0 ]
+    then
+        echo "\n*************************************************************"
+        echo "* Successful completion of CAT1 Merge - `date`"
+        echo "*************************************************************"
+        errcode=0
+    else
+
+        echo "\n##############################################################"
+        echo "# Unsuccessful Completion of CAT1 Merge - `date`"
+        echo "# Return Code "$rc
+        echo "##############################################################"
+        errcode=70
+        echo "Errcode - "$errcode
+    fi
+fi
+
+if [ $rc -eq 0 ]
+then
+	API_SORTED_VENC_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_sorted_venc_output.dta";export API_SORTED_VENC_FILE
+	echo "\n#*******************************************************************#"
+	echo "#                 Sort VENC File or Vendor Code                       #"
+	echo "# Input Unsorted VENC File "$API_UNSORTED_VENC_FILE
+	echo "# Ouput Sorted VENC File "$API_SORTED_VENC_FILE
+	echo "#*******************************************************************#"
+	echo "#"
+	sort -u -o $API_SORTED_VENC_FILE $API_UNSORTED_VENC_FILE
+	rc=$?
+	echo "Return Code = " $rc
+	if [ $rc -eq 0 ]
+	then
+		echo "\n*************************************************************"
+		echo "* Successful completion of Sort - `date`"
+		echo "*************************************************************"
+		errcode=0
+	else
+		echo "\n##############################################################"
+		echo "# Unsuccessful Completion of Sort - `date`"
+		echo "# Return Code "$rc
+		echo "##############################################################"
+		errcode=70
+		echo "Errcode - "$errcode
+	fi
+fi
+
+if [ $rc -eq 0 ]
+then
+	API_VENN_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_unsorted_venn_output.dta";export API_VENN_FILE
+	echo "\n#*******************************************************************#"
+	echo "#                             Create VENN File                        #"
+	echo "# Input VENN File "$API_SORTED_VENC_FILE
+	echo "# Output VENN File "$API_VENN_FILE
+	echo "# Create Delimited File - N"
+	echo "#*******************************************************************#"
+	echo "#"
+	$scm_exe/slicgldVENN -a$API_SORTED_VENC_FILE -b$API_VENN_FILE -cN -d$PROCESSING_MODEL
+	rc=$?
+	echo "Return Code = " $rc
+	if [ $rc -eq 0 ]
+	then
+		echo "\n*************************************************************"
+		echo "* Successful completion of Create VENN File - `date`"
+		echo "*************************************************************"
+		errcode=0
+	else
+		echo "\n##############################################################"
+		echo "# Unsuccessful Completed of Create VENN File - `date`"
+		echo "# Return Code "$rc
+		echo "##############################################################"
+		errcode=75
+		echo "Errcode - "$errcode
+	fi
+fi
+
+if [ $rc -eq 0 ]
+then
+	API_GOLD_VALID_VENN_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_gold_valid_venn.dta";export API_GOLD_VALID_VENN_FILE
+	API_GOLD_VENN_ERROR_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_vendor_errors.dta";export API_GOLD_VENN_ERROR_FILE
+	echo "\n#*******************************************************************#"
+	echo "#             Validate Vendor Code File against Gold"
+	echo "# Input VENN File "$API_VENN_FILE
+	echo "# Output Valid VENN Acty File "$API_GOLD_VALID_VENN_FILE
+	echo "# Output VENN Error File "$API_GOLD_VENN_ERROR_FILE
+	echo "#*******************************************************************#"
+	export TWO_TASK=$SLICSRV
+	echo "Processing at "$TWO_TASK
+	$scm_exe/slicgldVNDRcheck -a$API_VENN_FILE -b$API_GOLD_VALID_VENN_FILE -c$API_GOLD_VENN_ERROR_FILE
+	rc=$?
+	echo "Return Code = " $rc
+	if [ $rc -eq 0 ]
+	then
+		export TWO_TASK=$SLICSRV
+		echo "\n*************************************************************"
+		echo "* Successful completion of Validate Vendor Activity File against Gold - `date`"
+		echo "*\tProcessing at "$TWO_TASK
+		echo "*************************************************************"
+		errcode=0
+	else
+		echo "\n##############################################################"
+		echo "# Unsuccessful Completed of Valide Vendor Activity File against Gold - `date`"
+		echo "# Return Code "$rc
+		echo "##############################################################"
+		errcode=89
+		echo "Errcode - "$errcode
+	fi
+fi
+
+if [ $rc -eq 0 ]
+then
+	API_MERGED_SC_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_merged_sc.dta";export API_SORTED_SC_FILE
+	echo "\n#*******************************************************************#"
+	echo "#             Consolidate Seg Code (SC) Activity File"
+	echo "# Input Unsorted Whse File "$API_UNSORTED_WHSE_FILE
+	echo "# Input Unsorted Prc1 File "$API_UNSORTED_PRC1_FILE
+	echo "# Sortout Consolidate SC Acty File "$API_MERGED_SC_FILE
+	echo "#*******************************************************************#"
+	sort -u -o$API_MERGED_SC_FILE $API_UNSORTED_WHSE_FILE $API_UNSORTED_PRC1_FILE
+	rc=$?
+	echo "Return Code = " $rc
+	if [ $rc -eq 0 ]
+	then
+		echo "\n*************************************************************"
+		echo "* Successful completion of SC Activity File Sort/Merge - `date`"
+		echo "*************************************************************"
+		errcode=0
+	else
+		echo "\n##############################################################"
+		echo "# Unsuccessful Completed of SC Activity File Sort/Merge - `date`"
+		echo "# Return Code "$rc
+		echo "##############################################################"
+		errcode=80
+		echo "Errcode - "$errcode
+	fi
+fi
+
+if [ $rc -eq 0 ]
+then
+	API_GOLD_VALID_SC_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_gold_validated_sc.dta";export API_GOLD_VALID_SC_FILE
+	API_SC_ERROR_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_sc_errors.dta";export API_SC_ERROR_FILE
+	echo "\n#*******************************************************************#"
+	echo "#             Validate Seg Code (SC) Activity File against Gold"
+	echo "# Input Consolidate SC Acty File "$API_MERGED_SC_FILE
+	echo "# Output Validated SC Acty File "$API_GOLD_VALID_SC_FILE
+	echo "# Output SC Acty Error File "$API_SC_ERROR_FILE
+	echo "#*******************************************************************#"
+#	export TWO_TASK=$GOLDSRV
+	export TWO_TASK=$SLICSRV
+	echo "Processing at "$TWO_TASK
+#	$scm_exe/slicgldSCcheck -a$API_MERGED_SC_FILE -b$API_GOLD_VALID_SC_FILE -c$API_SC_ERROR_FILE
+	$scm_exe/slicgldSCcheck_new -a$API_MERGED_SC_FILE -b$API_GOLD_VALID_SC_FILE -c$API_SC_ERROR_FILE -d$PROCESSING_MODEL
+	rc=$?
+	echo "Return Code = " $rc
+	if [ $rc -eq 0 ]
+	then
+		export TWO_TASK=$SLICSRV
+		echo "\n*************************************************************"
+		echo "* Successful completion of Validate Seg Code (SC) Activity File against Gold - `date`"
+		echo "*\tProcessing at "$TWO_TASK
+		echo "*************************************************************"
+		errcode=0
+	else
+		echo "\n##############################################################"
+		echo "# Unsuccessful Completed of Validate Seg Code (SC) Activity File against Gold - `date`"
+		echo "# Return Code "$rc
+		echo "##############################################################"
+		errcode=88
+		echo "Errcode - "$errcode
+	fi
+fi
+
+if [ $rc -eq 0 ]
+then
+	API_MERGED_ACTY_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_merged_acty.dta";export API_MERGED_SLICGLD_FILE
+	echo "\n#*******************************************************************#"
+	echo "#             Creation of Consolidated API File "
+	echo "# Input CATS File "$API_UNSORTED_CATS_FILE
+	echo "# Input ACTD File "$API_SORTED_ACTD_FILE
+	echo "# Input Validated SC Acty File "$API_GOLD_VALID_SC_FILE
+	echo "# Input VENN File "$API_GOLD_VALID_VENN_FILE
+	echo "# Output Merged API Activity File "$API_MERGED_ACTY_FILE
+	echo "#*******************************************************************#"
+
+	sort -u -o$API_MERGED_ACTY_FILE $API_SORTED_ACTD_FILE $API_UNSORTED_CATS_FILE $API_GOLD_VALID_SC_FILE $API_GOLD_VALID_VENN_FILE
+	rc=$?
+	echo "Return Code = " $rc
+	if [ $rc -eq 0 ]
+	then
+		echo "\n*************************************************************"
+		echo "* Successful Creation of Consolidated API FIle - `date`"
+		echo "*************************************************************"
+		errcode=0
+	else
+		echo "\n##############################################################"
+		echo "# Unsuccessful Creation of Consolidated API File - `date`"
+		echo "# Return Code "$rc
+		echo "##############################################################"
+		errcode=90
+	fi
+fi
+
+if [ $rc -eq 0 ]
+	then
+	API_MERGED_SLICGLD_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_merged_slicgld_acty.dta";export API_MERGED_SLICGLD_FILE
+	API_NO_CAT1_ACTY_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_no_cat1_acty.dta";export API_NO_CAT1_ACTY_FILE
+	API_SORTED_NO_CAT1_ACTY_FILE=$PROCESSING_MODEL"_api_sorted_no_cat1_rpt_file.dta";export API_SORTED_NO_CAT1_ACTY_FILE
+	echo "\n#*******************************************************************#"
+	echo "#             Creation of Consolidated API File "
+	echo "# Input CAT1 File "$API_MERGED_CAT1_ACTD_FILE
+	echo "# Input MERGED ACTY File "$API_MERGED_ACTY_FILE
+	echo "# Output MERGED SLICGLD File "$API_MERGED_SLICGLD_FILE
+	echo "# Output No CAT1 File File "$API_NO_CAT1_ACTY_FILE
+	echo "#*******************************************************************#"
+	$scm_exe/slicgldAddCat1 -a$API_MERGED_CAT1_ACTD_FILE -b$API_MERGED_ACTY_FILE  -c$API_MERGED_SLICGLD_FILE -d$API_NO_CAT1_ACTY_FILE
+	rc=$?
+	echo "Return Code = " $rc
+	if [ $rc -eq 0 ]
+		then
+			echo "\n*************************************************************"
+			echo "* Successful completion of Consolidate API File - `date`"
+			wc -l $API_MERGED_SLICGLD_FILE
+			echo "* Sort No Catalog Report File - `date`"
+			echo "# Input No CAT1 File File "$API_NO_CAT1_ACTY_FILE
+			echo "# Output Sorted No CAT1 File File "$API_SORTED_NO_CAT1_ACTY_FILE
+			echo "*************************************************************"
+			sort -u -o$API_SORTED_NO_CAT1_ACTY_FILE $API_NO_CAT1_ACTY_FILE
+			echo "\n*************************************************************"
+			echo "* Following Part Numbers were in the API Merged Acty file that did not have a Catalog Record\n"
+			wc -l $API_SORTED_NO_CAT1_ACTY_FILE
+			echo "*\n"
+			cat $API_SORTED_NO_CAT1_ACTY_FILE
+			echo "\n*************************************************************"
+			if [ $rc -eq 0 ]
+			    then
+				 echo "\n*************************************************************"
+				 echo "* Successful completion of SORT of No Catalog Report File - `date`"
+				 echo "*************************************************************"
+				 errcode=0
+			 else
+				 echo "\n##############################################################"
+				 echo "# Unsuccessful completion of SORT of No Catalog Report File - `date`"
+				 echo "# Return Code "$rc
+				 echo "##############################################################"
+				 errcode=60
+				 echo "Errcode - "$errcode
+			 fi
+	else
+		echo "\n*************************************************************"
+		echo "* Unsuccessful completion of Consolidate API File - `date`"
+		echo "*************************************************************"
+		errcode=0
+	fi
+fi
+
+if [ $rc -eq 0 ]
+then
+	API_ACTY_FILE_WITH_PRIME=$DATA_DIR/$PROCESSING_MODEL"_api_acty_file_prime_parts.dta";export API_ACTY_FILE_WITH_PRIME
+        API_ACTY_FILE_WITH_PARTS=$DATA_DIR/$PROCESSING_MODEL"_api_acty_file_parts.dta";export API_ACTY_FILE_WITH_PARTS
+	echo "\n#*******************************************************************#"
+	echo "#             Reorder Merged API File "
+	echo "# Input Merged API Activity FIle "$API_MERGED_ACTY_FILE
+	echo "# Output API Activity File w/Sortword "$API_ACTY_FILE_WITH_SORTWORD
+	echo "#*******************************************************************#"
+	export TWO_TASK=$SLICSRV
+	echo "Processing at "$TWO_TASK
+	$scm_exe/slicgldPRIME -a$API_MERGED_SLICGLD_FILE -b$API_ACTY_FILE_WITH_PRIME -c$API_ACTY_FILE_WITH_PARTS
+	rc=$?
+	echo "Return Code = " $rc
+	if [ $rc -eq 0 ]
+	then
+		echo "\n*************************************************************"
+		echo "* Successful Reorg Merged API File - `date`"
+		echo "*************************************************************"
+		errcode=0
+	else
+		echo "\n##############################################################"
+		echo "# Unsuccessful Reorg Merged API File - `date`"
+		echo "# Return Code "$rc
+		echo "##############################################################"
+		errcode=90
+	fi
+fi
+
+if [ $rc -eq 0 ]
+then
+        API_ACTY_FILE=$DATA_DIR/$PROCESSING_MODEL"_api_acty_file.dta";export API_ACTY_FILE
+        echo "\n#*******************************************************************#"
+        echo "#             Create API File - Remove Prime Sortwork"
+        echo "# Input Sorted API PRIME  File w/Sortword "$API_ACTY_FILE_WITH_PRIME
+        echo "# Output API Activity File"$API_ACTY_FILE
+        echo "#*******************************************************************#"
+        cut -b3- $API_ACTY_FILE_WITH_PRIME>$API_ACTY_FILE
+        rc=$?
+        echo "Return Code = " $rc
+        if [ $rc -eq 0 ]
+        then
+                echo "\n*************************************************************"
+                echo "* Successful Sort of API File - `date`"
+                echo "*************************************************************"
+                echo "\n#*******************************************************************#"
+                echo "#             Create API File - Remove Part Sortwork"
+                echo "# Input Sorted API PART File w/Sortword "$API_ACTY_FILE_WITH_PARTS
+                echo "# Output API Activity File Concatenated "$API_ACTY_FILE
+                echo "#*******************************************************************#"
+                cut -b3- $API_ACTY_FILE_WITH_PARTS>>$API_ACTY_FILE
+                rc=$?
+                echo "Return Code = " $rc
+                errcode=0
+        else
+                echo "\n##############################################################"
+                echo "# Unsuccessful Sort of API File - `date`"
+                echo "# Return Code "$rc
+                echo "##############################################################"
+                errcode=90
+        fi
+fi
+
+if [ $rc -eq 0 ]
+then
+	echo "\n*************************************************************"
+	echo "* Successful Completion of SLIC/GOLD Interface - `date`"
+	echo "*************************************************************"
+	echo "Completion of SLIC/GOLD Data pull - `date`"
+	rcd_count=`wc -l $API_ACTY_FILE|awk '{print $1}'`
+	rc=$?
+	if [ $rc -eq 0 ]
+	then
+		if [ $rcd_count > 0 ]
+		then
+			echo "\nNumber of Records in "$API_ACTY_FILE " is "$rcd_count
+			echo "Completion of SLIC/GOLD Data pull">$DATA_DIR/slicgld_sysout
+			echo "\nNumber of Records in "$API_ACTY_FILE " is "$rcd_count>>$DATA_DIR/slicgld_sysout
+		else
+			echo "\n*************************************************************"
+			echo "\nNo Records to process in "$API_ACTY_FILE
+			echo "\nNo Records to process in "$API_ACTY_FILE>>$DATA_DIR/slicgld_sysout
+			echo "\n*************************************************************"
+			rc=100
+		fi
+	else
+		echo "\n#############################################################"
+		echo "\nProblem getting record count on file " $API_ACTY_FILE
+		echo "\n#############################################################"
+		errcode=101
+		rc=101
+	fi
+else
+	echo "\n*************************************************************"
+	echo "* UnSuccessful Completion of SLIC/GOLD Interface - `date`"
+	echo "*************************************************************"
+	echo "Return Code is " $rc
+fi
+
+echo "\n#################################################################################################"
+echo "\n#################################################################################################"
+echo "\n#################################################################################################"
+echo "\n##     Temporary Termination before GOLD UPDATE PROCESSING                                     ##"
+echo "\n#################################################################################################"
+echo "\n#################################################################################################"
+echo "\n#################################################################################################"
+more /data/scm/PROD/AV8_slicgld_output|mailx -m -s"AV8 SLIC/GOLD Interface" larry.d.mills@boeing.com
+exit $errcode 
+
+if [ $rc -eq 0 ]
+then
+	echo "\n#*******************************************************************#"
+	echo "* Start of Gold API Shared Table Update - " `date`
+	echo "* Processing Environment - " $PSS_ENV
+	echo "#*******************************************************************#"
+	export TWO_TASK=$GOLDSRV
+	echo $TWO_TASK
+#	$scm_exe/gldCATAPIU -a$API_ACTY_FILE -b$DATA_DIR/gldCATAPIU_error_file.dta
+	rc=$?
+	echo "Return Code = " $rc
+	if [ $rc -eq 0 ]
+	then
+		export TWO_TASK=$SLICSRV
+		echo "\n*************************************************************"
+		echo "* Successful completion of Gold API Shared Table Update - `date`"
+		echo "* Successful completion of Gold API Shared Table Update - `date`">>$DATA_DIR/slicgld_sysout
+		echo "*\tProcessing at "$TWO_TASK
+		echo "*************************************************************"
+		errcode=0
+	else
+		echo "\n##############################################################"
+		echo "# Unsuccessful Completion of the Gold API Shared Table Update - `date`"
+		echo "# Unsuccessful Completion of the Gold API Shared Table Update - `date`">>$DATA_DIR/slicgld_sysout
+		echo "# Return Code "$rc
+		echo "##############################################################"
+		errcode=200
+		echo "Errcode - "$errcode
+	fi
+fi
+
+echo "\n##############################################################"
+echo "# Completion of SLIC/GOLD API Processing - `date`">>$DATA_DIR/slicgld_sysout
+echo "# Error Code Returned from process - $errcode">>$DATA_DIR/slicgld_sysout
+echo "# Return Code Returned - $rc">>$DATA_DIR/slicgld_sysout
+echo "##############################################################"
+
+more /data/scm/PROD/AV8_slicgld_output|mailx -m -s"AV8 SLIC/GOLD Interface" larry.d.mills@boeing.com
+exit $errcode 

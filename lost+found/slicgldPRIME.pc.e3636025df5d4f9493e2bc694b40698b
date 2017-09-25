@@ -1,0 +1,379 @@
+/*     Program -  slicgldPRIME.pc Program */
+/* vim: ts=2:sw=2:sts=2:et:syntax=c:
+**************************************************************************
+*  PROGRAM NAME: SLIC/Gold Prime ID Program
+*
+*  PURPOSE: This program reads the input consolidated API Activity File and
+*        compares the Part and the Prime Part Number of the Catalog (001)
+*        record.  If they are equal, then the literals '00' are placed in
+*        the beginning of every record matching on the Part.  If they are
+*        equal, then the literals '01' are placed on the beginning of each
+*        record.  The reason for this processing is to sequence the activity
+*        file so that all API Catalog records that are creating a Prime Part
+*        Number is places first in the file.
+*
+*
+*  INPUTS:
+*
+*
+*  OUTPUTS:  1. Consolidated API Activity File
+*            2. Consolidated API Activity File with Sort Control
+*
+*
+*  CHANGE HISTORY:
+*   REV     DATE    Programmer                 CHANGE
+*   ---  --------   ----------------------     ------
+*    00  02/26/01   Larry MIlls                 Initial coding
+*
+**************************************************************************
+*/
+/* C System Includes                  */
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+#include <assert.h>
+#include "varcharSetup.h"
+
+/* Application Peculiar Includes      */
+
+
+/* File Pointer Definitions           */
+FILE *api_input_file_fp;
+FILE *api_output_file_fp;
+FILE *api_output_file2_fp;
+
+/* #define SQLCA_STORAGE_CLASS extern */
+#define NOT_FND 1403
+#define FND 0
+#define MULTI_ROWS -2112
+
+/* Application Peculiar Structures    */
+
+/*  Function prototype area       */
+
+void    A0001_initialize(void);
+int    A0100_get_argmnt(char argc, char **argv);
+int    A999_00_open_files(void);
+int    A1000_process_file(void);
+int     A9999_write_api_output_file(void);
+
+/*       program variables  */
+char    api_input_file[500];
+char    api_output_file[510];
+char    api_output_file2[510];
+char    api_input_file_area[5000];
+char    api_output_file_area[5010];
+char    api_output_file2_area[5010];
+char    api_part[51];
+char    api_prime[51];
+char    api_rcd_type[4];
+char    api_prev_part[51];
+char    srtctrl[2];
+
+/*       Flags              */
+
+/*       Record Counts      */
+int    rcds_read=0;
+int    rcds_written=0;
+int    rcds_written2=0;
+
+main(int argc, char **argv)
+{
+    
+    
+    int    errcode=0;
+    
+    errcode=A0100_get_argmnt(argc, argv);
+    
+    
+    if (errcode == FND)
+    {
+    }
+    else
+    {
+        printf("\nProblems processing Command Line Arguments\n");
+        errcode=511;
+    }
+    
+    errcode=A999_00_open_files();
+    if (errcode == FND)
+    {
+        errcode=A1000_process_file();
+    }
+    else
+    {
+        printf("\nNo processing.\n");
+    }
+    
+    printf("\n***********************************************************");
+    printf("\nNumber of records Read\t\t\t%d",rcds_read);
+    printf("\nNumber of Prime Part records written\t\t%d",rcds_written);
+    printf("\nNumber of Part records written\t\t%d",rcds_written2);
+    printf("\n***********************************************************");
+    
+    fclose(api_input_file_fp);
+    fclose(api_output_file_fp);
+    
+    if (errcode == FND)
+    {
+        printf("\nGood End of JOB\n");
+    }
+    else
+    {
+        printf("\nBad End of JOB\n");
+    }
+    exit(errcode);
+}
+/*
+
+*/
+void    A0001_initialize()
+{
+    STRINIT(api_part) ;
+    STRINIT(api_prime) ;
+    STRINIT(api_rcd_type) ;
+    STRINIT(api_prev_part) ;
+    STRINIT(srtctrl) ;
+}
+/*
+
+*/
+int    A0100_get_argmnt(char argc, char **argv)
+{
+    int    errcode=0;
+    
+    char opt;
+    char    spaces[]={"                                       "};
+    extern char *optarg;
+    while ((opt=getopt (argc, argv,"a:b:c:A:B:C")) !=EOF)
+    {
+        switch (opt)
+        {
+            case 'a':
+            case 'A':
+            strncpy((char *) api_input_file,(char *) optarg,strlen((char *) optarg));
+            strncat(api_input_file," ",500-strlen(api_input_file));
+            api_input_file[strlen((char *) optarg)]='\0';
+            break;
+            case 'b':
+            case 'B':
+            strncpy((char *) api_output_file,(char *) optarg,strlen((char *) optarg));
+            strncat(api_output_file," ",500-strlen(api_output_file));
+            api_output_file[strlen((char *) optarg)]='\0';
+            break;
+            case 'c':
+            case 'C':
+            strncpy(api_output_file2, optarg,sizeof(api_output_file2) - 1);
+            strncat(api_output_file2," ",500-strlen(api_output_file2));
+            api_output_file2[strlen((char *) optarg)]='\0';
+            break;
+            case '?':
+            errcode=12;
+            break;
+        }
+    }
+    
+    return(errcode);
+}
+/*
+
+*/
+int    A999_00_open_files(void)
+{
+    int    errcode=0;
+    
+    if ((api_input_file_fp=fopen(api_input_file,"r")) == NULL)
+    {
+        printf("\nCould not open Input File (%s)",api_input_file);
+        errcode=500;
+    }
+    
+    if ((api_output_file_fp=fopen(api_output_file,"w")) == NULL)
+    {
+        printf("\nCould not open output Prime Part File (%s)",api_output_file);
+        printf("\nCould not open output File");
+        errcode=502;
+    }
+    
+    if ((api_output_file2_fp=fopen(api_output_file2,"w")) == NULL)
+    {
+        printf("\nCould not open output Part File (%s)",api_output_file2);
+        printf("\nCould not open output File");
+        errcode=503;
+    }
+    
+    return(errcode);
+}
+/*
+
+*/
+int    A1000_process_file()
+{
+    int    errcode=0;
+    int    process_file=1;
+    
+    #if DEBUG
+    printf("\nA1000_process_file");
+    #endif
+    
+    while(process_file==1)
+    {
+        memset(api_input_file_area,'\0',sizeof(api_input_file_area));
+        if(fgets(api_input_file_area,sizeof(api_input_file_area),api_input_file_fp)==(char *) NULL)
+        {
+            process_file=0;
+        }
+        else
+        {
+            rcds_read++;
+            STRSET(api_rcd_type,&api_input_file_area[70]) ;
+            STRSET(api_part,&api_input_file_area[20]) ;
+
+            #if DEBUG
+            printf("\nInput Rcd (%s)",&api_input_file_area);
+            printf("\nPart (%s) Prev Part (%s) Rcd Type (%s)",api_part,api_prev_part,api_rcd_type);
+            #endif
+
+            memset(api_output_file_area,'\0',sizeof(api_output_file_area));
+            memset(api_output_file2_area,'\0',sizeof(api_output_file2_area));
+            if(strncmp(api_part,api_prev_part,sizeof(api_part) - 1)==0)
+            {
+                if(strncmp((char *) srtctrl,"01",2)==0)
+                {
+                    strncpy(api_output_file2_area,srtctrl,2);
+                    strcpy(&api_output_file2_area[2],api_input_file_area);
+                    if (api_output_file2_area[strlen(api_output_file2_area) - 1] != '\n')
+                      strcat(api_output_file2_area,"\n");
+                    errcode=A9999_write_api_output_file2();
+                }
+                else
+                {
+                    strncpy(api_output_file_area,srtctrl,2);
+                    strcpy(&api_output_file_area[2],api_input_file_area);
+                    if (api_output_file_area[strlen(api_output_file_area) - 1] != '\n')
+                      strcat(api_output_file_area,"\n");
+                    errcode=A9999_write_api_output_file();
+                }
+            }
+            else
+            {
+                if(strncmp(api_rcd_type,"001",3)==0)
+                {
+                    memset(api_prime,'\0',sizeof(api_prime));
+                    strncpy(api_prime,(char *) &api_input_file_area[162],sizeof(api_prime) - 1);
+                    if(strncmp(api_part,api_prime,sizeof(api_part) - 1)==0)
+                    {
+                        strncpy((char *) srtctrl,"00",2);
+                        strncpy((char *) api_output_file_area,srtctrl,2);
+                        strcpy(&api_output_file_area[2],(char *) &api_input_file_area);
+                        if (api_output_file_area[strlen(api_output_file_area) - 1] != '\n')
+                          strcat(api_output_file_area,"\n");
+                        errcode=A9999_write_api_output_file();
+                    }
+                    else
+                    {
+                        strncpy((char *) srtctrl,"01",2);
+                        strncpy((char *) api_output_file2_area,srtctrl,2);
+                        strcpy(&api_output_file2_area[2],(char *) &api_input_file_area);
+                        if (api_output_file2_area[strlen(api_output_file2_area) - 1] != '\n')
+                          strcat(api_output_file2_area,"\n");
+                        errcode=A9999_write_api_output_file2();
+                    }
+                    memset(api_prev_part,' ',sizeof(api_prev_part) - 1);
+                    api_prev_part[sizeof(api_prev_part) - 1] = '\0' ;
+                    strncpy(api_prev_part,api_part,50);
+                    api_prev_part[50]='\0';
+                }
+                else
+                {
+                    strncpy((char *) srtctrl,"01",2);
+                    strncpy((char *) api_output_file_area,srtctrl,2);
+                    strcpy(&api_output_file_area[2],(char *) &api_input_file_area);
+                    if (api_output_file_area[strlen(api_output_file_area) - 1] != '\n')
+                      strcat(api_output_file_area,"\n");
+                    errcode=A9999_write_api_output_file();
+                }
+            }
+        }
+    }
+    return(errcode);
+}
+/*
+
+*/
+int charcnt(char *str, char ch) {
+  int i = 0 ;
+  int cnt = 0 ;
+  for (i=0; i < strlen(str); i++)
+    if (str[i] == ch)
+      cnt++ ;
+  return cnt ;
+}
+int     A9999_write_api_output_file()
+{
+    int    errcode=0;
+    int    i1=0;
+    
+    #if DEBUG
+    printf("\nA9999_write_api_output_file");
+    printf("\nstrlen(api_output_file_area)=%d",strlen(api_output_file_area));
+    printf("\nOutput Rcd (%s)",api_output_file_area);
+    #endif
+
+    if (api_output_file_area[strlen(api_output_file_area) - 1] == '\n'
+        && api_output_file_area[strlen(api_output_file_area) - 2] == '\n')
+      api_output_file_area[strlen(api_output_file_area) - 1] == '\0' ;
+
+    assert(charcnt(api_output_file_area,'\n') == 1) ;    
+    assert(strlen(api_output_file_area) <= sizeof(api_output_file_area));
+    assert(strlen(api_output_file_area) >= 379 && strlen(api_output_file_area) <= 1072);
+    i1=fwrite(api_output_file_area,strlen(api_output_file_area),1,api_output_file_fp);
+    if(i1!=1)
+    {
+        printf("\n**********************************************************");
+        printf("\nError writing output api_output_file (%d)",i1);
+        errcode=510;
+    }
+    else
+    {
+        rcds_written++;
+    }
+    
+    return(errcode);
+}
+/*
+
+*/
+int     A9999_write_api_output_file2()
+{
+    int    errcode=0;
+    int    i1=0;
+    
+    #if DEBUG
+    printf("\nA9999_write_api_output_file2");
+    printf("\nstrlen(api_output_file2)=%d",strlen(api_output_file2_area));
+    printf("\nOutput Rcd (%s)",api_output_file2_area);
+    #endif
+
+    if (api_output_file2_area[strlen(api_output_file2_area) - 1] == '\n'
+        && api_output_file2_area[strlen(api_output_file2_area) - 2] == '\n')
+      api_output_file2_area[strlen(api_output_file2_area) - 1] == '\0' ;
+
+    assert(charcnt(api_output_file2_area,'\n') == 1) ;    
+    assert(strlen(api_output_file2_area) <= sizeof(api_output_file2_area));
+    assert(strlen(api_output_file2_area) >= 379 && strlen(api_output_file2_area) <= 1072);
+    i1=fwrite(api_output_file2_area,strlen(api_output_file2_area),1,api_output_file2_fp);
+    if(i1!=1)
+    {
+        printf("\n**********************************************************");
+        printf("\nError writing output api_output_file (%d)",i1);
+        errcode=510;
+    }
+    else
+    {
+        rcds_written2++;
+    }
+    
+    return(errcode);
+}

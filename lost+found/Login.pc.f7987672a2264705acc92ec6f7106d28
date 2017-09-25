@@ -1,0 +1,99 @@
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+EXEC SQL INCLUDE sqlca;
+void Login()
+{
+    char uid[20];
+    char pass[20];
+
+    FILE *fp_uid;
+    FILE *fp_pass;
+    char *defaultDir = "/home/scmftp" ;
+    char *oraLogin ;
+    char pwdFile[256] ;
+    char uidFile[256] ;
+
+    oraLogin = getenv("ORALOGIN");
+    if (oraLogin == NULL)
+      oraLogin = defaultDir ;
+
+    strcpy(pwdFile,oraLogin) ;
+    strcat(pwdFile,"/.SCM_LB_pass");
+    strcpy(uidFile,oraLogin);
+    strcat(uidFile,"/.SCM_LB_destn");
+
+
+    if((fp_uid = fopen(uidFile,"r")) == NULL)
+    {
+        printf("Unable to open file (%s) containing uid.\n", uidFile);
+        exit(2);
+    }
+
+    if((fp_pass = fopen(pwdFile,"r")) == NULL)
+    {
+        printf("Unable to open file (%s) containing password.\n", pwdFile);
+        exit(2);
+    }
+
+
+    fgets(uid,20,fp_uid);
+    uid[strlen(uid)-1] = '\0';
+    fclose(fp_uid);
+
+    fgets(pass,20,fp_pass);
+    pass[strlen(pass)-1] = '\0';
+
+
+    /* Connect */
+    EXEC SQL CONNECT :uid IDENTIFIED by :pass;
+    if(sqlca.sqlcode != 0)
+		db_err("Login");
+}
+/*
+*/
+void Login2(char *user_file, char *pass_file, char *id, char *dsn)
+{
+	char uid[20];
+	char pass[20];
+	char temp_id[20];
+	char temp_dsn[50];
+
+	FILE *fp_uid;
+	FILE *fp_pass;
+
+	strncpy(temp_id,id,strlen(id));
+	strncpy(temp_dsn,dsn,strlen(dsn));
+	temp_id[strlen(id)] = '\0';
+	temp_dsn[strlen(dsn)] = '\0';
+	printf("'%s' '%s' '%s' '%s'\n",user_file,pass_file,id,dsn);
+
+	if((fp_uid = fopen(user_file,"r")) == NULL)
+	{
+		printf("Unable to open file containing uid.\n");
+		exit(2);
+	}
+
+	if((fp_pass = fopen(pass_file,"r")) == NULL)
+	{
+		printf("Unable to open file containing password.\n");
+		exit(2);
+	}
+
+	fgets(uid,20,fp_uid);
+	uid[strlen(uid)-1] = '\0';
+	fclose(fp_uid);
+
+	fgets(pass,20,fp_pass);
+	pass[strlen(pass)-1] = '\0';
+
+
+	printf("(%s) (PW HIDDEN) (%s) (%s)\n",uid,temp_id,temp_dsn);
+
+	/* Connect */
+	EXEC SQL CONNECT :uid IDENTIFIED by :pass
+		AT :temp_id USING :temp_dsn;
+	if(sqlca.sqlcode != 0)
+		db_err("Login2");
+}

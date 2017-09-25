@@ -1,0 +1,26 @@
+lcd /mcair/dev/appl/scm/c/exe
+cd /data/scm/c/exe
+
+put assignIMSDesC
+put gldCATAPIU
+put gld_metric_load
+put parker
+put slicgldACTD
+put slicgldAddCat1
+put slicgldCAT1
+put slicgldFMT
+put slicgldHA
+put slicgldHAX04
+put slicgldHB
+put slicgldHG
+put slicgldHP
+put slicgldPRIME
+put slicgldSCcheck
+put slicgldVENN
+put slicgldVNDRcheck
+put sortAltPrimte
+put slicgldHAHBchk
+put slicgldPULL
+put ACDCBuildData
+put ACDCBuildDataM
+

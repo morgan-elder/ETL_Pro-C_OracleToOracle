@@ -1,0 +1,295 @@
+/* vim: syn=c:ts=2:sw=2:sts=2:et: 
+ */
+/*     Program -  SLIC/GOLD CAT1 Validation Program */
+/*
+ **************************************************************************
+ *  PROGRAM NAME: slicgldCAT1.pc
+ *
+ *  PURPOSE: The program processes the CAT1 output of the format program.
+ *           to check for duplicate Parts.  If the Part is duplicate in the
+ *           file then is is dropped.
+ *        
+ *
+ *  INPUTS:  CAT1 format File
+ *           
+ *
+ *  OUTPUTS:  Processed CAT1 Format File
+ *           
+ *
+ *  CHANGE HISTORY:
+ *   REV     DATE    Programmer                 CHANGE
+ *   ---  --------   ----------------------     ------
+ *    00  03/29/01   Larry Mills                Initial coding 
+ *
+ **************************************************************************
+*/
+/* C System Includes                  */
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+
+/* Application Peculiar Includes      */
+
+
+/* File Pointer Definitions           */
+FILE *cat1_input_fp;
+FILE *cat1_output_fp;
+FILE *cat1_err_output_fp;
+
+/* #define SQLCA_STORAGE_CLASS extern */
+#define NOT_FND 1403
+#define FND 0
+#define MULTI_ROWS -2112
+
+/* Application Peculiar Structures    */
+
+/*  Function prototype area       */
+
+int	A0100_get_argmnt(int argc, char **argv);
+int	A999_00_open_files(void);
+int	A999_01_signon(void);
+void	A999_02_dberr(void);
+int	A1000_process_file(void);
+int	A2000_process_cat1_compare(void);
+int     A9999_write_cat1_output(void);
+int     A9999_write_cat1_err_output(void);
+
+/*       program variables  */
+char	cat1_input_area[4000];
+char	cat1_output_area[4000];
+char	cat1_err_output_area[4000];
+char	*cat1_input_file ;
+char	*cat1_output_file ;
+char	*cat1_err_output_file ;
+char	prev_part[51];
+char	curr_part[51];
+
+/*       Flags              */
+
+/*       Record Counts      */
+int	cat1_rcds_read=0;
+int	cat1_rcds_written=0;
+int	cat1_err_rcds_written=0;
+
+main(int argc, char **argv)
+{
+
+	int	errcode=0;
+
+  printf("\nCompiled %s on %s at %s\n",__FILE__,__DATE__,__TIME__);
+
+ 	errcode=A0100_get_argmnt(argc, argv); 
+
+	if (errcode == FND)
+	{
+	}
+	else
+	{
+		printf("\nProblems processing Command Line Arguments\n");
+		errcode=511;
+	}
+
+	errcode=A999_00_open_files();
+	if (errcode == FND)
+	{
+		errcode=A1000_process_file();
+	}
+	else
+	{
+		printf("\nNo processing. errcode=%d\n", errcode);
+	}
+
+	printf("\n***********************************************************");
+	printf("\nNumber of records Read\t\t\t\t%d",cat1_rcds_read);
+	printf("\nNumber of records written\t\t%d",cat1_rcds_written);
+	printf("\nNumber of Error records written\t\t%d",cat1_err_rcds_written);
+	printf("\n***********************************************************");
+	printf("\n");
+
+  if (cat1_input_fp != NULL) 
+	  fclose(cat1_input_fp);
+  if (cat1_output_fp != NULL)
+	  fclose(cat1_output_fp);
+  if (cat1_err_output_fp != NULL)
+	  fclose(cat1_err_output_fp);
+
+	exit(errcode);
+}
+int	A0100_get_argmnt(int argc, char **argv)
+{
+	int	errcode=0;
+	char opt;
+	char	spaces[]={"                                       "};
+	extern char *optarg;
+
+	#if DEBUG
+		printf("\nA0100_get_argmnt");
+	#endif
+
+	while ((opt=getopt (argc, argv,"a:b:c:A:B:C")) !=EOF)
+	{	
+		switch (opt)
+		{
+			case 'a':
+	                case 'A':		
+				cat1_input_file = optarg ;
+				break;	
+			case 'b':
+	                case 'B':		
+				cat1_output_file = optarg ;
+				break;	
+			case 'c':
+	                case 'C':		
+				cat1_err_output_file = optarg ;
+				break;	
+			case '?':
+				errcode=12;
+				break;
+		}
+	}	
+
+	return(errcode);
+}
+/*
+
+*/
+int	A999_00_open_files(void)
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\nA999_00_open_files");
+	#endif
+
+	if ((cat1_input_fp=fopen(cat1_input_file,"r")) == NULL)
+	{
+		printf("\nCould not open Input File (%s)",cat1_input_file);
+		errcode=500;
+	}
+	else
+	{
+		printf("\nProcessing Input File (%s)",cat1_input_file);
+	}
+
+	if ((cat1_output_fp=fopen(cat1_output_file,"w")) == NULL)
+	{
+		printf("\nCould not open output File (%s)",cat1_output_file); 
+		errcode=502;
+	}
+	else
+	{
+		printf("\nProcessing Output File (%s)",cat1_output_file);
+	}
+
+	if ((cat1_err_output_fp=fopen(cat1_err_output_file,"w")) == NULL)
+	{
+		printf("\nCould not open Error output File (%s)",cat1_err_output_file); 
+		errcode=503;
+	}
+	else
+	{
+		printf("\nProcessing Error Output File (%s)",cat1_err_output_file);
+	}
+
+	return(errcode);
+}
+
+int	A1000_process_file()
+{
+	int	errcode=0;
+	int	process_file=1;
+
+	#if DEBUG
+		printf("\nA1000_process_file");
+	#endif
+
+	memset(prev_part,' ',50);
+	memset(curr_part,' ',50);
+
+	while(process_file)
+	{
+		memset(cat1_input_area,' ',4000);
+		if(fgets(cat1_input_area,4000,cat1_input_fp) == (char *) NULL)
+		{
+			process_file=0;
+		}
+		else
+		{
+			cat1_rcds_read++;
+			errcode=A2000_process_cat1_compare();
+		}
+
+	}
+		
+	return(errcode);
+}
+
+int	A2000_process_cat1_compare()
+{
+	int	errcode=0;
+
+	strncpy(curr_part,&cat1_input_area[20],50);
+	curr_part[50]='\0';
+
+	#if DEBUG
+		printf("\nA2000_process_cat1_compare");
+		printf("\nCurrent Part  (%s)",curr_part);
+		printf("\nPrevious Part (%s)",prev_part);
+		printf("\nSize of Input (%d)",strlen(&cat1_input_area));
+	#endif
+
+	if(strncmp(curr_part,prev_part,50)==0)
+	{
+		errcode=A9999_write_cat1_err_output();
+	}
+	else
+	{
+		errcode=A9999_write_cat1_output();
+	}
+	memset(prev_part,' ',50);
+	strncpy(prev_part,curr_part,50);
+	prev_part[50]='\0';
+
+	return(errcode);
+}
+int     A9999_write_cat1_output()
+{
+	int	errcode=0;
+	
+	#if DEBUG
+		printf("\nA9999_write_cat1_output");
+	#endif
+
+	cat1_rcds_written++;
+	errcode=fputs(cat1_input_area,cat1_output_fp);
+	if(errcode=0)
+	{
+		printf("\n**********************************************************");
+		printf("\nError writing output cat1 output (%d)",errcode);
+		errcode=510;
+	 }
+
+	return(errcode);
+}
+int     A9999_write_cat1_err_output()
+{
+	int	errcode=0;
+	int	i1=0;
+	
+	#if DEBUG
+		printf("\nA9999_write_cat1_err_output");
+	#endif
+
+	cat1_err_rcds_written++;
+
+	errcode=fputs(cat1_input_area,cat1_err_output_fp);
+	if(errcode=0)
+	{
+		printf("\n**********************************************************");
+		printf("\nError writing output cat1_err_output (%d)",errcode);
+		errcode=510;
+	 }
+
+	return(errcode);
+}

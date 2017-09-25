@@ -1,0 +1,51 @@
+#include <string.h>
+#include <stdlib.h>
+  
+/*
+	This routine is setting a part number to a basic
+	part structure.  If the part number is '74A12345678-1001', 
+	it will return back '74A12345678'.
+
+	This routine takes in a string and searches the string
+	from the end of the string backwards.  As it goes backwards
+	it blanks out the each character.  When it encounters the first
+	'-', it will replace the '-' with a '\0' and terminate the
+	processing returning control to the calling sub-routine.
+			*/
+
+
+void SetBasicPart(char *str,int length)
+{
+    int i,j;
+    char temp[51];
+
+    memset(temp,' ',50);
+    strncpy(temp,str,length);
+/*    printf("\n In subroutine (%s) (%d) (%s)",str,length,temp);  */
+    for(i = length-1, j = length-1; i >= 0; i--)
+    {
+/*	printf("\n (%c) (%d)",str[i],i);  */
+        if(str[i] == '-')
+        {
+            str[i]='\0';
+            i=-1;
+        }
+	else
+	{
+            str[i]=' ';
+	}
+       
+    }
+
+/*    printf("\nResults #1 (%s) (%d) (%i)",str,strlen(str),i);  */
+    if(i!=-1)
+    {
+    }
+    else
+    {
+	memset(str,' ',length);
+	strncpy(str,temp,length);
+    }
+/*    printf("\nResults #2 (%s) (%d)",str,strlen(str));  */
+
+}

@@ -1,0 +1,105 @@
+#!/bin/sh
+
+if (($#>0)) ; then
+  ADDR=$1,
+else
+  if [ `logname` = "zf297a" ] ; then
+    ADDR=douglas.s.elder@boeing.com
+  else
+    ADDR=joseph.t.conley@boeing.com
+  fi
+fi
+
+. /mcair/rel/appl/pss_shared/public/set_pss_env_no_login
+
+if [ -z $ADDR ] ; then
+  ADDR=$IT_BATCH_EMAIL
+fi
+
+rc=$?
+if [ $rc -ne 0 ]
+then
+        echo "\n###########################################################################"
+        echo "\nExit Code from set_common_env " $rc
+        echo "\nProcessing of gld_metric_load was unsuccessful -`date`"
+        echo "\n###########################################################################"
+        errcode=500
+        exit $errcode
+fi
+
+. /data/scm/public/setup_scm_sh
+
+#
+#######################################################################################
+#
+#                                GLD_METRIC_LOAD SCRIPT 
+#
+#######################################################################################
+#
+scm_data=/data/scm;export scm_data
+scm_exe=$scm_data/c/exe;export scm_exe
+scm_sh=$scm_data/sh;export scm_sh
+
+
+if [ $PSS_ENV = "PRODN" ]
+then
+	DATA_DIR=/tmp;export DATA_DIR
+  STLDB=$TWO_TASK
+  GOLDDB=pgoldsl
+else
+	DATA_DIR=/tmp;export DATA_DIR
+  STLDB=$TWO_TASK
+  GOLDDB=dgoldsl
+fi
+
+NOT_ALL=/data/scm/PROD/gld_metric_load_not_all_processing
+
+set -o pipefail
+current_time=$(date "+%Y_%m_%d_%H_%M_%S")
+SEGCODE=VPV9406
+SYSOUT=/tmp/${current_time}_gld_metric_load_${SEGCODE}.txt
+{
+  #
+  #######################################################################################
+  #
+  echo "#processing -                    $SEGCODE "
+  #
+  #######################################################################################
+  #
+  $scm_exe/gld_metric_load $SEGCODE $STLDB $GOLDDB some
+} 2>&1 | tee -a $SYSOUT
+rc=$?
+
+if [ $rc -eq 0 ]
+then
+	echo "gld_metric_load for VPV9406 exited successfully." `date`
+  echo -e "From: gld_metric_load_vpv_sh Script\nSubject: Successful Processing of GOLD Metric Load (VPV9406)\nTo: ${ADDR}" | more $SYSOUT | sed '/^~/s/~//' | sendmail -t
+else
+	echo "gld_metric_load assignment for VPV9406 exited unsuccessfully." `date`
+  echo -e "From: gld_metric_load_vpv_sh Script\nSubject: Unsuccessful Processing of GOLD Metric Load (VPV9406)\nTo: ${ADDR}" | more $SYSOUT | sed '/^~/s/~//' | sendmail -t
+	exit 0
+fi
+
+SEGCODE=1ASLSCM
+SYSOUT=/tmp/${current_time}_gld_metric_load_${SEGCODE}.txt
+{
+  #
+  #######################################################################################
+  #
+  echo "#processing -                  $SEGCODE"
+  #
+  #######################################################################################
+  #
+  $scm_exe/gld_metric_load $SEGCODE $STLDB $GOLDDB some
+} 2>&1 | tee -a $SYSOUT
+rc=$?
+
+if [ $rc -eq 0 ]
+then
+	echo "gld_metric_load for 1ASLSCM exited successfully." `date`
+  echo -e "From: gld_metric_load_vpv_sh Script\nSubject: Successful Processing of GOLD Metric Load (1ASLSCM)\nTo: ${ADDR}" | more $SYSOUT | sed '/^~/s/~//' | sendmail -t
+else
+	echo "gld_metric_load assignment for 1ASLSCM exited unsuccessfully." `date`
+  echo -e "From: gld_metric_load_vpv_sh Script\nSubject: Unsuccessful Processing of GOLD Metric Load (1ASLSCM)\nTo: ${ADDR}" | more $SYSOUT | sed '/^~/s/~//' | sendmail -t
+	exit 0
+fi

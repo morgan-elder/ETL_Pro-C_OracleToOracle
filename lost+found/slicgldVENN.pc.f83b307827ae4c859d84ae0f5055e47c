@@ -1,0 +1,724 @@
+/*     Program -  SLIC/GOLD VENN input program  */
+/*
+ **************************************************************************
+ *  PROGRAM NAME: slicgldVENN.pc
+ *
+ *  PURPOSE: The purpose of this program is to take a VENC input file, parse 
+ *           it, and output a delmited/API file to be used for input into
+ *           the GOLD VENN table. 
+ *
+ *  INPUTS:   1. Gold VENC Record. 
+ *           
+ *
+ *  OUTPUTS:  1. Candidate VENN Records
+ *           
+ *
+ *  CHANGE HISTORY:
+ *   REV     DATE    Programmer                 CHANGE
+ *   ---  --------   ----------------------     ------
+ *    00  05/26/00   Bob Alter                  Initial coding  
+ *    01  03/15/01   Ben Barth					Rework of some code
+ *                                              - Moved queries to separate functions.
+ *                                              - Changed vendor_code to be 21 chars.
+ *                                              - Changed processing of vendor name.
+ *                                              Added timing functions to retrieve start and end times.
+ *    01  03/16/01   Ben Barth                  Added include for gold685_venc_api_sort_cntrl.h.
+ *                                              Created substring function to strip off the sort_cage
+ *                                                from the input vendor record.
+ *                                              Fixed select condition on GOLD query to match vendor name
+ *                                                to vendor_name column instead of cage_code column.
+ *    02  08/09/02   Ben Barth                  Fixed A1200_check_samst40() when multiple names are found
+ *    03  12/15/03   David Hurshman             Changed owner of sams_tble40 to SCM.
+ *
+ **************************************************************************
+*/
+/* C System Includes                  */
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+#include <time.h>
+#include <assert.h>
+
+#include "varcharSetup.h"
+
+/* Application Peculiar Includes      */
+
+/* Input record layouts               */
+#include "gold68_venc_delimit.h"
+#include "gold685_venc_api_sort_cntrl.h"
+
+/* Output record layouts              */
+#include "gold685_venc_api.h"
+#include "gold68_venn_delimit.h"
+
+/* File Pointer Definitions           */
+FILE *gold_venc_rcds_fp;
+FILE *gold_venn_rcds_fp;
+FILE *fh_block2;
+FILE *fh_block3;
+
+/* #define SQLCA_STORAGE_CLASS extern */
+#define NOT_FND 1403
+#define FND 0
+#define MULTI_ROWS -2112
+
+/* Application Peculiar Structures    */
+
+EXEC SQL BEGIN DECLARE SECTION;
+
+int     status;
+char	uid[20];
+char	pwd[20];
+char    delimited_flag='?';
+varchar vendor_code[21]; 
+varchar vendor_code_save[21];
+varchar vendor_name_line1[61];
+varchar vendor_name_line2[61];
+short vendor_name_line1_i;
+short vendor_name_line2_i;
+char    vendor_name_save[61];
+char	spaces[]={"                                       "};
+
+EXEC SQL END DECLARE SECTION;
+
+EXEC SQL INCLUDE sqlca;
+
+/*  Function prototype area       */
+
+int	A999_00_open_files(void);
+int	A999_01_signon(void);
+void	A999_02_dberr(void);
+int     A1000_file_select();
+int     A1100_check_gold();
+int     A1200_check_samst40();
+int     A1300_check_slicXH();
+void    A1400_setup_company_name();
+char*   A1500_substr(char *in, int start, int end);
+int     Z9999_initialize_venn();
+
+/*       program variables  */
+char   *gold_venc_input_file ;
+char   *gold_venn_output_file ;
+char   *program_model ;
+int    i;
+
+/*  timing variables  */
+struct tm *tmstruct;
+time_t start_time;
+time_t stop_time;
+
+char	input_rcd_area[5000];
+char	output_rcd_area[5000];
+gold68_venc_delmtd_rcd	venc_rcd;
+gold68_venc_api_sort_rcd venc_api_sort_rcd;
+gold68_venc_api_rcd venc_api_rcd;
+gold68_venn_rcd	venn_rcd;
+
+main(int argc, char *argv[])
+{
+
+	int	errcode=0;
+	int     opt;
+	extern char *optarg;
+	char runtime[25];
+
+
+	time(&start_time);
+	tmstruct = localtime(&start_time);
+	strftime(runtime,sizeof(runtime),"%m/%d/%Y - %H:%M:%S",tmstruct);
+	printf("\n\nPROCESSING SLIC/GOLD VENN Program");
+	printf("\n\nStarting Time of %s\n\n",runtime);
+
+	while ((opt=getopt (argc, argv,"a:b:c:d:A:B:C:D")) != EOF)
+	{	
+		switch (opt)
+		{
+			case 'a':
+			case 'A':		
+				gold_venc_input_file = optarg ;
+				printf("gold_venc_input_file=%s\n", gold_venc_input_file) ;
+				break;			
+			case 'b':
+			case 'B':		
+				gold_venn_output_file = optarg ;
+				printf("gold_venn_output_file=%s\n", gold_venn_output_file) ;
+				break;			
+			case 'c':
+			case 'C':		
+				delimited_flag = optarg[0];
+				break;			
+			case 'd':
+			case 'D':		
+				program_model = optarg ;
+				printf("\nProcessing Program Model (%s)",program_model);
+				break;			
+			case '?':
+				errcode=12;
+				break;
+		}
+	}	
+	if (errcode == FND)
+	{
+                Login();
+                if(sqlca.sqlcode == 0)
+                {
+                        printf("Connect Successful\n");
+                }
+                else
+                {
+                        printf("\n***********************************************************");
+                        printf("\n*                                                         *");
+                        printf("\n*       Not connected.                                    *");
+                        printf("\n*                                                         *");
+                        printf("\n***********************************************************");
+                        A999_02_dberr();
+                }
+	
+	}
+	else
+	{
+		printf("\n***********************************************************");
+		printf("\n*                                                         *");
+		printf("\n*     Unable to Read Command Line Arguments               *");
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+	}
+
+	if (errcode == FND)
+	{
+		errcode=A999_00_open_files();
+		if (errcode == FND)
+		{
+			errcode=A1000_file_select();
+		}
+		else
+		{
+			printf("\n***********************************************************");
+			printf("\n*                                                         *");
+			printf("\n*  Unable to Open Files for Processing                    *");
+			printf("\n*                                                         *");
+			printf("\n***********************************************************");
+		}
+	}
+	time(&stop_time);
+	tmstruct = localtime(&stop_time);
+	strftime(runtime,sizeof(runtime),"%m/%d/%Y - %H:%M:%S",tmstruct);
+	printf("\n\nEnding Time of %s\n\n",runtime);
+
+	printf("Elapsed time of %d seconds\n\n",(int)(stop_time - start_time));
+
+	printf("\nError code (%d)\n",errcode);
+	exit(errcode);
+}
+/*
+
+*/
+int	A999_00_open_files(void)
+{
+	int	errcode=0;
+
+	if ((gold_venc_rcds_fp=fopen(gold_venc_input_file,"r")) == NULL)
+	{
+		printf("\n***********************************************************");
+		printf("\n*                                                         *");
+		printf("\n*       Could not open Input File (%s)",gold_venc_input_file);
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+		errcode=500;
+	}
+	else
+	{
+		printf("Ready to read from input file (%s)\n",gold_venc_input_file);
+	}
+
+	if ((gold_venn_rcds_fp=fopen(gold_venn_output_file,"w")) == NULL)
+	{
+		printf("\n***********************************************************");
+		printf("\n*                                                         *");
+		printf("\n*       Could not open Output File (%s)",gold_venn_output_file);
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+		errcode=500;
+	}
+	else
+	{
+		printf("Ready to write to output file (%s)\n",gold_venn_output_file);
+	}
+
+	return(errcode);
+}
+/*
+
+*/
+void	A999_02_dberr()
+{
+	char msg_buf[513];
+	size_t  buf_size=sizeof(msg_buf);
+	size_t  msg_len;
+
+	if (sqlca.sqlcode == -1405) return; 
+	printf("\n???????????????????????????????????????????????????????????");
+	printf("\n?                                                         ?");
+	printf("\n?\tData Base Error has occurred:");
+	sqlglm(msg_buf, &buf_size, &msg_len);
+	sqlglm(msg_buf, &buf_size, &msg_len);
+	msg_buf[msg_len]='\0';
+	printf("\n\t\t%s",msg_buf);
+	printf("\n\t\tSQLCODE: %d",sqlca.sqlcode);
+	printf("\n\t\tSQLERR MSG %s",sqlca.sqlerrm.sqlerrmc);
+	printf("\n");
+	printf("\n???????????????????????????????????????????????????????????");
+
+	return;
+}
+/*
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+*/
+
+A1000_file_select()
+{
+	int	errcode=0,count=0,record_count=0;
+	int	fetch_hg_chgs=1;
+
+	#if DEBUG
+		printf("\nA1000_file_select");
+	#endif
+
+	INITVCHAR(vendor_code_save) ;
+
+
+	while(1)
+	{
+
+		Z9999_initialize_venn();
+
+		INITVCHAR(vendor_code) ;
+
+		STRINIT(input_rcd_area) ;
+		memset((char *) &venc_rcd,' ',sizeof(venc_rcd));
+
+		if (delimited_flag=='Y' ||
+			delimited_flag=='y')
+		{
+
+
+		  if (fgets(input_rcd_area,sizeof(input_rcd_area),gold_venc_rcds_fp) == (char *) NULL) break;
+
+		  assert(strlen(input_rcd_area) == sizeof(venc_rcd));
+		  memcpy(&venc_rcd,input_rcd_area,sizeof(venc_rcd));
+
+		  if (memcmp((char *) &venc_rcd.part,"     ",5) == 0)
+		  {
+				printf("\nBlank Part Number On Record %d",record_count);
+				printf("\nRecord = %s",venc_rcd);
+				printf("\nExit Code is 11\n");
+				exit(11);
+		   }
+		   SETVCHAR(vendor_code, venc_rcd.vendor_code) ;
+		}
+		else
+		{
+		        if (fgets(input_rcd_area,sizeof(input_rcd_area),gold_venc_rcds_fp) == (char *) NULL) break;
+
+			assert(strlen(input_rcd_area) == sizeof(venc_api_sort_rcd));
+
+			memcpy((char *) &venc_api_sort_rcd,input_rcd_area,sizeof(venc_api_sort_rcd));
+			#if DEBUG
+				printf("\nA1000_file_select Input Rcd (%s)",&venc_api_sort_rcd);
+			#endif
+			if (memcmp((char *) &venc_api_sort_rcd.part,"     ",5) == 0)
+			{
+				printf("\nBlank Part Number On Record %d",record_count);
+				printf("\nRecord = %s",&venc_api_sort_rcd);
+				printf("\nRecord = %s",&venc_api_sort_rcd.part);
+				printf("\nExit Code is 12\n");
+				exit(12);
+			}
+			SETVCHAR(vendor_code, venc_api_sort_rcd.vendor_code) ;
+		}
+		
+		record_count++;
+
+
+		assert(vendor_code.len <= sizeof(vendor_code.arr) - 1) ;
+		#if DEBUG
+			printf("\n###################################################################");
+			printf("\nvendor_code_save.arr = %s",(char *) vendor_code_save.arr);
+			printf("\nvendor_code.arr = %s",(char *) vendor_code.arr);
+			printf("\n###################################################################");
+		#endif
+
+		if(vendor_code.len > 0 && strcmp((char *)vendor_code_save.arr, (char *)vendor_code.arr) == 0)
+		{
+			A1400_setup_company_name();
+			count++;
+		}
+		else
+		{
+		        INITVCHAR(vendor_name_line1) ;
+			INITVCHAR(vendor_name_line2) ;
+			
+			errcode = A1100_check_gold();
+			#if DEBUG
+				printf("\nError code after Gold Check (%d)\n",errcode);
+			#endif
+			if(errcode != 0 && errcode == NOT_FND)
+			{ 
+				errcode = A1200_check_samst40();
+				#if DEBUG
+					printf("\nError code after Sams Check (%d)\n",errcode);
+				#endif
+				if(errcode != 0 && errcode == NOT_FND)
+				{
+					errcode = A1300_check_slicXH();
+					#if DEBUG
+						printf("\nError code after SLIC Check (%d)\n",errcode);
+					#endif
+					if(errcode != 0 && errcode == NOT_FND)
+					{
+						strcpy(vendor_name_line1.arr,"TBD");
+						vendor_name_line1.len = strlen(vendor_name_line1.arr) ;
+					}
+				}
+			}	
+				
+			assert(vendor_name_line1.len <= sizeof(vendor_name_line1.arr) - 1);
+			if(errcode != 0 && errcode != NOT_FND)
+			{
+				printf("ERROR: %d in A1000_file_select()\n",errcode);
+				A999_02_dberr();
+				exit(100);
+			}
+			else
+			{
+			        #if DEBUG
+				  printf("vendor_code.arr=%s\n",vendor_code.arr,vendor_name_line1.arr);
+				  printf("vendor_code_save.arr=%s\n",vendor_code_save.arr) ;
+				#endif
+
+				A1400_setup_company_name();
+				count++;
+			}
+		}
+
+		#if DEBUG
+	          printf("record_count=%d\n",record_count);
+	          printf("count=%d\n",count);
+	        #endif
+	}    
+
+	if(errcode==NOT_FND)
+	{
+		errcode=0;
+	}
+
+	printf("Records Read     (%d)\n",record_count);
+	printf("Records Written  (%d)\n",count); 
+
+	fclose (gold_venc_rcds_fp);
+	fclose (gold_venn_rcds_fp);
+
+	return(errcode);
+}
+
+int A1100_check_gold()
+{
+	#if DEBUG
+		printf("\nA1100_check_gold");
+	#endif
+
+	INITVCHAR(vendor_name_line1) ;
+
+	EXEC SQL SELECT nvl(vendor_name,' ')
+	INTO :vendor_name_line1
+	FROM venn
+	WHERE vendor_code = rtrim(:vendor_code); 
+
+	if (sqlca.sqlcode != FND &&
+		sqlca.sqlcode != MULTI_ROWS)
+	{
+		if(sqlca.sqlcode != NOT_FND)
+		{
+			printf("\nBad sqlcode from Check VENN\n");
+			printf("\nChecking Vendor Code (%s)",vendor_code.arr);
+			printf("\nSQLCODE: %d",sqlca.sqlcode);
+			A999_02_dberr();
+			printf("\nExit Code is 13\n");
+			exit(13);
+		}
+	}
+	return(sqlca.sqlcode);	
+}
+
+int A1200_check_samst40()
+{
+	#if DEBUG
+		printf("\nA1200_check_samst40");
+	#endif
+
+	EXEC SQL DECLARE samst40 CURSOR FOR
+		SELECT distinct nvl(name1,' '),nvl(name2,' ')
+		FROM SCM.sams_tble40
+		WHERE addr = rtrim(:vendor_code); 
+
+	EXEC SQL OPEN samst40;
+
+	INITVCHAR(vendor_name_line1) ;
+
+	EXEC SQL FETCH samst40
+		INTO :vendor_name_line1:vendor_name_line1_i,:vendor_name_line2:vendor_name_line2_i;
+
+	if (sqlca.sqlcode != NOT_FND)
+	{
+		if(sqlca.sqlcode == 0)
+		{
+			if(vendor_name_line1.len==0)
+			{
+				strncpy((char *) vendor_name_line1.arr,(char *) vendor_name_line2.arr,vendor_name_line2.len);
+				vendor_name_line1.len = strlen(vendor_name_line1.arr) ;
+				assert(vendor_name_line1.len <= sizeof(vendor_name_line1.arr) - 1) ;
+			}
+			else
+			{
+			}
+		}
+		else
+		{
+			printf("\nBad SQLCODE from call to SAMS Table 40\n");
+			printf("\nCage Code (%s)",vendor_code.arr);
+			printf("\nSQLCODE: %d",sqlca.sqlcode);
+			A999_02_dberr();
+			printf("\nExit Code is 15\n");
+			exit(15);
+		}
+	}
+	return(sqlca.sqlcode);
+}
+
+int A1300_check_slicXH()
+{
+
+	char	mysql[2000];
+
+	#if DEBUG
+		printf("\nA1300_check_slicXH");
+	#endif
+	
+	STRINIT(mysql) ;
+
+	strcpy(mysql,"SELECT nvl(canamexh,' ') ");
+	strcat(mysql,"FROM ");
+	strcat(mysql,program_model);
+	strcat(mysql,"_xh ");
+	strcat(mysql,"WHERE can_int = 0 and cagecdxh = rtrim('");
+	strcat(mysql,(char *) vendor_code.arr);
+	strcat(mysql,"') "); 
+	
+	#if DEBUG
+		printf("\nSQL (%s)",mysql);
+	#endif
+
+	EXEC SQL PREPARE SLIC_XH_CSR_SQL from :mysql;
+	EXEC SQL DECLARE SLIC_XH_CSR CURSOR FOR SLIC_XH_CSR_SQL;
+	EXEC SQL OPEN SLIC_XH_CSR;
+
+	/*
+	if(sqlca.sqlcode==FND)
+	{
+	        INITVCHAR(vendor_name_line1) ;
+		EXEC SQL FETCH SLIC_XH_CSR
+			INTO :vendor_name_line1;
+
+		if(sqlca.sqlcode == FND || sqlca.sqlcode == NOT_FND)
+		{
+		}
+		else
+		{
+			printf("\nBad SQLCODE from call to SLIC XH Table-FETCH CURSOR\n");
+			printf("\nCage Code (%s)",vendor_code.arr);
+			printf("\nSQLCODE: %d",sqlca.sqlcode);
+			A999_02_dberr();
+			printf("\nExit Code is 14\n");
+			exit(14);
+		}
+	}
+	else
+	{
+		if(sqlca.sqlcode==NOT_FND)
+		{
+		}
+		else
+		{
+			printf("\nBad SQLCODE from call to SLIC XH Table - OPEN CURSOR\n");
+			printf("\nCage Code (%s)",vendor_code.arr);
+			printf("\nSQLCODE: %d",sqlca.sqlcode);
+			printf("\nSQL (%s)",mysql);
+			A999_02_dberr();
+			printf("\nExit Code is 14\n");
+			exit(14);
+		}
+	}
+	*/
+	
+	EXEC SQL CLOSE SLIC_XH_CSR;
+
+	return(sqlca.sqlcode);
+}
+
+void A1400_setup_company_name()
+{
+        assert(vendor_name_line1.len <= sizeof(vendor_name_line1.arr) - 1);
+	#if DEBUG
+		printf("\nA1400_setup_company_name");
+		printf("\nCompany Name (%s) ",(char *) vendor_name_line1.arr);
+	#endif
+	
+	STRINIT(output_rcd_area) ;
+	memset(&venc_api_rcd,' ',sizeof(venc_api_rcd));
+	assert(sizeof(venc_api_rcd.customer) <= sizeof(venc_api_sort_rcd.customer)) ;
+	strncpy(venc_api_rcd.customer,venc_api_sort_rcd.customer,sizeof(venc_api_rcd.customer));
+
+	if (delimited_flag=='Y' ||
+		delimited_flag=='y')
+	{
+
+	        assert(sizeof(venn_rcd.vendor_code) >= sizeof(venc_rcd.vendor_code));
+	        memcpy((char *) &venn_rcd.vendor_code,(char *) &venc_rcd.vendor_code,sizeof(venn_rcd.vendor_code));
+		assert(vendor_name_line1.len <= sizeof(venn_rcd.vendor_name)) ;
+		memcpy((char *) &venn_rcd.vendor_name,(char *) vendor_name_line1.arr,vendor_name_line1.len);
+		assert(vendor_code.len <= sizeof(venn_rcd.cage_code)) ;
+		memcpy((char *) &venn_rcd.cage_code,(char *) vendor_code.arr,vendor_code.len);
+		venn_rcd.eol = '\n';
+
+		/* fputs requires a null terminated string for the first argument
+		 * venn_rcd ends with a new line character and not a null terminator
+		 * so create a buffer one character bigger than venn_rcd
+		 * copy venn_rcd to the buffer
+		 * and set the last character to the null terminator
+		 */
+
+		{ char buf[sizeof(venn_rcd) + 1] ;
+		  assert(sizeof(buf) >= sizeof(venn_rcd) + 1) ;
+		  memcpy(buf,&venn_rcd,sizeof(venn_rcd))  ;
+		  buf[sizeof(venn_rcd)] = '\0' ;
+		  assert(strlen(buf) <= sizeof(venn_rcd)) ;
+		  fputs(buf,gold_venn_rcds_fp);
+		 }
+	}
+	else
+	{
+	        assert(vendor_name_line1.len <= sizeof(vendor_name_line1.arr) - 1) ;
+	        assert(sizeof(venc_api_rcd.vendor_name) >= vendor_name_line1.len) ;
+		memcpy((char *) &venc_api_rcd.vendor_name,(char *) vendor_name_line1.arr,vendor_name_line1.len);
+		venc_api_rcd.eol = '\n';
+
+		/* fputs requires a null terminated string for the first argument
+		 * venc_api_rcd ends with a new line character and not a null terminator
+		 * so create a buffer one character bigger than venc_api_rcd
+		 * copy venc_api_rcd to the buffer
+		 * and set the last character to the null terminator
+		 */
+
+		{ char buf[sizeof(venc_api_rcd) + 1] ;
+		  assert(sizeof(buf) == sizeof(venc_api_rcd) + 1) ;
+		  memcpy(buf,&venc_api_rcd,sizeof(venc_api_rcd));
+		  buf[sizeof(venc_api_rcd)] = '\0' ;
+
+		  #if DEBUG
+		    printf("strlen(buf)=%d\n", strlen(buf));
+		  #endif
+
+		  assert(strlen(buf) <= sizeof(venc_api_rcd)) ;
+		  fputs(buf,gold_venn_rcds_fp);
+		}
+	}
+	
+	fflush(gold_venn_rcds_fp); 
+
+	if (delimited_flag=='Y' ||
+		delimited_flag=='y')
+	{ 
+	        assert(sizeof(vendor_name_save) >= sizeof(venn_rcd.vendor_name));
+	        memcpy((char *) &vendor_name_save,(char *) &venn_rcd.vendor_name,sizeof(venn_rcd.vendor_name));
+	        assert(sizeof(vendor_code_save.arr) - 1 >= sizeof(venn_rcd.vendor_code));
+		SETVCHAR(vendor_code_save,venc_rcd.vendor_code) ;
+	}
+	else
+	{
+	        assert(sizeof(vendor_name_save) >= sizeof(venc_api_sort_rcd.vendor_name));
+	        memcpy((char *) &vendor_name_save,(char *) &venc_api_sort_rcd.vendor_name,sizeof(venc_api_sort_rcd.vendor_name));
+	        assert(sizeof(vendor_code_save.arr) - 1 >= sizeof(venc_api_sort_rcd.vendor_code));
+		SETVCHAR(vendor_code_save,venc_api_sort_rcd.vendor_code) ;
+	}
+}
+
+static	char buffer[500];
+char* A1500_substr(char *in, int start, int end)
+{
+	/*
+	#if DEBUG
+		printf("\nA1500_substr");
+	#endif
+	*/
+	
+	int i,j;
+	
+	for(i = 0, j = start; j < end; i++)
+	{
+		buffer[i] = in[j++];
+	}
+	buffer[i] = '\0';
+	
+	return(buffer);	
+}
+
+int     Z9999_initialize_venn()
+{
+	#if DEBUG
+		printf("\nZ9999_initialize_venn");
+	#endif
+	
+	if (delimited_flag=='Y' ||
+		delimited_flag=='y')
+	{ 
+		memset (&venn_rcd,' ',sizeof(venn_rcd));
+		venn_rcd.eol = '\n';
+		venn_rcd.start_quote='"';
+       		venn_rcd.end_quote='"';
+
+		strncpy((char *) &venn_rcd.delimitr01,"\",\"",3);
+		strncpy((char *) &venn_rcd.delimitr02,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr03,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr04,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr05,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr06,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr07,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr08,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr09,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr10,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr11,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr12,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr13,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr14,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr15,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr16,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr17,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr18,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr19,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr20,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr21,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr22,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr23,"\",\"",3);
+		memcpy((char *) &venn_rcd.delimitr24,"\",\"",3);
+   	}
+	else
+	{
+		memset (&venc_api_sort_rcd,' ',sizeof(venc_api_sort_rcd));
+		venc_api_sort_rcd.eol = '\n'; 
+
+	}
+
+	return(0);
+}

@@ -1,0 +1,9 @@
+#!/bin/sh
+. /mcair/rel/appl/pss_shared/public/set_pss_env_no_login
+. /data/scm/public/setup_scm_sh
+
+scm_data=/data/scm;export scm_data
+scm_exe=$scm_data/c/exe;export scm_exe
+scm_sh=$scm_data/sh;export scm_sh
+
+ORALOGIN=/data/scm/sh/oralogin;export ORALOGIN

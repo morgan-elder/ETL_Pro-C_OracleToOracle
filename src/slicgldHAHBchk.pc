@@ -1,0 +1,776 @@
+/* vim: ts=2:sw=2:sts=2:et:syntax=c: */
+/*     Program - SLIC To GOLD Valid Parts  */
+/*
+ **************************************************************************
+ *  PROGRAM NAME: slicgldHAHB_f18chk.pc
+ *
+ *  PURPOSE: The purpose of this program is to separate all VPV parts from
+ *           GOLD into HA, HB, HG, HP files for the slic to gold format program.
+ *
+ *  INPUTS:   1. VPV part, manuf_cage, prime, ims_designator_code, niin
+ *
+ *
+ *  OUTPUTS:  1. HA/HB, and Error Report
+ *
+ *
+ *  CHANGE HISTORY:
+ *   REV     DATE    Programmer                 CHANGE
+ *   ---  --------   ----------------------     ------
+ *    00  05/14/02   Andy Wickersham            Initial coding
+ *    01  09/24/02   Ben Barth                  Mod to base SLIC prefix on model
+ *                                              passed in as an argument
+ *    02  10/20/02   Chandler Wilson          Changed print lines and modified
+ *                          to print error if no cage in GOLD
+ **************************************************************************
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <assert.h>
+#include <unistd.h>
+#include "Login.h"
+#include "db_err.h"
+
+#include "slicha_chgrcd.h"
+#include "slichb_chgrcd.h"
+#include "slichg_chgrcd.h"
+#include "slichp_chgrcd.h"
+#include "varcharSetup.h"
+
+#define NOT_FND 1403
+#define FND 0
+#define MULTI_ROWS -2112
+
+EXEC SQL INCLUDE sqlca.h;
+EXEC SQL INCLUDE oraca.h;
+
+int set_db_prefix();
+int process_records();
+int move_record_to_output(char *);
+int check_cage_found();
+int check_part_prime();
+int check_ha();
+int setup_ha_query();
+int setup_ha_query_no_cage();
+int check_hb();
+int setup_hb_query();
+int setup_hb_query_no_cage();
+int write_rcd();
+
+#define MULTI -2112
+#define NOTFND 1403
+#define FND 0
+
+FILE *in, *out1, *err_file;
+
+char output[165];
+char part[50];
+char prime[50];
+char gld_cage[6];
+char des_code[20];
+char niin[10];
+int write_flag;
+int check_cage_flag;
+int typ_check_flag; /* a - checking HA    b - checking HB */
+
+varchar in_model[11];
+varchar model[11];
+varchar stmt[5000];
+
+char refnumha[33];short refnumha_i;
+char slic_cage[6];short slic_cage_i=0;
+char prime_cage[6];
+char rcdtype[3];
+
+int haCnt = 0;
+int hbCnt = 0;
+
+slicha_chgrcd slicha;
+slichb_chgrcd slichb;
+slichg_chgrcd slichg;
+slichp_chgrcd slichp;
+
+char err_out[132];
+
+static void usage() {
+  printf("slicgldHAHBchk -e error_filename -i input_filename -o output_filename  -p F18|F15|AV8B") ;
+  printf("        bars | indicate mutually exclusive values one of which must be used\n") ;
+}
+
+
+int main(int argc, char *argv[])
+{
+  char *data_dir = "/data/scm" ;
+  
+  char *iname ;
+  char *oname ;
+  char *errname ;
+
+  int i, errcode = 0;
+
+  write_flag = 0;
+/*
+  strcpy(iname, argv[1]);
+  strcpy(oname, argv[2]);
+  strcpy(errname, argv[3]);
+  strncpy((char *) in_model.arr,argv[4],strlen(argv[4]));
+  in_model.len = strlen(argv[4]);
+  in_model.arr[in_model.len] = '\0';
+  strcpy((char *) model.arr,(char *) in_model.arr);
+*/
+
+  memset(model.arr,'\0',sizeof(model.arr)) ;
+  model.len = 0 ;
+{
+  char c ;
+  while ((c = getopt (argc, argv, "e:i:o:p:")) != -1)
+    switch (c)
+      {
+      case 'e':
+        errname = optarg ;
+        break ;
+      case 'i':
+        iname = optarg;
+        break;
+      case 'o':
+        oname = optarg;
+        break;
+      case 'p':
+        assert(strlen(optarg) < sizeof(model.arr)) ;
+        if (strcmp(optarg,"F18") == 0 || strcmp(optarg,"F15") == 0 || strncmp(optarg,"AV8",3) == 0) {
+          strcpy(model.arr,optarg);
+          model.len = strlen(model.arr) ;
+          break;
+        } else {
+           fprintf(stderr,"Program model of %s was not accepted.  Only F18, F15, and AV8B\n", optarg) ;
+           usage() ;
+           exit(2) ;
+        }
+      case '?':
+        if (optopt == 'e')
+          fprintf (stderr, "Option -%c requires an output error filename.\n", optopt);
+        else if (optopt == 'i')
+          fprintf (stderr, "Option -%c requires an input filename.\n", optopt);
+        else if (optopt == 'o')
+          fprintf (stderr, "Option -%c requires an output filename.\n", optopt);
+        else if (optopt == 'p')
+          fprintf (stderr, "Option -%c requires a program model: F18, F15, AV8B.\n", optopt);
+        else if (isprint (optopt))
+          fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+        else
+          fprintf (stderr, "Unknown option character `\\x%x'.\n", optopt);
+        usage() ;
+        exit(2);
+      default:
+        exit(2);
+      }
+  }
+
+  if (errname == NULL) {
+    fprintf(stderr,"You must specify an error output file\n") ;
+    usage() ;
+    exit(2) ;
+  }
+
+  if (oname == NULL) {
+    fprintf(stderr,"You must specify an output file\n") ;
+    usage() ;
+    exit(2) ;
+  }
+
+  if (iname == NULL) {
+    fprintf(stderr,"You must specify an input file\n") ;
+    usage() ;
+    exit(2) ;
+  }
+
+  if (model.len == 0) {
+    fprintf(stderr,"You must specify a program model of F18, F15, or AV8B\n") ;
+    usage() ;
+    exit(2) ;
+  }
+
+  printf("MODEL (%s)\n",in_model.arr);
+  printf("oname (%s)\n",oname);
+  printf("iname (%s)\n",iname);
+  printf("errname (%s)\n",errname);
+
+  if ((in = fopen(iname, "r"))==NULL)
+  {
+    fprintf(stderr, "\nPROBLEM OPENING INPUT FILE_1\n");
+    exit(2);
+  }
+
+  if ((out1 = fopen(oname, "w"))==NULL)
+  {
+    fprintf(stderr, "\nPROBLEM OPENING OUTPUT FILE1\n");
+    exit(2);
+  }
+
+  if ((err_file = fopen(errname, "w"))==NULL)
+  {
+    fprintf(stderr, "\nPROBLEM OPENING ERROR OUTPUT FILE\n");
+    exit(2);
+  }
+
+  Login();  /** LOG INTO DATABASE **/
+
+  if(sqlca.sqlcode == 0)
+  {
+      printf("Connected to Database\n");
+    }
+  else
+    {
+      printf("Connection to Database was unsuccessful!\n");
+      db_err("login_to_slic");
+  }
+
+  errcode = set_db_prefix();
+  if(errcode == 0)
+  {
+    errcode = process_records();
+  }
+  printf("\nHA Records Written:   %d\n", haCnt);
+  printf("HB Records Written:   %d\n", hbCnt);
+
+  fclose(in);
+  fclose(out1);
+  fclose(err_file);
+  return errcode;
+}
+
+int process_records()
+{
+  int errcode = 0;
+  char inRec[1000];
+
+  while(fgets(inRec,1000,in) != NULL)
+  {
+    write_flag = 0;
+    if(ferror(in) != 0)
+    {
+      printf("Error reading input file.");
+      errcode = 2;
+      break;
+    }
+    else
+    {
+
+      if(errcode == 0)
+        errcode = move_record_to_output(inRec);
+      if(errcode != 0)
+        break;
+    }
+  }
+
+  return errcode;
+}
+
+int set_db_prefix()
+{
+  int errcode = 0;
+
+
+  if(strncmp((char *) model.arr, "AV8",3) == 0)
+    strncpy((char *) &model.arr[3], "B\0",2);
+  model.len = strlen((char *) model.arr);
+  model.arr[model.len] = '\0';
+  #if DEBUG
+    printf("\nMODEL: (%s)\n",model.arr);
+    printf("LEN:   (%d)\n",model.len);
+    fflush(stdout);
+  #endif
+
+  return errcode;
+}
+
+
+int move_record_to_output(char *inRec)
+{
+  int errcode = 0;
+
+  memset(output, ' ', sizeof(output));
+  memset(err_out, ' ', sizeof(err_out));
+
+  strncpy(output, inRec, 50);          /*part         */
+  strncpy(output+50, inRec+50, 5);     /*cage         */
+  strncpy(output+55, inRec+55, 50);    /*prime        */
+  strncpy(output+105, inRec+105, 20);  /*ims des code */
+  strncpy(output+125, inRec+125, 9);   /*niin         */
+  strncpy(output+134, inRec+134, 5);   /*prime cage   */
+
+  assert(139 < sizeof(output)) ;
+  output[139] = '\0';
+
+  #if DEBUG
+    printf("\nPart     (%50.50)\n",output);
+    printf("Cage     (%5.5s)\n",output+50);
+    printf("Prime    (%50.50)\n",output+55);
+    printf("Des Code (%20.20s)\n",output+105);
+    printf("NIIN     (%9.9s)\n",output+125);
+  #endif
+
+  strncpy(err_out, output, 50);
+  strncpy(err_out+50, output+55, 50);
+  strncpy(err_out+100, output+50, 5);
+  strncpy(err_out+105, output+105, 20);
+  
+  assert(125 < sizeof(err_out)) ;
+  err_out[125] = '\0';
+
+
+  errcode = check_part_prime();
+
+  if(write_flag)
+    errcode = write_rcd();
+
+  return errcode;
+}
+
+int check_part_prime()
+{
+  int errcode = 0;
+
+  write_flag=0;
+
+  memset(part, '\0', sizeof(part));
+  assert(32 < sizeof(part)) ;
+  strncpy(part, output, 32);
+
+  memset(gld_cage, '\0', 6);
+  strncpy(gld_cage, output+50, 5);
+  gld_cage[5] = '\0';
+
+  if (!strncmp(output, &output[55], 50)) /* Is the part a prime?*/
+  {
+    /*check ha*/
+    typ_check_flag='a';
+    errcode = check_ha(); /* Part is prime */
+  }
+  else
+  {
+    /*check hb*/
+    typ_check_flag='b';
+    errcode = check_hb();   /* Part is NOT prime */
+  }
+
+  return errcode;
+}
+
+int check_ha()  /*Checks to see if part/cage are in SLIC */
+{
+  int errcode = 0;
+  char out[500];
+
+  #if DEBUG
+    printf("\ncheck_ha");
+    printf("\nPart     (%32.32s)\n",&output[0]);
+    printf("Cage     (%5.5s)\n",&output[50]);
+    printf("Prime    (%32.32s)\n",&output[55]);
+  #endif
+
+  if(strncmp(&output[134], "?????", 5)== 0) /* Is there a value for prime cage?*/
+  {
+    check_cage_flag = 1;
+  }
+
+  if(check_cage_flag == 0)
+  {
+    errcode = setup_ha_query();
+  }
+  else
+  {
+    errcode = setup_ha_query_no_cage();
+  }
+
+  switch(errcode) {
+    case NOTFND:
+      if(check_cage_flag==0)
+      {
+        errcode = setup_ha_query_no_cage();
+      }
+      else
+      {
+        errcode = check_cage_found();
+      }
+      errcode=0;
+      break;
+    case MULTI:
+      fprintf(err_file, "%20.20s",&output[105]); /*ims_des code*/
+      fprintf(err_file, "%32.32s",&output[0]);   /*part*/
+      fprintf(err_file, "%5.5s",&output[50]);    /*cage*/
+      fprintf(err_file, "%32.32s",&output[55]);  /*prime*/
+      fprintf(err_file, "%5.5s",&output[134]); /*prime cage*/
+      fprintf(err_file, "-- multiple records in SLIC HA matching GOLD part/cage\n");
+      errcode = 0;
+      break;
+    case FND:
+      memset(&slicha,' ',sizeof(slicha)) ;
+      RECFLDSET(slicha.refnumha, part) ;
+      RECFLDSET(slicha.cagecdha, slic_cage);
+      RECFLDSET(slicha.prcsseq, "90");
+      RECFLDSET(slicha.rcdtype, "ZA");
+      slicha.newline = ' ';
+      slicha.endline = '\n';
+
+      strcpy(rcdtype,"ZA");
+      write_flag = 1;
+      break;
+    default:
+      db_err("check_ha");
+  }
+
+  return errcode;
+}
+
+int setup_ha_query()
+{
+  int errcode = 0;
+  memset((char *) stmt.arr,' ' ,5000);
+
+  strcpy((char *) stmt.arr, "select refnumha,cagecdxh from ");
+  strncat((char *) stmt.arr, (char *) model.arr, model.len);
+  strcat((char *) stmt.arr, "_ha where refnumha = :v1 and cagecdxh = :v2 ");
+  stmt.len = strlen((char *) stmt.arr);
+
+  #if DEBUG
+    printf("\nsetup_ha_query");
+    printf("\n%s\n",stmt.arr);
+    fflush(stdout);
+  #endif
+
+  EXEC SQL PREPARE slic_ha_stmt FROM :stmt;
+  EXEC SQL DECLARE slic_ha_cur CURSOR FOR slic_ha_stmt;
+  EXEC SQL OPEN slic_ha_cur USING :part, :gld_cage;
+
+  EXEC SQL FETCH slic_ha_cur INTO
+    :refnumha,:slic_cage;
+
+  errcode = sqlca.sqlcode;
+
+  return errcode;
+}
+
+int setup_ha_query_no_cage()
+{
+  int errcode = 0;
+
+  #if DEBUG
+    printf("\nsetup_ha_query_no_cage");
+    printf("\nPart     (%32.32s)\n",&output[0]);
+    printf("Cage     (%5.5s)\n",&output[50]);
+    printf("Prime    (%32.32s)\n",&output[55]);
+  #endif
+
+  memset((char *) stmt.arr,' ' ,5000);
+
+  strcpy((char *) stmt.arr, "select cagecdxh from ");
+  strncat((char *) stmt.arr, (char *) model.arr, model.len);
+  strcat((char *) stmt.arr, "_ha where refnumha = :v1");
+  stmt.len = strlen((char *) stmt.arr);
+
+  #if DEBUG
+    printf("\nsetup_ha_query_no_cage");
+    printf("\n%s\n",stmt.arr);
+    fflush(stdout);
+  #endif
+
+  EXEC SQL PREPARE slic_ha_stmt FROM :stmt;
+  EXEC SQL DECLARE slic_ha_no_cage_cur CURSOR FOR slic_ha_stmt;
+  EXEC SQL OPEN slic_ha_no_cage_cur USING :part;
+  EXEC SQL FETCH slic_ha_no_cage_cur INTO
+    :slic_cage;
+
+  errcode = sqlca.sqlcode;
+
+  switch(errcode) {
+    case NOTFND:
+      fprintf(err_file, "%20.20s",&output[105]); /*ims_des code*/
+      fprintf(err_file, "%32.32s",&output[0]);   /*part*/
+      fprintf(err_file, "%5.5s",&output[50]);    /*cage*/
+      fprintf(err_file, "%32.32s",&output[55]);  /*prime*/
+      fprintf(err_file, "%5.5s",&output[134]); /*prime cage*/
+      fprintf(err_file, "-- GOLD part/cage not found on SLIC HA\n");
+      break;
+    case FND:
+      strcpy(slicha.refnumha, part);
+      strcpy(slicha.cagecdha, slic_cage);
+      strcpy(slicha.prcsseq, "90");
+      strcpy(slicha.rcdtype, "ZA");
+      slicha.newline = ' ';
+      slicha.endline = '\n';
+
+      strcpy(rcdtype,"ZA");
+      write_flag = 1;
+      break;
+    default:
+      db_err("setup_ha_query_no_cage");
+  }
+
+  return errcode;
+}
+
+int check_hb() /* Checks to see if part/cage are in SLIC */
+{
+  int errcode = 0;
+
+  memset(slic_cage, ' ', 5);
+  memset(prime_cage,' ',5);
+  memset(prime, ' ', 50);
+  strncpy(prime, output+55, 32);
+  assert(32 < sizeof(prime)) ;
+  prime[32] = '\0';
+
+  #if DEBUG
+    printf("\ncheck_hb");
+  #endif
+
+  if(strncmp(&output[50], "?????", 5)== 0) /* Is there a value for part cage?*/
+  {
+    check_cage_flag = 1;
+  }
+
+  if(check_cage_flag == 0)
+  {
+    errcode = setup_hb_query();
+  }
+  else
+  {
+    errcode = setup_hb_query_no_cage();
+  }
+
+  switch(errcode) {
+    case NOTFND:
+      if(check_cage_flag==0)
+      {
+        errcode = setup_hb_query_no_cage();
+      }
+      else
+      {
+        errcode = check_cage_found();
+      }
+      errcode = 0;
+      break;
+    case MULTI:
+      fprintf(err_file, "%20.20s",&output[105]); /*ims_des code*/
+      fprintf(err_file, "%32.32s",&output[0]);   /*part*/
+      fprintf(err_file, "%5.5s",&output[50]);    /*cage*/
+      fprintf(err_file, "%32.32s",&output[55]);  /*prime*/
+      fprintf(err_file, "%5.5s",&output[134]); /*prime cage*/
+      fprintf(err_file, "-- multiple records found in SLIC HB matching GOLD part and or prime/cage\n");
+      errcode = 0;
+      break;
+    case FND:
+      memset(&slichb,' ',sizeof(slichb)) ;
+      RECFLDSET(slichb.refnumhb, prime);
+      RECFLDSET(slichb.cagecdhb, prime_cage);
+      RECFLDSET(slichb.prcsseq, "91");
+      RECFLDSET(slichb.rcdtype, "ZB");
+      RECFLDSET(slichb.addrefhb, part);
+      RECFLDSET(slichb.adcagehb, slic_cage);
+      slichb.newline = '\n';
+
+      strcpy(rcdtype,"ZB");
+      write_flag = 1;
+      break;
+    default:
+      db_err("check_hb");
+  }
+
+  return errcode;
+}
+
+int setup_hb_query()
+{
+  int errcode = 0;
+
+  #if DEBUG
+    printf("\nsetup_hb_query");
+    printf("\nPart (%s)",part);
+    printf("\nGold Cage (%s)",gld_cage);
+    printf("\nPrime (%s)",prime);
+  #endif
+
+  memset((char *) stmt.arr, ' ', 5000);
+
+  strcpy((char *) stmt.arr, "select adcagehb,cagecdhb from ");
+  strncat((char *) stmt.arr, (char *) model.arr, model.len);
+  strcat((char *) stmt.arr, "_hb where addrefhb = :v1 and adcagehb = :v2 ");
+  strcat((char *) stmt.arr, "and refnumhb = :v3 ");
+  stmt.len = strlen((char *) stmt.arr);
+
+  #if DEBUG
+    printf("\n%s\n",stmt.arr);
+    fflush(stdout);
+  #endif
+
+  EXEC SQL PREPARE slic_hb_stmt FROM :stmt;
+  EXEC SQL DECLARE slic_hb_cur CURSOR FOR slic_hb_stmt;
+  EXEC SQL OPEN slic_hb_cur USING :part, :gld_cage, :prime;
+
+  EXEC SQL FETCH slic_hb_cur INTO
+    :slic_cage,:prime_cage;
+
+  errcode = sqlca.sqlcode;
+
+  return errcode;
+}
+
+int setup_hb_query_no_cage()
+{
+  int errcode = 0;
+
+  #if DEBUG
+    printf("\nsetup_hb_query_no_query");
+    printf("\nPart (%s)",part);
+    printf("\nGold Cage (%s)",gld_cage);
+    printf("\nPrime (%s)",prime);
+  #endif
+
+  memset((char *) stmt.arr, ' ', 5000);
+
+  strcpy((char *) stmt.arr, "select adcagehb,cagecdhb from ");
+  strncat((char *) stmt.arr, (char *) model.arr, model.len);
+  strcat((char *) stmt.arr, "_hb where addrefhb = :v1 ");
+  strcat((char *) stmt.arr, "and refnumhb = :v2 ");
+  strcat((char *) stmt.arr, "and \050adrncchb = \'3\' and adrnvchb = \'2\' ");
+  strcat((char *) stmt.arr, "or adrncchb = \'5\' and adrnvchb = \'1\' ");
+  strcat((char *) stmt.arr, "or adrncchb = \'2\' and adrnvchb = \'2\'\051 ");
+  strcat((char *) stmt.arr, "order by adcagehb ");
+
+  stmt.len = strlen((char *) stmt.arr);
+
+  #if DEBUG
+    printf("\n%s\n",stmt.arr);
+    fflush(stdout);
+  #endif
+
+  EXEC SQL PREPARE slic_hb_stmt FROM :stmt;
+  EXEC SQL DECLARE slic_hb_no_cage_cur CURSOR FOR slic_hb_stmt;
+  EXEC SQL OPEN slic_hb_no_cage_cur USING :part, :prime;
+
+  EXEC SQL FETCH slic_hb_no_cage_cur INTO
+    :slic_cage,:prime_cage;
+
+  errcode = sqlca.sqlcode;
+
+  #if DEBUG
+    printf("\n%d\n",sqlca.sqlcode);
+    fflush(stdout);
+  #endif
+
+  switch(errcode) {
+    case NOTFND:
+      fprintf(err_file, "%20.20s",&output[105]); /*ims_des code*/
+      fprintf(err_file, "%32.32s",&output[0]);   /*part*/
+      fprintf(err_file, "%5.5s",&output[50]);    /*cage*/
+      fprintf(err_file, "%32.32s",&output[55]);  /*prime*/
+      fprintf(err_file, "%5.5s",&output[134]); /*prime cage*/
+      fprintf(err_file, "-- GOLD part and or prime/cage not found in SLIC HB\n");
+      break;
+    case FND:
+      strcpy(slichb.refnumhb, prime);
+      strcpy(slichb.cagecdhb, prime_cage);
+      strcpy(slichb.prcsseq, "91");
+      strcpy(slichb.rcdtype, "ZB");
+      strcpy(slichb.addrefhb, part);
+      strcpy(slichb.adcagehb, slic_cage);
+      slichb.newline = '\n';
+
+      strcpy(rcdtype,"ZB");
+      write_flag = 1;
+      break;
+    default:
+      db_err("setup_hb_query_no_cage");
+  }
+
+  return errcode;
+}
+
+int check_cage_found()
+{
+  int errcode = 0;
+  check_cage_flag = 0;
+
+  #if DEBUG
+    printf("\ncheck_cage_found");
+    printf("\nPart     (%32.32s)\n",&output[0]);
+    printf("Cage     (%5.5s)\n",&output[50]);
+    printf("Prime    (%32.32s)\n",&output[55]);
+    printf("Prime Cage    (%5.5s)\n",&output[134]);
+  #endif
+
+  switch(typ_check_flag) {
+    case 'a':
+      if(strncmp(&output[134], "?????", 5)== 0) /* Is there a value for prime cage?*/
+      {
+        fprintf(err_file, "%20.20s",&output[105]); /*ims_des code*/
+        fprintf(err_file, "%32.32s",&output[0]);   /*part*/
+        fprintf(err_file, "%5.5s",&output[50]);    /*cage*/
+        fprintf(err_file, "%32.32s",&output[55]);  /*prime*/
+        fprintf(err_file, "%5.5s",&output[134]); /*prime cage*/
+        fprintf(err_file, "-- No Prime cage code in GOLD\n");
+        check_cage_flag = 1;
+      }
+    case 'b':
+      if(strncmp(&output[50], "?????", 5)== 0) /* Is there a value for part cage?*/
+      {
+        fprintf(err_file, "%20.20s",&output[105]); /*ims_des code*/
+        fprintf(err_file, "%32.32s",&output[0]);   /*part*/
+        fprintf(err_file, "%5.5s",&output[50]);    /*cage*/
+        fprintf(err_file, "%32.32s",&output[55]);  /*prime*/
+        fprintf(err_file, "%5.5s",&output[134]); /*prime cage*/
+        fprintf(err_file, "-- No Part cage code in GOLD\n");
+        check_cage_flag = 1;
+      }
+  }
+
+  return errcode;
+}
+
+int write_rcd()
+{
+  int i, errcode = 0;
+  char out[500];
+
+  memset(out,' ',sizeof(out)) ;
+
+  if(strncmp(rcdtype,"ZA",2) == 0)
+  {
+    strncpy(out,(char *)&slicha,sizeof(slicha));
+    out[sizeof(slicha_chgrcd)] = '\0';
+
+    #if DEBUG
+      printf("WRITING ZA RCD\n");
+    #endif
+    i = fwrite(&slicha,sizeof(slicha_chgrcd),1,out1);
+    if(i != 1)
+    {
+      printf("Error writing to ZA output file.\n");
+      errcode = 2;
+    }
+    else
+      haCnt++;
+  }
+  else if(strncmp(rcdtype,"ZB",2) == 0)
+  {
+    strncpy(out,(char *)&slichb,sizeof(slichb));
+    out[sizeof(slichb_chgrcd)] = '\0';
+
+    #if DEBUG
+      printf("WRITING ZB RCD\n");
+    #endif
+    i = fwrite(&slichb,sizeof(slichb_chgrcd),1,out1);
+    if(i != 1)
+    {
+      printf("Error writing to ZB output file. Errcode (%d)\n",errcode);
+      errcode = 2;
+    }
+    else
+      hbCnt++;
+  }
+
+  return errcode;
+}

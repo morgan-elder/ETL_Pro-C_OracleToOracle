@@ -1,0 +1,546 @@
+/*  Program - Parker PBL Supercedures */
+
+/*
+*************************************************************************
+* PROGRAM NAME: parker.pc
+*
+* PURPOSE: The purpose of this program is to insert the PBL indicator
+*          for parts that supercede Parker parts
+*
+* INPUTS:  Slic to Gold Insert File
+*
+* OUTPUTS: Slic to GOLD Insert File Updated with Parker Information
+*
+* CHANGE HISTORY:
+*
+* REV      DATE       PROGRAMMER                       CHANGE
+* ---      ---------  ---------------------            ------
+* 00       03/07/03   Robert Price                     Initial coding
+*
+*
+***************************************************************************
+*/
+
+/* C System Includes                  */
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+#include <assert.h>
+#include "gold685_cat1_api.h"
+
+/* File Pointer Definitions           */
+FILE *fp_in;
+FILE *fpout;
+FILE *fpocat1;
+FILE *fperror;
+
+/* SQL Includes */
+EXEC SQL INCLUDE sqlca.h;
+EXEC SQL INCLUDE oraca.h;
+
+/* #define SQLCA_STORAGE_CLASS extern */
+#define NF 1403
+#define FND 0
+#define MUL 2112
+
+/*  Function prototype area */
+gold68_cat1_api_rcd         cat1;
+
+int process_file(FILE* fp);
+int check_alternate();
+int query_gold();
+int query_supercedure(char flag);
+int write_update_rpt_output();
+
+/*  program variables  */
+char create_update_delete;
+varchar part[51];
+varchar prime[51];
+varchar cage[6];
+char infile[100];
+char outfile[100];
+char outcat1[100];
+char program_model[10];
+char alternate_flag;
+gold68_cat1_api_rcd cat1_rcd;
+varchar stmt[5000];
+char	outbuf[2000];
+char	buf[2000];
+
+char	uidfile[200];
+char	passfile[200];
+char	db[20];
+char	dsn[20];
+int	errcnt;
+int	input_rcd_cnt=0;
+int	output_update_rpt_cnt=0;
+int	output_cat1_acty_cnt=0;
+int	input_rcd_size=0;
+
+/** Query VARIABLES **/
+varchar canumbhp[17];
+varchar rsrefno[33];
+varchar rscagecd[6];
+varchar repsupid[3];
+varchar intchhp[3];
+char rspindhp;
+varchar query_user_ref15[21];  
+char rsind;
+
+int main(int argc, char **argv)
+{
+	int errcode = 0;
+
+	printf("Processing PARKER PBL Program\n");
+	if(argc != 5)
+	{
+		printf("Usage: %s file_in file_out error_file processing_model\n",argv[0]);
+		exit(1);
+	}
+
+        #if DEBUG
+	            printf("Opening Files\n");
+	            fflush(stdout);
+        #endif
+	Login();
+	if(sqlca.sqlcode == 0)
+	{
+		printf("Connection Successful\n");
+	}
+	else
+	{
+		printf("Connection  was unsuccessful!\n");
+		db_err("dblogin");
+	}
+
+	/*	memset(infile,' ',sizeof(infile));
+	memset(outfile,' ',sizeof(outfile));
+	memset(outcat1,' ',sizeof(outcat1)); */
+
+	assert(strlen(argv[1]) <= sizeof(infile) - 1) ;
+	strcpy(infile,argv[1]);
+	printf("\ninfile=%s", infile) ;
+
+	assert(strlen(argv[2]) <= sizeof(outfile) - 1) ;
+	strcpy(outfile,argv[2]);
+	printf("\noutfile=%s", outfile) ;
+
+	assert(strlen(argv[3]) <= sizeof(outcat1) - 1) ;
+	strncpy(outcat1,argv[3],strlen(argv[3]));
+	printf("\noutcat1=%s", outcat1) ;
+
+	memset(program_model,' ',sizeof(program_model));
+	assert(strlen(argv[4]) <= sizeof(program_model) - 1) ;
+	strcpy(program_model,argv[4]);
+	printf("Processing Model (%s)\n",program_model);
+
+	errcode=A999_00_open_files();
+
+	if(errcode==0)
+		errcode=process_file(fp_in);
+
+	printf("\nNumber of Cat1 Records Read (%d)",input_rcd_cnt);
+	printf("\nNumber of Update Report Records Written (%d)",output_update_rpt_cnt);
+	printf("\nNumber of Cat1 Records Written (%d)\n",output_cat1_acty_cnt);
+	if(errcode != 0)
+	{
+		printf("\nProgram terminated due to error in processing\n");
+		exit(errcode);
+	}
+
+	if (fp_in != NULL)
+	  fclose(fp_in);
+	if (fpout != NULL)
+          fclose(fpout);
+	if (fpocat1 != NULL)
+          fclose(fpocat1);
+	exit(errcode);
+}
+
+/*
+^L
+*/
+int     A999_00_open_files(void)
+{
+
+	int     errcode=0;
+
+	#if DEBUG
+		printf("\nA999_00_open_files");
+	#endif
+
+	if ((fp_in=fopen(infile,"r")) == NULL)
+	{
+		printf("\n***********************************************************");
+		printf("\n*                                                         *");
+		printf("\n* Could not open Input File (%s)",infile);
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+		errcode=500;
+	}
+	else
+	{
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		printf("\n~                                                         ~");
+		printf("\n~  Processing Input Acty CAT1 File (%s)",infile);
+		printf("\n~                                                         ~");
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+	}
+
+	if ((fpout=fopen(outfile,"w")) == NULL)
+	{
+		printf("\n***********************************************************");
+		printf("\n*                                                         *");
+		printf("\n* Could not open Output Update Rpt File (%s)",outfile);
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+		errcode=501;
+	}
+	else
+	{
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		printf("\n~                                                         ~");
+		printf("\n~  Processing Output Update Rpt File (%s)",outfile);
+		printf("\n~                                                         ~");
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+	}
+
+	if ((fpocat1=fopen(outcat1,"w")) == NULL)
+	{
+		printf("\n***********************************************************");
+		printf("\n*                                                         *");
+		printf("\n* Could not open Output Cat1 Acty File (%s)",outcat1);
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+		errcode=502;
+	}
+	else
+	{
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		printf("\n~                                                         ~");
+		printf("\n~  Processing Output CAT1 Acty File (%s)",outcat1);
+		printf("\n~                                                         ~");
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+	}
+
+	return(errcode);
+}
+
+
+/* Reads CAT1 input file and extracts the part, prime, and cage code. */
+
+int process_file(FILE *fp)
+{
+  int errcode = 0;
+  #if DEBUG
+      printf("process_file\n");
+      fflush(stdout);
+  #endif
+  memset(buf,' ',sizeof(buf));
+  printf("\nProcessing input file...\n\n");
+  while(fgets(buf,sizeof(buf),fp) != NULL)
+  {                                     
+       input_rcd_cnt++;
+       assert(strlen(buf) <= sizeof(buf) - 1) ;
+       input_rcd_size=strlen(buf);
+       create_update_delete = buf[103];
+       if(create_update_delete == 'C')
+       {
+		memset((char *) &cat1,' ',sizeof(gold68_cat1_api_rcd));
+		strncpy((char *) &cat1,(char *) buf,sizeof(gold68_cat1_api_rcd));
+        	strncpy((char *) part.arr,&buf[20],50);
+                rtrim((char *) part.arr);
+    		part.len = strlen((char *) part.arr);
+    		part.arr[part.len] = '\0';
+        	strncpy((char *) prime.arr,&buf[162],50);
+    		rtrim((char *) prime.arr);
+       	 	prime.len = strlen((char *) prime.arr);
+    		prime.arr[prime.len] = '\0'; 
+    		strncpy((char *) cage.arr,&buf[806],5);
+    		cage.len = strlen((char *) cage.arr);
+    		cage.arr[cage.len] = '\0';
+  		#if DEBUG
+		      /*
+		      printf("Input Record (%s)",(char *) &cat1); 
+		      */
+		      printf("process_file Part - (%s) (%s) (%d)\n",part.arr,cage.arr,input_rcd_cnt);
+		      printf("process_file Prime - (%s)\n",prime.arr);
+		      fflush(stdout);
+		  #endif
+        	check_alternate();
+    		query_supercedure(alternate_flag);
+      }
+     errcode=A9999_write_gold_acty();
+  }
+  return(errcode);
+}
+
+/* Compares the part and the prime to see if part is an alternate */
+
+int check_alternate()
+{
+  int errcode = 0;
+  int compare = 0;
+
+  #if DEBUG
+	printf("\ncheck_alternate (%s)",(char *) part.arr);
+  #endif
+
+  compare = strcmp((char *) part.arr,(char *) prime.arr);
+  if(compare == 0)
+    alternate_flag = 'N';
+  else
+    alternate_flag = 'Y';
+  return(errcode);
+}
+
+/* Queries GOLD and checks to see if user_ref 15 is populated for the main
+   part. If user_ref15 is populated the write_update_rpt_output function is called */
+
+int query_gold()
+{    
+    int errcode = 0;                
+ 
+  #if DEBUG
+	printf("\nquery_gold (%s)",(char *) part.arr);
+  #endif
+
+    rtrim((char *) rsrefno.arr);                            
+    rsrefno.len = strlen((char *) rsrefno.arr);    
+    rsrefno.arr[rsrefno.len] = '\0';               
+    memset((char *) query_user_ref15.arr,' ',20);
+    EXEC SQL SELECT user_ref15
+        INTO :query_user_ref15
+        FROM cat1
+        where part = :rsrefno;
+    #if DEBUG
+         printf("\nChecking Gold User Part (%s) Userref15 (%s)",(char *) rsrefno.arr,(char *) query_user_ref15.arr);
+         fflush(stdout);
+    #endif
+    rtrim((char *) query_user_ref15.arr);              
+    query_user_ref15.len = strlen((char *) query_user_ref15.arr); 
+    query_user_ref15.arr[query_user_ref15.len] = '\0';             
+    errcode = sqlca.sqlcode;
+    #if DEBUG
+         printf("\nChecking Gold User Part (%s) Userref15 (%s) Length User Ref (%d)",(char *) rsrefno.arr,(char *) query_user_ref15.arr,query_user_ref15.len);
+         fflush(stdout);
+    #endif
+    if(errcode == FND || errcode == MUL)
+       errcode = 0;
+     if(errcode == 0)
+     {
+       if(strcmp((char *)query_user_ref15.arr," ")>0)
+       {           
+	strncpy(cat1.user_ref15,(char *) query_user_ref15.arr,query_user_ref15.len);
+  	#if DEBUG
+         	printf("\nUpdating Part (%s) Userref15 (%s) Length User Ref (%d)",(char *) rsrefno.arr,(char *) query_user_ref15.arr,query_user_ref15.len);
+       	 	printf("\nInput Record (%s)",(char *) &cat1);
+	#endif
+        write_update_rpt_output();  
+       }
+     }
+
+     return(errcode);
+}
+
+/* Query for Supercedure Data */
+
+int query_supercedure(char flag)
+{
+     int errcode = 0;
+     int found = 1;
+ 
+  #if DEBUG
+	printf("\nquery_supercedure");
+  #endif
+  memset((char*) stmt.arr,' ',sizeof(stmt.arr));
+                                                               
+     strcpy((char *) stmt.arr," select nvl(hpx.rsind,' ') as rsind,");
+     strcat((char *) stmt.arr," nvl(hp.canumbhp,' ') as canumbhp,");
+     strcat((char *) stmt.arr," nvl(hpx.rsrefno,'UNKNOWN') as rsrefno,");
+     strcat((char *) stmt.arr," nvl(hpx.rscagecd,'UNKNOWN') as rscagecd,");
+     strcat((char *) stmt.arr," nvl(hpx.repsupid,' ')as respsupid,");
+     strcat((char *) stmt.arr," nvl(hp.rspindhp,' ') as rspindhp,"); 
+     strcat((char *) stmt.arr," nvl( hp.intchchp,' ') as intchchp from");
+       
+     if(strncmp(program_model,"F18",3)==0)
+     {
+     	if(alternate_flag == 'Y')
+     	{
+       		strcat((char *) stmt.arr," f18_hb hb,");
+     	}
+     	strcat((char *) stmt.arr," f18_hp hp,");
+     	strcat((char *) stmt.arr," f18_hpx01 hpx");
+     }
+     else
+     {
+     	if(strncmp(program_model,"AV8B",4)==0)
+     	{
+     		if(alternate_flag == 'Y')
+     		{
+       			strcat((char *) stmt.arr," av8b_hb hb,");
+     		}
+     		strcat((char *) stmt.arr," av8b_hp hp,");
+     		strcat((char *) stmt.arr," av8b_hpx01 hpx");
+	}
+     }
+     strcat((char *) stmt.arr," where hp.can_int = 0");
+     if(alternate_flag == 'Y')
+     {
+        strcat((char *) stmt.arr," and hb.addrefhb = '");
+        strcat((char *) stmt.arr, (char *) part.arr); 
+        strcat((char *) stmt.arr, "'");               
+        strcat((char *) stmt.arr," and hb.adcagehb = '");
+        strcat((char *) stmt.arr,(char *) cage.arr);
+        strcat((char *) stmt.arr, "'");               
+        strcat((char *) stmt.arr," and hp.refnumha = hb.refnumhb");
+        strcat((char *) stmt.arr," and hp.cagecdxh = hb.cagecdhb");
+        strcat((char *) stmt.arr," and hp.can_int = hb.can_int");
+      }
+      else
+      {
+        strcat((char *) stmt.arr," and hp.refnumha = '"); 
+        strcat((char *) stmt.arr,(char *) part.arr);
+        strcat((char *) stmt.arr,"'");
+        strcat((char *) stmt.arr," and hp.cagecdxh ='"); 
+        strcat((char *) stmt.arr,(char *) cage.arr);
+        strcat((char *) stmt.arr,"'");  
+       }
+      if(strncmp(program_model,"F18",3)==0)
+      {
+     	  strcat((char *) stmt.arr," and hp.eiacodxa = 'F/A-18E/F'");
+       }	
+       else
+       {
+      	if(strncmp(program_model,"AV8B",4)==0)
+      	{
+     		  strcat((char *) stmt.arr," and hp.eiacodxa = 'AV8B'");
+       	}	
+	else
+	{
+     		  strcat((char *) stmt.arr," and hp.eiacodxa = '#########'");
+	}
+       }
+       strcat((char *) stmt.arr," and hp.refnumha = hpx.refnumha (+)");
+       strcat((char *) stmt.arr," and hp.cagecdxh = hpx.cagecdxh (+)");
+       strcat((char *) stmt.arr," and hp.lsaconxb = hpx.lsaconxb (+)");
+       strcat((char *) stmt.arr," and hp.altlcnxb = hpx.altlcnxb (+)");
+       strcat((char *) stmt.arr," and hp.canumbhp = hpx.canumbhp (+)");
+       strcat((char *) stmt.arr," and hp.can_int = hpx.can_int (+)");
+       strcat((char *) stmt.arr," and hp.lcntypxb = hpx.lcntypxb (+)");
+       strcat((char *) stmt.arr," and hp.eiacodxa = hpx.eiacodxa (+)");
+       strcat((char *) stmt.arr," order by rsind,hp.lsaconxb");
+       rtrim((char *) stmt.arr);               
+       stmt.len = strlen((char *) stmt.arr);
+       EXEC SQL PREPARE parker_stmt FROM :stmt;   
+       EXEC SQL DECLARE parker_cur CURSOR FOR parker_stmt; 
+       EXEC SQL OPEN parker_cur;
+       if(sqlca.sqlcode == 0)
+       {
+          while(found)
+          {     
+      		EXEC SQL FETCH parker_cur INTO   
+  		:rsind,                        
+  		:canumbhp,                     
+  		:rsrefno,                      
+  		:rscagecd,                     
+      		:repsupid,
+                :rspindhp,       
+        	:intchhp;
+               #if DEBUG            
+                    printf("%s\n",rsrefno);       		
+		    printf("query_supercedure sqlca.sqlcode: %d\n", sqlca.sqlcode);
+        	#endif 
+	    	if(sqlca.sqlcode == 0)
+	    	{	
+		  if(rsind != ' ')
+                  {
+                     if(rsind == 'R')         
+                        query_gold();
+                  }
+                  else
+                  {
+                    if(rspindhp == 'R')
+                      query_gold();
+                  }	
+	    	}
+	    	else
+		{
+		    if(sqlca.sqlcode == 1403)
+		       found = 0;	
+		     else
+		     {
+		       printf("SQL (%s)",stmt.arr);
+	      	       db_err("query_supercedure - FETCH CSR");
+		     }
+	        }	        
+           }
+       } 
+       else
+       {
+		if(sqlca.sqlcode != 1403)
+		{
+		       printf("SQL (%s)",stmt.arr);
+	      	       db_err("query_supercedure - OPEN CSR");
+		}
+       }
+   return(errcode);
+}
+
+/* Writes New User Ref 15 Value to CAT1 File  */
+
+int write_update_rpt_output()
+{
+	char ch;
+	int errcode = 0;
+	#if DEBUG
+		printf("\nwrite_update_rpt_output");
+		printf("\nPart Number (%s)",(char *) part.arr);
+	#endif
+
+	fprintf(fpout,"%s         %s\n",(char *)part.arr, (char *) query_user_ref15.arr);  
+	output_update_rpt_cnt++;
+	#if DEBUG
+		printf("Part:(%s) User Ref15:(%s)",(char *) part.arr,(char *) query_user_ref15.arr);
+	#endif
+
+	return errcode;
+}
+/*
+^L
+*/
+int     A9999_write_gold_acty()
+{
+	int     errcode=0;
+	int     i1=0;
+
+	#if DEBUG
+		printf("\nA9999_write_gold_acty ###################################################");
+		/*
+		printf("\nOutput Rcd (%s) (%d) ",outbuf,input_rcd_size);
+		*/
+	#endif
+
+	memset(outbuf,' ',sizeof(outbuf));
+	strncpy(outbuf,buf,input_rcd_size);
+
+	outbuf[input_rcd_size]='\0';
+	outbuf[input_rcd_size]='\n';
+	
+	assert(sizeof(outbuf) >= input_rcd_size);
+	i1=fwrite(outbuf,input_rcd_size,1,fpocat1);
+	if(i1!=1)
+	{
+		printf("\n**********************************************************");
+		printf("\nError writing output Gold Ouptut Acty File (%d)",i1);
+		errcode=510;
+	}
+	else
+	{
+		output_cat1_acty_cnt++;
+	}
+
+	return(errcode);
+}
+

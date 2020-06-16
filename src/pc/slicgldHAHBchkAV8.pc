@@ -1,0 +1,330 @@
+/*     Program - SLIC To GOLD Valid Parts  */
+/*
+ **************************************************************************
+ *  PROGRAM NAME: slicgldHAHBchkAV8.pc
+ *
+ *  PURPOSE: The purpose of this program is to separate all VPV parts from
+ *           GOLD into HA, HB, HG, HP files for the slic to gold format program.
+ *
+ *  INPUTS:   1. VPV part, manuf_cage, prime, ims_designator_code, niin
+ *
+ *
+ *  OUTPUTS:  1. HA/HB, and Error Report
+ *
+ *
+ *  CHANGE HISTORY:
+ *   REV     DATE    Programmer                 CHANGE
+ *   ---  --------   ----------------------     ------
+ *    00  06/06/02   Andy Wickersham            Initial coding
+ **************************************************************************
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "slicha_chgrcd.h"
+#include "slichb_chgrcd.h"
+#include "slichg_chgrcd.h"
+#include "slichp_chgrcd.h"
+
+EXEC SQL INCLUDE sqlca.h;
+EXEC SQL INCLUDE oraca.h;
+
+void readRecord_in(char *, FILE *);
+void move_record_to_output(char *);
+void check_cage_found();
+void check_part_prime();
+void check_ha();
+void check_hb();
+void db_err(char *);
+
+#define MULTI -2112
+#define NOTFND 1403
+#define FND 0
+
+FILE *out1, *err_file;
+
+char output[165];
+char part[50];
+char prime[50];
+char gld_cage[6];
+char des_code[20];
+char niin[10];
+
+char refnumha[33];short refnumha_i;
+char slic_cage[6];short slic_cage_i=0;
+
+slicha_chgrcd slicha;
+slichb_chgrcd slichb;
+slichg_chgrcd slichg;
+slichp_chgrcd slichp;
+
+char err_out[132];
+
+int main(int argc, char *argv[])
+{
+	FILE *in;
+
+	char iname[100], oname1[100];
+	char errname[100];
+
+	char inRec[1000];
+
+	int recordCount = 0;
+	int i;
+
+	if (argc != 4)
+	{
+		printf("\nUsage: runme {vpv_slicgld_dmp vpv_slicgld_ha vpv_slicgld_hb error_file_out}\n");
+		exit (1);
+	}
+
+	strcpy(iname, argv[1]);
+	strcpy(oname1, argv[2]);
+	strcpy(errname, argv[3]);
+
+	if ((in = fopen(iname, "r"))==NULL)
+	{
+		fprintf(stderr, "\nPROBLEM OPENING INPUT FILE_1\n");
+		exit(1);
+	}
+
+	if ((out1 = fopen(oname1, "w"))==NULL)
+		{
+			fprintf(stderr, "\nPROBLEM OPENING OUTPUT FILE1\n");
+			exit(1);
+	}
+
+	if ((err_file = fopen(errname, "w"))==NULL)
+	{
+		fprintf(stderr, "\nPROBLEM OPENING ERROR OUTPUT FILE\n");
+		exit(1);
+	}
+
+	Login();  /** LOG INTO DATABASE **/
+
+	if(sqlca.sqlcode == 0)
+	{
+     	printf("Connected to Database\n");
+   	}
+	else
+   	{
+   		printf("Connection to Database was unsuccessful!\n");
+	   	db_err("login_to_slic");
+	}
+
+	/* read in record */
+	readRecord_in(inRec, in);
+
+	while (!(feof(in)))
+	{
+		move_record_to_output(inRec);
+		recordCount++;
+		readRecord_in(inRec, in);
+
+		 /** to verify every 100 writes **/
+		/*if (!(recordCount % 100) && recordCount != 0)
+			printf("\nWriting records...");*/
+	}
+
+	printf("\nRecords Written: %d\n", recordCount);
+
+   fclose(in);
+   fclose(out1);
+   fclose(err_file);
+   return 0;
+
+}
+
+void readRecord_in(char *rec, FILE *fp)
+{
+	/*printf("\n inside readRecord_in()");*/
+
+	memset(rec, ' ', 140);
+	fgets(rec, 140, fp);
+	strncpy(&rec[135], '\0', 1);
+}
+
+void move_record_to_output(char *inRec)
+{
+	memset(output, ' ', 140);
+	memset(err_out, ' ', 130);
+
+	strncpy(output, &inRec[0], 50);         /*part         */
+	strncpy(&output[50], &inRec[50], 5);    /*cage         */
+	strncpy(&output[55], &inRec[55], 50);   /*prime        */
+	strncpy(&output[105], &inRec[105], 20);  /*ims des code */
+	strncpy(&output[125], &inRec[125], 9);   /*niin         */
+	output[135] = '\0';
+
+	strncpy(err_out, &output[0], 50);
+	strncpy(&err_out[50], &output[55], 50);
+	strncpy(&err_out[100], &output[50], 5);
+	strncpy(&err_out[105], &output[105], 20);
+	err_out[125] = '\0';
+
+	check_cage_found();
+	check_part_prime();
+
+}
+
+
+void check_cage_found()
+{
+	if (!strncmp(&output[50], "?????", 5)) /* Is there a value for cage?*/
+		fprintf(err_file, "E. %s -- No cage code in GOLD\n", err_out);
+}
+
+
+void check_part_prime()
+{
+	/*char tempPart[51], tempPrime[51];*/
+	if (strncmp(&output[50], "?????", 5)) /* Did GOLD have a value for cage?*/
+	{
+		memset(part, ' ', 50);
+		strncpy(part, output, 32);
+		part[32] = '\0';
+
+		memset(gld_cage, ' ', 6);
+		strncpy(gld_cage, &output[50], 5);
+		gld_cage[5] = '\0';
+
+		/*substr(tempPart,output,0,50);
+		tempPart[50] = '\0';
+		substr(tempPrime,output,55,105);
+		tempPrime[50] = '\0';*/
+
+
+		if (!strncmp(output, &output[55], 50)) /* Is the part a prime?*/
+			/*check ha*/
+			check_ha();	/* Part is prime */
+		else
+		{
+			/*check hb*/
+			check_hb();   /* Part is NOT prime */
+
+		}
+	}
+	else
+	{
+		/*printf("\nNo Cage detected!");*/
+		fprintf(err_file, "E. %s -- No cage code in GOLD\n", err_out);
+	}
+}
+
+void check_ha()  /*Checks to see if part/cage are in SLIC */
+{
+	char out[500];
+	/*fprintf(err_file, "part---%s---", part);*/
+
+	EXEC SQL SELECT refnumha, cagecdxh
+	INTO :refnumha:refnumha_i
+		,:slic_cage:slic_cage_i
+	FROM av8b_ha
+	WHERE refnumha = :part
+		AND cagecdxh = :gld_cage;
+
+	switch(sqlca.sqlcode) {
+			case NOTFND:
+				fprintf(err_file, "A. %s -- GOLD part/cage not found on SLIC HA\n",err_out);
+				check_hb();
+				break;
+			case MULTI:
+				fprintf(err_file, "B. %s -- multiple records in SLIC HA matching GOLD part/cage\n", err_out);
+				break;
+			case FND:
+				strcpy(slicha.refnumha, part);
+				strcpy(slicha.cagecdha, slic_cage);
+				strcpy(slicha.prcsseq, "01");
+				strcpy(slicha.rcdtype, "HA");
+				slicha.newline = '\n';
+				slicha.endline = '\0';
+
+				strncpy(out,(char *)&slicha,sizeof(slicha_chgrcd));
+				out[sizeof(slicha_chgrcd)] = '\0';
+
+				if(fwrite(out,sizeof(slicha_chgrcd),1,out1) != 1)
+				{
+					printf("Error writing to HA output file.\n");
+					exit(2);
+				}
+				break;
+			default:
+				db_err("check_hb()");
+	}
+}
+
+void check_hb() /* Checks to see if part/cage are in SLIC */
+{
+	char out[500];
+
+
+	memset(slic_cage, ' ', 6);
+	memset(prime, ' ', 50);
+	strncpy(prime, &output[55], 32);
+	prime[32] = '\0';
+
+	EXEC SQL SELECT cagecdhb
+	INTO :slic_cage:slic_cage_i
+	FROM av8b_hb
+	WHERE refnumhb = :prime
+	  AND addrefhb = :part
+	  AND adcagehb = :gld_cage;
+
+/*	strncpy(err_out, output, 131);
+	err_out[131] = '\0'; */
+
+	switch(sqlca.sqlcode) {
+		case NOTFND:
+			fprintf(err_file, "C. %s -- GOLD part/cage not found in SLIC HB\n", err_out);
+			break;
+		case MULTI:
+			fprintf(err_file, "D. %s -- multiple records found in SLIC HB matching GOLD part/cage\n", err_out);
+			break;
+		case FND:
+			strcpy(slichb.refnumhb, part);
+			strcpy(slichb.cagecdhb, slic_cage);
+			strcpy(slichb.prcsseq, "02");
+			strcpy(slichb.rcdtype, "HB");
+			strcpy(slichb.addrefhb, part);
+			strcpy(slichb.adcagehb, slic_cage);
+			slicha.newline = '\n';
+
+			strncpy(out,(char *)&slichb,sizeof(slichb_chgrcd));
+			out[sizeof(slichb_chgrcd)] = '\0';
+
+			if(fwrite(out,sizeof(slichb_chgrcd),1,out1) != 1)
+			{
+				printf("Error writing to HB output file.\n");
+				exit(2);
+			}
+			break;
+		default:
+			db_err("check_hb()");
+	}
+}
+
+void db_err(char *procname)
+{
+    char msg[200];
+    int size = 200;
+    int msg_len;
+
+    printf("\n===========================================================");
+    /*printf("\n%d records written before error occurred.", rec_count);*/
+    printf("\n=");
+    printf("\n=\tError occurred in process %s",procname);
+    printf("\n=");
+    printf("\n=\tDatabase Error has Occurred:");
+    sqlglm(msg,&size,&msg_len);
+    sqlglm(msg,&size,&msg_len);
+    msg[msg_len] = '\0';
+    printf("\n=\t\t%s",msg);
+    printf("\n=\t\tSQLCODE: %d",sqlca.sqlcode);
+    printf("\n=\t\tSQLERR MSG %.*s",sqlca.sqlerrm.sqlerrml,sqlca.sqlerrm.sqlerrmc);
+    printf("\n=");
+    printf("\n===========================================================\n");
+
+    exit(2);
+}

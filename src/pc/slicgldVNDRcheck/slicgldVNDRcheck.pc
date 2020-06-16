@@ -1,0 +1,740 @@
+/*    Program -  slicgldVNDRCHECK.pc Program */
+/* vim: ts=2:sw=2:sts=2:et:syntax=c:
+ **************************************************************************
+ *  PROGRAM NAME: SLIC/GOLD Vendor Code Acty Gold Validation Program 
+ *
+ *  PURPOSE: The purpose of this program is to process those Gold API Records
+ *		records having Vendor Codes against the Gold Data Base.  If the 
+ *		records exist in Gold it will either compare the information
+ *		on the record against the matching Gold Records and if a difference
+ *		then it will create an Update record.  It they are the same, then
+ *		it will drop the record from processing.  If the records are not
+ *		found in Gold then create records will be created.
+ *
+ *		The following Seg Code Records are being processed:
+ *		
+ *		Venc Records.
+ *        
+ *
+ *  INPUTS:   Consolidated Vendor Code Acty.
+ *           
+ *
+ *  OUTPUTS:  Consolidate Vendor Code Update Acty.  
+ *	      		Consolidate Vendor Code Error Acty.
+ *           
+ *
+ *  CHANGE HISTORY:
+ *   REV     DATE    Programmer                 CHANGE
+ *   ---  --------   ----------------------     ------
+ *    00  03/13/01   Larry Mills                Initial coding 
+ *    01  11/01/02   Ben Barth                  CHAR to VARCHAR conv.
+ **************************************************************************
+*/
+/* C System Includes                  */
+#include <errno.h>
+#include <time.h>
+#include <stdio.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <assert.h>
+#include "varcharSetup.h"
+
+/* Application Peculiar Includes      */
+#include "gold685_venc_api.h"
+
+
+/* File Pointer Definitions           */
+FILE *fh_block2;
+FILE *fh_block3;
+FILE *INPUT_VNDR_FILE_FP;
+FILE *OUTPUT_VNDR_FILE_FP;
+FILE *OUTPUT_VNDR_ERROR_FILE_FP;
+
+gold68_venc_api_rcd         	venc_API;
+
+/* #define SQLCA_STORAGE_CLASS extern */
+#define NOT_FND 1403
+#define FND 0
+#define MULTI_ROWS -2112
+
+/* Application Peculiar Structures    */
+
+EXEC SQL BEGIN DECLARE SECTION;
+
+/*      Oracle User Sign-on Area   */
+varchar	uid[20];
+varchar	pwd[20];
+	
+/*	Query Host Variables		*/
+varchar	query_part[51];
+varchar	query_vendor_code[21];
+varchar	query_vendor_flag[2];
+
+/*	Venc Host Variables		*/
+varchar	venc_vendor_code[21];
+varchar venc_leadtime[6];
+varchar venc_seq[3];
+
+EXEC SQL END DECLARE SECTION;
+
+EXEC SQL INCLUDE sqlca;
+
+/*  Function prototype area       */
+
+int	A0100_get_argmnt(char argc, char **argv);
+int	A999_00_open_files(void);
+void	A999_02_dberr(void);
+int	A1000_process_file();
+int	A2000_process_venc(void);
+int	A2100_check_gold_venc(void);
+int	A2110_compare_venc_rcd(void);
+int	A2999_move_venc_rcd(void);
+int	A9999_write_output_vndr_file();
+int	A9999_write_output_vndr_error_file();
+
+/*       program variables  */
+struct	tm *tmstruct;
+time_t	tnow;
+
+varchar	prev_rcd_type[4];
+
+char	input_vndr_file_area[5000];
+char	output_vndr_file_outarea[5000];
+char	output_vndr_error_file_outarea[5000];
+char	input_vndr_file[101];
+char	output_vndr_file[101];
+char	output_vndr_error_file[101];
+
+varchar	api_update_code[2];
+varchar	api_rcd_type[4];
+
+char	vndr_exists;
+char	write_output_venc;
+char	vndr_error_msg[200];
+
+/*       Flags              */
+
+/*       Record Counts      */
+int	cnt_rcds=0;
+int	cnt_venc_008=0;
+int	cnt_venc_008_updates=0;
+int	cnt_venc_008_inserts=0;
+int	cnt_venc_008_deletes=0;
+int	cnt_venc_008_nochg=0;
+int	cnt_output_error_rcds=0;
+
+main(int argc, char **argv)
+{
+	int	errcode=0;
+	char	pgmtime[21];
+	
+  printf("\nCompiled %s on %s at %s\n", __FILE__,__DATE__,__TIME__) ;
+ 	printf("\n\n**************************************************************************");
+	time(&tnow);
+	tmstruct=localtime(&tnow);
+	strftime(pgmtime,sizeof(pgmtime),"%m/%d/%Y-%H:%M:%S",tmstruct);
+	printf("\n\n\tStarting Time (%s)\n",&pgmtime);
+
+	errcode=A0100_get_argmnt(argc, argv); 
+
+	if(errcode==0)
+	{
+		errcode=A999_00_open_files();
+	}
+
+	if (errcode == FND)
+	{
+		 Login();
+		if (errcode == FND)
+		{
+		}
+		else
+		{
+			printf("\nNot connected.\n");
+			A999_02_dberr();
+		}
+	}
+	else
+	{
+		printf("\nProblems processing Command Line Arguments\n");
+		errcode=511;
+	}
+
+	if (errcode == FND)
+	{
+		errcode=A1000_process_file();
+	}
+	else
+	{
+		printf("\nNo processing.\n");
+	}
+
+	printf("\n***********************************************************");
+	printf("\nTotal Records Records Read\t\t\t\t(%d)\n",cnt_rcds);
+	printf("\tTotal Vendor Code Type 008 Records Read\t\t(%d)\n",cnt_venc_008);
+	printf("\t\tTotal Vendor Code Type 008 Records Updated\t(%d)\n",cnt_venc_008_updates);
+	printf("\t\tTotal Vendor Code Type 008 Records Inserted\t(%d)\n\n",cnt_venc_008_inserts);
+	printf("\t\tTotal Vendor Code Type 008 Records Deleted\t(%d)\n\n",cnt_venc_008_deletes);
+	printf("\tTotal Output Error Records\t\t(%d)\n",cnt_output_error_rcds);
+	printf("\tTotal Records not Changed\t\t(%d)\n",cnt_venc_008_nochg);
+	printf("***********************************************************");
+
+  if (INPUT_VNDR_FILE_FP != NULL)
+	  fclose(INPUT_VNDR_FILE_FP);
+	if (OUTPUT_VNDR_FILE_FP != NULL)
+	  fclose(OUTPUT_VNDR_FILE_FP);
+	if (OUTPUT_VNDR_ERROR_FILE_FP != NULL)
+	  fclose(OUTPUT_VNDR_ERROR_FILE_FP);
+
+	if (errcode == FND)
+	{
+		printf("\nCommit Work\n");
+		EXEC SQL COMMIT WORK RELEASE;
+	}
+	else
+	{
+		printf("\nWork not Committed errcode=%d\n", errcode);
+		EXEC SQL ROLLBACK WORK RELEASE;
+	}
+	
+	time(&tnow);
+	tmstruct=localtime(&tnow);
+	strftime(pgmtime,sizeof(pgmtime),"%m/%d/%Y-%H:%M:%S",tmstruct);
+	printf("\n\n\tEnding Time (%s)\n",&pgmtime);
+	printf("**************************************************************************\n");
+
+	exit(errcode);
+}
+int	A0100_get_argmnt(char argc, char **argv)
+{
+	int	errcode=0;
+
+	char opt;
+	char	spaces[]={"                                       "};
+	extern char *optarg;
+	while ((opt=getopt (argc, argv,"a:b:c:A:B:C")) !=EOF)
+	{	
+		switch (opt)
+		{
+			case 'a':
+	                case 'A':
+	                	strncpy((char *) input_vndr_file,(char *) optarg,strlen((char *) optarg));
+				strncat(input_vndr_file,spaces,100-strlen(input_vndr_file));
+				input_vndr_file[strlen((char *) optarg)]='\0';
+				break;		
+			case 'b':
+	                case 'B':		
+				strncpy((char *) output_vndr_file,(char *) optarg,strlen((char *) optarg));
+				strncat(output_vndr_file,spaces,100-strlen(output_vndr_file));
+				output_vndr_file[strlen((char *) optarg)]='\0';
+				break;				
+			case 'c':
+	                case 'C':		
+				strncpy((char *) output_vndr_error_file,(char *) optarg,strlen((char *) optarg));
+				strncat(output_vndr_error_file,spaces,100-strlen(output_vndr_error_file));
+				output_vndr_error_file[strlen((char *) optarg)]='\0';
+				break;				
+			case '?':
+				errcode=12;
+				break;
+		}
+	}	
+
+	return(errcode);
+}
+/*
+
+*/
+int	A999_00_open_files(void)
+{
+	int	errcode=0;
+		
+	if ((INPUT_VNDR_FILE_FP=fopen(input_vndr_file,"r")) == NULL)
+	{
+			printf("\nCould not open Input File (%s)",input_vndr_file);
+			errcode=500;
+	}
+	else
+	{
+		printf("\nProcessing Input Vendor File (%s)",input_vndr_file);
+	}
+
+	if ((OUTPUT_VNDR_FILE_FP=fopen(output_vndr_file,"w")) == NULL)
+	{
+		printf("\nCould not open output File (%s)",output_vndr_file); 
+		errcode=502;
+	}
+	else
+	{
+		printf("\nProcessing Output Vendor File (%s)",output_vndr_file);
+	}
+
+	if ((OUTPUT_VNDR_ERROR_FILE_FP=fopen(output_vndr_error_file,"w")) == NULL)
+	{
+			printf("\nCould not open output Error File (%s)",output_vndr_error_file); 
+			errcode=501;
+	}
+	else
+	{
+		printf("\nProcessing Output Error File (%s)",output_vndr_error_file);
+	}
+
+	return(errcode);
+}
+void	A999_02_dberr()
+{
+	char	msg_buf[513];
+  size_t  buf_size = sizeof(msg_buf);
+	size_t  msg_len;
+	printf("\n???????????????????????????????????????????????????????????");
+	printf("\n?                                                         ?");
+	printf("\n?\tData Base Error has occurred:");
+	sqlglm(msg_buf, &buf_size, &msg_len);
+	sqlglm(msg_buf, &buf_size, &msg_len);
+	msg_buf[msg_len]='\0';
+	printf("\n?\t\t%s",msg_buf);
+	printf("\n?\t\tSQLCODE: %d",sqlca.sqlcode);
+	printf("\n?\t\tSQLERR MSG %.*s",sqlca.sqlerrm.sqlerrml,sqlca.sqlerrm.sqlerrmc);
+	printf("\n?");
+	printf("\n???????????????????????????????????????????????????????????\n");
+
+	return;
+}
+
+int	A1000_process_file()
+{
+	int	errcode=0;
+	int	process_file=1;
+
+	#if DEBUG
+		printf("A1000_processs_file\n");
+	#endif
+
+	while(process_file) 
+    	{
+		      errcode=0;
+          STRINIT(input_vndr_file_area) ;
+          if (fgets(input_vndr_file_area,sizeof(input_vndr_file_area),INPUT_VNDR_FILE_FP) == (char *) NULL)
+        	{
+			printf("\nEnd of File Processing\n");
+           		process_file=0;
+        	}
+        	if(process_file==1)
+        	{
+
+      /* make sure venc_API can take the contents of the input buffer plus one more char
+       * for the NULL terminator
+       */
+      assert(sizeof(venc_API) <= strlen(input_vndr_file_area) + 1);   
+			memcpy(&venc_API,input_vndr_file_area,strlen(input_vndr_file_area) + 1);
+
+			#if DEBUG
+        printf("Input Rcd input_vendr_file=(%s)\n",input_vndr_file_area);
+			#endif	
+
+      {
+        struct interface venc_interface[] = {
+          INTF(api_rcd_type, venc_API.table_nbr),
+          INTF(query_part, venc_API.part),
+          INTF(query_vendor_code,venc_API.vendor_code),
+          INTF(query_vendor_flag,venc_API.vendor_flag),
+          INTF(api_update_code,&venc_API.update_create_delete),
+          {NULL}
+        } ;
+        int indx = 0 ;
+        int len = 0 ;
+        /* load the varchar's with the data from the input file struct venc_API */
+        for (indx = 0; venc_interface[indx].arr != NULL; indx++) {
+          len = varcharSetup2(&venc_interface[indx]) ;	
+          #if DEBUG
+            printf("name=%s arr=%s len=%hu\n", venc_interface[indx].name,
+              venc_interface[indx].arr,
+              venc_interface[indx].len) ;
+          #endif
+        }
+      }
+
+
+
+
+
+			cnt_rcds++;
+			if (strncmp((char *) api_rcd_type.arr,"008",3) == 0)
+			{
+				cnt_venc_008++;
+				errcode=A2000_process_venc();
+				if(errcode==0)
+				{
+				}
+				else
+				{
+					printf("Bad Termination of A2000_process_venc\n");
+					process_file=0;
+				}
+			}
+		}
+	/*
+       	else
+       	{
+      		printf("Unidentified API Record (%s)\n",api_rcd_type);
+ 				errcode=500;
+ 				process_file=0;
+   	}
+	*/
+
+    }
+	return(errcode);
+}
+/*
+
+*/
+int	A2000_process_venc()
+{
+	int	errcode=0;
+
+  assert(sizeof(venc_API) <= strlen(input_vndr_file_area) + 1) ;
+  memcpy((char *) &venc_API,input_vndr_file_area,strlen(input_vndr_file_area) + 1);
+
+	#if DEBUG
+		printf("A2000_process_venc\n");
+	#endif
+
+	errcode=A2100_check_gold_venc();
+	#if DEBUG
+		printf("Errcode (%d)",errcode);
+		printf("\nWrite Output_venrc (%c)",errcode);
+	#endif
+	if(errcode==0 &&
+			write_output_venc=='Y')
+	{
+		errcode=A2999_move_venc_rcd();
+	}
+	else
+	{
+	}
+
+	return(errcode);
+}
+
+struct error_rpt_interface {
+  char *output ;
+  int *out_pos ;
+  char *src_data ;
+  size_t src_data_size ;
+} ;
+
+void format_error_rpt(char *output, int *out_pos, char *src_data, size_t src_data_size) 
+{
+  int first = 0 ;
+  int last = 0 ;
+  int len = 0 ;
+
+  assert(output != NULL) ;
+  assert(out_pos != NULL) ;
+  assert(src_data != NULL) ;
+  assert(src_data_size > 0) ;
+
+  first = getFirstNonBlank(src_data, src_data_size) ; 
+  last = getLastNonBlank(src_data, src_data_size) ; 
+  len = last - first + 1 ;
+  strncpy(&output[(*out_pos)],&src_data[first],len);
+  (*out_pos) = (*out_pos) + len + 1;
+
+  assert(len == last - first + 1) ;
+  assert((*out_pos) > 0) ;
+}
+
+void format_error_rptX(struct error_rpt_interface *intf) {
+  format_error_rpt(intf->output, intf->out_pos, intf->src_data, intf->src_data_size) ;
+}
+
+
+/*
+
+*/
+int	A2100_check_gold_venc()
+{
+	int	errcode=0;
+
+  assert(strlen(query_part.arr) < sizeof(query_part.arr)) ;
+  assert(strlen(query_vendor_code.arr) < sizeof(query_vendor_code.arr)) ;
+  assert(strlen(query_vendor_flag.arr) < sizeof(query_vendor_flag.arr)) ;
+
+	#if DEBUG
+		printf("\nA2100_check_gold_venc");		
+		printf("\nQuery Part (%s) ",query_part.arr);
+		printf("\nQuery Vendor Code (%s) ",query_vendor_code.arr);
+		printf("\nQuery Vendor Flag (%s) ",query_vendor_flag.arr);
+		printf("\nAPI Update_create_delete (%c) ",venc_API.update_create_delete);
+	#endif
+
+
+	EXEC SQL
+		select substr(to_char(nvl(lead_time,'00000'),'00000'),2,6)
+		   into :venc_leadtime
+		 from venc
+		 where part = rtrim(:query_part)
+		   and vendor_code = rtrim(:query_vendor_code)
+		   and vendor_flag = :query_vendor_flag
+		   and seq > 0;
+	   
+	if(sqlca.sqlcode==FND ||
+	   sqlca.sqlcode== MULTI_ROWS)
+	{
+		#if DEBUG
+			printf("\nA2100_check_gold_venc - FOUND\n");		
+		#endif
+		if(venc_API.update_create_delete=='C')
+		{
+			#if DEBUG
+				printf("\nA2100_check_gold_venc - Code is C\n");		
+			#endif
+			venc_API.update_create_delete='U';
+			#if DEBUG
+				printf("\nAPI Update_create_delete (%c) ",venc_API.update_create_delete);
+			#endif
+			errcode=A2110_compare_venc_rcd();
+			#if DEBUG
+				printf("\nAPI Update_create_delete (%c) ",venc_API.update_create_delete);
+			#endif
+		}
+		else
+		{
+			#if DEBUG
+				printf("\nA2100_check_gold_venc - Code is not C\n");		
+			#endif
+			errcode=A2110_compare_venc_rcd();
+		}
+	}
+	else
+	{
+		if(sqlca.sqlcode==NOT_FND)
+		{
+			#if DEBUG
+				printf("\nA2100_check_gold_venc - NOT FOUND\n");		
+			#endif
+			if(venc_API.update_create_delete=='C')
+			{
+				write_output_venc='Y';
+			}
+			else
+			{
+				if(venc_API.update_create_delete=='U')
+				{
+          int pos = 0 ;
+          struct error_rpt_interface intf ;
+
+					strcpy(vndr_error_msg,"VENC Acty Rcd Code to update with does not exist in Gold         ");
+          STR2SPACES(output_vndr_error_file_outarea) ;
+
+          intf.output = output_vndr_error_file_outarea ;
+          intf.out_pos = &pos ;
+
+          intf.src_data = venc_API.part ;
+          intf.src_data_size = sizeof(venc_API.part) ;
+          format_error_rptX(&intf) ;
+
+          intf.src_data = venc_API.vendor_code;
+          intf.src_data_size = sizeof(venc_API.vendor_code) ;
+          format_error_rptX(&intf) ;
+
+          intf.src_data = vndr_error_msg ;
+          intf.src_data_size = strlen(vndr_error_msg) ;
+          format_error_rptX(&intf) ;
+
+          output_vndr_error_file_outarea[pos] = '\n' ;
+          output_vndr_error_file_outarea[pos+1] = '\0' ;
+          
+          #if DEBUG
+            printf("output_vndr_error_file_outarea=%s\n", output_vndr_error_file_outarea) ;
+          #endif
+					errcode=A9999_write_output_vndr_error_file();
+				}
+				else
+				{
+					if(venc_API.update_create_delete=='D')
+					{
+            int pos = 0 ;
+            struct error_rpt_interface intf ;
+
+						strcpy(vndr_error_msg,"Part/SC does not Exists in Gold PRC1 to delete");
+            STR2SPACES(output_vndr_error_file_outarea) ;
+            intf.output = output_vndr_error_file_outarea ;
+            intf.out_pos = &pos ;
+
+            intf.src_data = venc_API.part ;
+            intf.src_data_size = sizeof(venc_API.part) ;
+            format_error_rptX(&intf) ;
+
+            intf.src_data = venc_API.vendor_code ;
+            intf.src_data_size = sizeof(venc_API.vendor_code) ;
+            format_error_rptX(&intf) ;
+
+            intf.src_data = vndr_error_msg ;
+            intf.src_data_size = strlen(vndr_error_msg) ;
+            format_error_rptX(&intf) ;
+
+						output_vndr_error_file_outarea[pos]='\n';
+						output_vndr_error_file_outarea[pos+1]='\0';
+
+            #if DEBUG
+              printf("output_vndr_error_file_outarea=%s\n", output_vndr_error_file_outarea) ;
+            #endif
+
+						errcode=A9999_write_output_vndr_error_file();
+					}
+					else
+					{
+						printf("\nUnidentified Update Code (%c)",venc_API.update_create_delete);
+
+            assert(strlen((char *) &venc_API) <= sizeof(venc_API) - 1) ;
+						printf("\nProcessing Record (%s)",&venc_API);
+						errcode=100;
+						exit(errcode);
+					}
+				}
+			}
+		}
+		else
+		{
+			printf("A2100_check_gold_venc\n");
+			printf("\nQuery Part (%s) (%d)",query_part.arr, query_part.len);
+			printf("\nQuery Vendor Code (%s) (%d)",query_vendor_code.arr, query_vendor_code.len);
+			printf("\nBad SQLCODE\n");
+			errcode=sqlca.sqlcode;
+			A999_02_dberr();
+		}
+
+	}
+
+	return(errcode);
+}
+int	A2110_compare_venc_rcd()
+{
+	int	errcode=0;
+	write_output_venc='N';
+
+	#if DEBUG
+		printf("A2110_compare_venc_rcd\n");
+		printf("Gold Vendor LeadTime (%s)\n",venc_leadtime.arr);
+		printf("Activity LeadTime (%5.5s)\n",&venc_API.lead_time);
+		printf("\nAPI Update_create_delete (%c) ",venc_API.update_create_delete);
+	#endif
+
+	if(strncmp((char *) venc_leadtime.arr,(char *) &venc_API.lead_time,5)==0)
+	{
+	}
+	else
+	{
+		if(query_vendor_flag.arr[0]=='V' ||
+		   query_vendor_flag.arr[0]=='R')
+		{
+		}
+		else
+		{
+			write_output_venc='Y';
+		}
+	}
+
+	if(write_output_venc=='N')
+	{
+		cnt_venc_008_nochg++;
+	}
+
+	return(errcode);
+}
+/*
+
+*/
+int	A2999_move_venc_rcd()
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("A2999_move_venc_rcd\n");
+	#endif
+
+	if(venc_API.update_create_delete=='C')
+	{
+		cnt_venc_008_inserts++;
+	}
+	else
+	{
+		if(venc_API.update_create_delete=='U')
+		{
+			cnt_venc_008_updates++;
+		}
+		else
+		{
+			if(venc_API.update_create_delete=='D')
+			{
+				cnt_venc_008_deletes++;
+			}
+		}
+	}
+
+	memset(output_vndr_file_outarea,' ',5000);
+	strncpy((char *) output_vndr_file_outarea,(char *) &venc_API,sizeof(venc_API));
+	output_vndr_file_outarea[sizeof(venc_API)]='\0';
+	errcode=A9999_write_output_vndr_file();
+
+	return(errcode);
+}
+/*
+
+*/
+int     A9999_write_output_vndr_file()
+{
+	int	errcode=0;
+	int	i1=0;
+	
+	#if DEBUG
+		printf("A9999_write_output_vndr_file\n");
+	#endif
+
+
+	#if DEBUG
+    printf("Output Record (%s) strlen(output_vndr_file_outarea)=%d\n",output_vndr_file_outarea,strlen(output_vndr_file_outarea));
+	#endif
+
+  assert( strlen(output_vndr_file_outarea) <= sizeof(output_vndr_file_outarea) ) ;
+	i1=fwrite(output_vndr_file_outarea,strlen(output_vndr_file_outarea),1,OUTPUT_VNDR_FILE_FP); 
+	if(i1!=1)
+	{
+		printf("\n**********************************************************");
+		printf("\nError writing output output_vndr_file (%d)",i1);
+		errcode=510;
+	 }
+
+	return(errcode);
+}
+int     A9999_write_output_vndr_error_file()
+{
+	int	errcode=0;
+	int	i1=0;
+	
+	#if DEBUG
+		printf("A9999_write_output_vndr_error_file\n");
+    printf("Output Error Record (%s) strlen(output_vndr_error_file_outarea)=%d\n",output_vndr_error_file_outarea,strlen(output_vndr_error_file_outarea));
+	#endif
+
+	cnt_output_error_rcds++;
+
+  assert(strlen(output_vndr_error_file_outarea) <= sizeof(output_vndr_error_file_outarea));
+
+	i1=fwrite(output_vndr_error_file_outarea,strlen(output_vndr_error_file_outarea),1,OUTPUT_VNDR_ERROR_FILE_FP); 
+
+	if (i1 != 1)
+	{
+		printf("\n**********************************************************");
+		printf("\nError writing output output_vndr_error_file (%d)",i1);
+		errcode=511;
+  }
+
+	return(errcode);
+}

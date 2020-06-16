@@ -1,0 +1,748 @@
+/* vim: syn=c:ts=2:sw=2:sts=2:et:
+ */
+/*     Program -  slicgldAddCat1.pc Program */
+/*
+ **************************************************************************
+ *  PROGRAM NAME: slicgldAddCat1.pc
+ *
+ *  PURPOSE: This program compares the SLIC/GOLD Activity to the Cat1 Table to 
+ *           Determine if a CAT1 needs to be added to the Input Gold File
+ *        
+ *
+ *  INPUTS:  1. SLIC/GOLD Activity.  This file contains all the Non-Cat1 Activity
+ *              PRC1, WHSE, VENC, ACTD, etc.
+ *           2. SLIC/GOLD Cat1 File.  This is the CAT1 Records that needs to be 
+ *              added to the SLIC/GOLD Activity.
+ *
+ *  OUTPUTS:  1. Updated SLIC/GOLD Activity
+ *           
+ *
+ *  CHANGE HISTORY:
+ *   REV     DATE    Programmer                 CHANGE
+ *   ---  --------   ----------------------     ------
+ *    00  03/13/07   Larry Mills                 Initial coding 
+ *
+ **************************************************************************
+*/
+/* C System Includes                  */
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+#include <assert.h>
+
+/* Application Peculiar Includes      */
+#include "gold685_cat1_api.h"
+#include "gold685_actd_api.h"
+#include "gold685_cats_api.h"
+#include "gold685_venc_api.h"
+#include "gold685_whse_api_v2.h"
+#include "gold685_prc1_api.h"
+
+
+/* File Pointer Definitions           */
+FILE *cat1_fp;
+FILE *gold_in_acty_fp;
+FILE *gold_out_acty_fp;
+FILE *no_cat1_out_acty_fp;
+
+gold68_cat1_api_rcd         cat1;
+gold68_actd_api_rcd         actd;
+gold68_cats_api_rcd         cats;
+gold68_venc_api_rcd         venc;
+gold68_whse_api_rcd         whse;
+gold68_prc1_api_rcd         prc1;
+
+/* #define SQLCA_STORAGE_CLASS extern */
+#define NOT_FND 1403
+#define FND 0
+#define MULTI_ROWS -2112
+
+/* Application Peculiar Structures    */
+
+EXEC SQL BEGIN DECLARE SECTION;
+
+/*      Oracle User Sign-on Area   */
+	varchar	UIDS[20];
+	varchar	PWDS[20];
+
+/*      SLIC Table Area Host Variable Area */
+	varchar	cat1_partno[51];
+	char	cat1_actn_cde;
+	char	cat1_eof;
+
+	varchar	gold_acty_partno[51];
+	char	gold_acty_actn_cde;
+	varchar	gold_acty_table_nbr[4];
+	char	gold_acty_eof;
+
+
+EXEC SQL END DECLARE SECTION;
+
+EXEC SQL INCLUDE sqlca;
+
+/*  Function prototype area       */
+
+int	A0100_get_argmnt(char argc, char **argv);
+int	A1000_process_file();
+int	A1100_process_match_write();
+int	A1200_process_write_cat1();
+int	A1300_process_get_new_acty();
+int     min(int i1, int i2) ;
+int	A9999_read_cat1_file();
+int	A9999_read_gold_acty_file();
+int     A9999_write_gold_acty();
+int	A9999_write_missing_cat1_rpt();
+
+/*       program variables  */
+char	cat1_inarea[2000];
+char	gold_inarea[2000];
+char	gold_acty_outarea[2000];
+char	no_cat1_outarea[76];
+
+char	*gold_acty_in_file ;
+char	*cat1_acty_in_file ;
+char	*gold_acty_out_file ;
+char	*no_cat1_out_file ;
+int	gold_acty_rcd_size=0;
+int	cat1_acty_rcd_size=0;
+int	gold_acty_output_rcd_size=0;
+
+/*                 .........1.........2.........3.........4.........5.........6.........7.........8.........9.........0
+  	           1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890  */
+char    spaces[]={"                                                                                                    "};
+
+/*       Flags              */
+
+/*	 Counters 	    */
+
+/*	 Time Variables	    */
+long	 start;
+long	 stop;
+
+/*       Record Counts      */
+int	cat1_rcd_reads=0;
+int	gold_acty_rcd_reads=0;
+int	gold_acty_rcd_written=0;
+int	no_cat1_rcds=0;
+
+main(int argc, char **argv)
+{
+
+	char runtime[25];
+	long elapsed=0;
+	int errcode=0;
+	float mins = 0.0;
+
+  printf("\nCompiled %s on %s at %s\n",__FILE__,__DATE__,__TIME__);
+	start = GetTime(runtime, sizeof(runtime));
+	printf("\n\nStarting Time of %s\n",runtime);
+	errcode=A0100_get_argmnt(argc, argv) ;
+	if (errcode == FND)
+	{
+		errcode=A999_00_open_files();
+		if (errcode == FND)
+		{
+			cat1_eof='N';
+			gold_acty_eof='N';
+			errcode=A9999_read_cat1_file();
+			if(errcode==0)
+			{
+				errcode=A9999_read_gold_acty_file();
+			}
+			else
+			{
+				printf("\nProblems doing initial Read of Cat1 File !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+				printf("\nErrocde (%s)",errcode);
+				errcode=050;
+			}
+			if(errcode==0)
+			{
+				while(cat1_eof=='N' && gold_acty_eof=='N')
+				{
+					errcode=A1000_process_file();
+					if(errcode != 0)
+					{
+						cat1_eof='Y';
+						gold_acty_eof='Y';
+						printf("\nBad EOJ");
+					}
+					else
+					{
+					}
+				}
+			}
+			else
+			{
+				printf("\nProblems doing initial Read of Gold Acty File !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+				printf("\nErrocde (%s)",errcode);
+				errcode=051;
+			}
+		}
+		else
+		{
+			printf("\nNo processing.\n");
+		}
+	}
+	else
+	{
+		printf("\nProblems processing Command Line Arguments\n");
+		errcode=511;
+	}
+
+	printf("\n***********************************************************");
+	printf("\nNumber of CAT1 records Read\t\t\t\t%d",cat1_rcd_reads);
+	printf("\nNumber of Gold Acty records Read\t\t\t%d",gold_acty_rcd_reads);
+	printf("\nNumber of Gold Merged Acty records written\t\t%d",gold_acty_rcd_written);
+	printf("\nNumber of No Cat1 records written\t\t\t%d",no_cat1_rcds);
+  if (errcode)
+	  printf("\nerrcode=%d\t\t\t%d",errcode);
+	printf("\n***********************************************************");
+
+
+  if (cat1_fp != NULL)
+	  fclose(cat1_fp);
+  if (gold_out_acty_fp != NULL)
+	  fclose(gold_out_acty_fp);
+
+	stop=GetTime(runtime, sizeof(runtime));
+	printf("\nEnding Time of%s\n",runtime);
+
+	elapsed=stop - start;
+	if(elapsed > 60)
+	{
+		mins=(float)elapsed / 60.0;
+		printf("elapsed time of %.2f minutes\n",mins);
+	}
+	else
+		printf("elapsed time of %ld seconds\n",elapsed);
+
+	exit(errcode);
+}
+/*
+
+*/
+int	A0100_get_argmnt(char argc, char **argv)
+{
+	int	errcode=0;
+	char opt;
+	extern char *optarg;
+
+	#if DEBUG
+		printf("\nA0100_get_argmnt");
+	#endif
+
+
+	while ((opt=getopt (argc, argv,"a:b:c:d:A:B:C:D")) !=EOF)
+	{	
+		switch (opt)
+		{
+			case 'a':
+	                case 'A':		
+				cat1_acty_in_file = optarg ;
+				printf("cat1_acty_in_file=%s\n", cat1_acty_in_file) ;
+				break;		
+			case 'b':
+	                case 'B':		
+				gold_acty_in_file = optarg ;
+				printf("gold_acty_in_file=%s\n", gold_acty_in_file) ;
+				break;		
+			case 'c':
+	                case 'C':		
+				gold_acty_out_file = optarg ;
+				printf("gold_acty_out_file=%s\n", gold_acty_out_file) ;
+				break;
+			case 'd':
+	                case 'D':		
+				no_cat1_out_file = optarg ;
+				printf("no_cat1_out_file=%s\n", no_cat1_out_file) ;
+				break;
+			case '?':
+				printf("\nUnidentifie Option (%s) ",optarg);
+				errcode=12;
+				break;
+		}
+	}	
+
+	return(errcode);
+}
+/*
+
+*/
+int	A999_00_open_files()
+{
+
+	int     errcode=0;
+
+	if ((cat1_fp=fopen(cat1_acty_in_file,"r")) == NULL)
+	{
+		printf("\n***********************************************************");
+		printf("\n*                                                         *");
+		printf("\n* Could not open Input CAT1 File (%s)",cat1_acty_in_file);
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+		errcode=501;
+	}
+	else
+	{
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		printf("\n~                                                         ~");
+		printf("\n~  Processing Input CAT1 File (%s)",cat1_acty_in_file);
+		printf("\n~                                                         ~");
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+	}
+
+	if ((gold_in_acty_fp=fopen(gold_acty_in_file,"r")) == NULL)
+	{
+		printf("\n***********************************************************");
+		printf("\n*                                                         *");
+		printf("\n* Could not open Input Gold Acty File (%s)",gold_acty_in_file);
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+		errcode=502;
+	}
+	else
+	{
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		printf("\n~                                                         ~");
+		printf("\n~  Processing Input Gold Acty File (%s)",gold_acty_in_file);
+		printf("\n~                                                         ~");
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+	}
+
+	if ((gold_out_acty_fp=fopen(gold_acty_out_file,"w")) == NULL)
+	{
+		printf("\n***********************************************************");
+		printf("\n*                                                         *");
+		printf("\n* Could not open Output Gold Acty File (%s)",gold_acty_out_file);
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+		errcode=503;
+	}
+	else
+	{
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		printf("\n~                                                         ~");
+		printf("\n~  Processing Output Gold Acty File (%s)",gold_acty_out_file);
+		printf("\n~                                                         ~");
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+	}
+
+	if ((no_cat1_out_acty_fp=fopen(no_cat1_out_file,"w")) == NULL)
+	{
+		printf("\n***********************************************************");
+		printf("\n*                                                         *");
+		printf("\n* Could not open Output No Catalog Acty File (%s)",no_cat1_out_file);
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+		errcode=504;
+	}
+	else
+	{
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		printf("\n~                                                         ~");
+		printf("\n~  Processing Output No Catalog Acty File (%s)",no_cat1_out_file);
+		printf("\n~                                                         ~");
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+	}
+
+
+	return(errcode);
+}
+/*
+
+*/
+int	A1000_process_file()
+{
+	int	errcode=0;
+	int	i1;
+
+	#if DEBUG
+		printf("\nA1000_process_file");
+		printf("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>Cat1 Part (%s) (%d)",(char *) cat1_partno.arr,cat1_partno.len);
+		printf("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>Gold Acty Part (%s) (%d)",(char *) gold_acty_partno.arr,gold_acty_partno.len);
+	#endif
+
+	if (strncmp((char *) cat1_partno.arr,(char *) gold_acty_partno.arr,50)==0)
+	{
+		errcode=A1100_process_match_write();
+		errcode=A9999_read_cat1_file();
+		if(errcode!=0)
+		{
+			return(errcode);
+		}
+	}
+	else
+	{
+		if (strncmp((char *) cat1_partno.arr,(char *) gold_acty_partno.arr,50)<0)
+		{
+			errcode=A1200_process_write_cat1();
+			errcode=A9999_read_cat1_file();
+		}
+		else
+		{
+			if (strncmp((char *) cat1_partno.arr,(char *) gold_acty_partno.arr,50)>0)
+			{
+				errcode=A9999_write_missing_cat1_rpt();
+				if(errcode==0)
+				{
+					errcode=A1300_process_get_new_acty();
+				}
+				else
+				{
+					return(errcode);
+				}
+			}
+			else
+			{
+				printf("\nI am looping HELP HELP HELP");
+				cat1_eof='Y';
+				gold_acty_eof='Y';
+			}
+		}
+	}
+
+
+	if(cat1_eof=='Y' && gold_acty_eof=='Y')
+	{
+		
+	}
+
+	return(errcode);
+}
+/*
+
+*/
+int	A1100_process_match_write()
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\nA1100_process_match_write");
+	#endif
+
+	errcode=A1200_process_write_cat1();
+
+	while(strncmp((char *) cat1_partno.arr,(char *) gold_acty_partno.arr,50)==0)
+	{
+		#if DEBUG
+			printf("\nA1100_process_match_write");
+			printf("\nIn While Loop (%c)",gold_acty_eof);
+			printf("\nCat1 Part (%s)",(char *) cat1_partno.arr);
+			printf("\nGold Acty Part (%s)",(char *) gold_acty_partno.arr);
+		#endif
+		if(gold_acty_eof=='N')
+		{
+		memset(gold_acty_outarea,' ',sizeof(gold_acty_outarea));
+			strncpy(gold_acty_outarea,gold_inarea,strlen(gold_inarea));
+			gold_acty_output_rcd_size=gold_acty_rcd_size;
+			errcode=A9999_write_gold_acty();
+			if(gold_acty_eof=='N')
+			{
+				errcode=A9999_read_gold_acty_file();
+				#if DEBUG
+					printf("\nEOF FLag (%c)",gold_acty_eof);
+				#endif
+			}
+			else
+			{
+				while(cat1_eof=='Y')
+				{
+					errcode=A1200_process_write_cat1();
+					errcode=A9999_read_cat1_file();
+				}
+				memset((char *) gold_acty_partno.arr,' ',sizeof(gold_acty_partno.arr)); 
+			}
+		}
+		else
+		{
+		}
+	}
+
+	return(errcode);
+}
+/*
+
+*/
+int	A1200_process_write_cat1()
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\nA1200_process_write_cat1");
+	#endif
+
+	memset(gold_acty_outarea,' ',sizeof(gold_acty_outarea));
+	strncpy(gold_acty_outarea,cat1_inarea,strlen(cat1_inarea));
+	gold_acty_output_rcd_size=cat1_acty_rcd_size;
+
+	errcode=A9999_write_gold_acty();
+
+	return(errcode);
+}
+/*
+
+*/
+int	A1300_process_get_new_acty()
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\nA1300_process_get_new_acty");
+	#endif
+
+	if(gold_acty_eof=='N')
+	{
+		errcode=A9999_read_gold_acty_file();
+		if(gold_acty_eof=='Y')
+		{
+			printf("\nHit EOF on Gold Acty");
+			while(cat1_eof=='N')
+			{
+				printf("\nWriteing Cat1");
+				errcode=A1200_process_write_cat1();
+				errcode=A9999_read_cat1_file();
+			}
+		}
+	}
+	else
+	{
+		printf("\n&&&&& END OF FILE GOLD ACTY");
+	}
+
+	return(errcode);
+}
+
+int min(int i1, int i2) {
+	if (i1 <= i2)
+	  return i1;
+	else
+	  return i2 ;	
+}
+/*
+
+*/
+int	A9999_write_missing_cat1_rpt()
+{
+	int	errcode=0;
+	int	i1=0;
+
+	#if DEBUG
+	  printf("\nA9999_write_missing_cat1_rpt ");
+	#endif
+
+	memset(no_cat1_outarea,'\0',sizeof(no_cat1_outarea));
+	strcpy(no_cat1_outarea,"Missing Catalog Record - ");
+	#if DEBUG
+	  printf("gold_acty_partno.len=%d strlen(gold_acty_partno.arr)=%d\n", 
+		gold_acty_partno.len,
+		strlen(gold_acty_partno.arr)) ;
+	  printf("(sizeof(no_cat1_outarea) - 1) - strlen(no_cat1_outarea)=%d\n",
+            (sizeof(no_cat1_outarea) - 1) - strlen(no_cat1_outarea) ) ;		
+	#endif
+	if (strlen(gold_acty_partno.arr) <= (sizeof(no_cat1_outarea) - 1) - strlen(no_cat1_outarea)) {
+	  #if DEBUG
+	    printf("strcat\n") ;
+	  #endif
+	  strcat(no_cat1_outarea, gold_acty_partno.arr);
+	} else {
+	  #if DEBUG
+	    printf("strncat\n") ;
+	  #endif
+	  strncat(no_cat1_outarea,(char *) gold_acty_partno.arr, 
+	    (sizeof(no_cat1_outarea) - 1) - strlen(no_cat1_outarea));
+	  no_cat1_outarea[sizeof(no_cat1_outarea) - 1] = '\0' ;
+	}
+	#if DEBUG
+	  printf("no_cat1_outarea len=%d\n", strlen(no_cat1_outarea)) ;
+	#endif
+
+	no_cat1_outarea[sizeof(no_cat1_outarea) - 2]='\n';
+	no_cat1_rcds++;
+	#if DEBUG
+	  printf("no_cat1_rcds=%d fwrite..\n", no_cat1_rcds) ;
+	#endif
+	i1=fwrite(no_cat1_outarea,sizeof(no_cat1_outarea),1,no_cat1_out_acty_fp); 
+	if(i1!=1)
+	{
+		errcode=599;
+		printf("\nError Writing to Output No Cat1 File (%d) (%s)",cat1_rcd_reads,(char *) gold_acty_partno.arr);
+		return(errcode);
+	}
+	#if DEBUG
+		printf("\nA1000_process_file");
+		printf("\nMissing Gold Acty Part (%s) (%d)",(char *) gold_acty_partno.arr,gold_acty_partno.len);
+	#endif
+
+	return(errcode);
+}
+/*
+
+*/
+int	A9999_read_cat1_file()
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\nA9999_read_cat1_file ***************************************************** ");
+	#endif
+
+	memset(cat1_inarea,' ', sizeof(cat1_inarea));
+
+	if(fgets(cat1_inarea,sizeof(cat1_inarea),cat1_fp)!= NULL)
+	{
+		cat1_rcd_reads++;
+
+		#if DEBUG
+		  printf("%d. cat1_inarea=%.*s len=%d", 
+			min(sizeof(cat1_inarea), strlen(cat1_inarea)),
+			cat1_rcd_reads, cat1_inarea, 
+			strlen(cat1_inarea)) ;
+		#endif
+
+		cat1_acty_rcd_size=strlen(cat1_inarea);
+
+		memset(cat1_partno.arr,' ',sizeof(cat1_partno.arr));
+
+		cat1_actn_cde=' ';
+
+		memset((char *) &cat1,' ',sizeof(cat1));
+		assert(sizeof(cat1) <= sizeof(cat1_inarea)) ;
+		memcpy((char *) &cat1,(char *) cat1_inarea,sizeof(cat1));
+
+		#if DEBUG
+		  printf("1. cat1_partno.len=%d\n", cat1_partno.len) ;
+		#endif
+
+		strncpy(cat1_partno.arr,cat1.part,sizeof(cat1_partno.arr) - 1);
+		cat1_partno.arr[sizeof(cat1_partno.arr) - 1] = '\0' ;
+		cat1_partno.len=strlen((char *) cat1_partno.arr);
+
+		#if DEBUG
+		  printf("2. cat1_partno.len=%d\n", cat1_partno.len) ;
+		#endif
+
+		cat1_actn_cde=cat1.update_create_delete;
+
+		#if DEBUG
+			printf("\nCatalog Rcd (%s) (%d) ",(char *) cat1_inarea,cat1_acty_rcd_size);
+			printf("\nCat1 Part Number (%s) (%d) ",(char *) cat1_partno.arr,cat1_partno.len);
+			printf("\nCat1 Action Cde (%c)",cat1_actn_cde);
+		#endif
+
+	}
+	else
+	{
+	        #if DEBUG
+		  printf("missing cat1 gold_acty_eof=%c\n", gold_acty_eof) ;
+		#endif
+		while(gold_acty_eof=='N')
+		{
+			errcode=A9999_write_missing_cat1_rpt();
+			if(errcode==0)
+			{
+				errcode=A1300_process_get_new_acty();
+			}
+			else
+			{
+				return(errcode);
+			}
+		}
+		cat1_eof='Y';
+		memset(cat1_partno.arr,' ',sizeof(cat1_partno.arr)); 
+	}
+		
+	#if DEBUG
+	printf("A9999_read_cat1_file end\n") ;
+	  printf("errcode=%d\n", errcode) ;
+	#endif
+	return(errcode);
+}
+/*
+
+*/
+int	A9999_read_gold_acty_file()
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\nA9999_read_gold_acty_file ***************************************************** ");
+	#endif
+
+	memset(gold_inarea,' ',sizeof(gold_inarea));
+
+	if(fgets(gold_inarea,2000,gold_in_acty_fp)!= NULL)
+	{
+		gold_acty_rcd_reads++;
+
+		gold_acty_rcd_size=strlen(gold_inarea);
+
+		memset(gold_acty_partno.arr,' ',sizeof(gold_acty_partno.arr));
+		memset(gold_acty_table_nbr.arr,' ',sizeof(gold_acty_table_nbr.arr));
+		gold_acty_actn_cde=' ';
+
+		strncpy((char *) gold_acty_partno.arr,&gold_inarea[20],50);
+		gold_acty_partno.arr[50]='\0';
+		gold_acty_partno.len=strlen((char *) gold_acty_partno.arr);
+
+		strncpy((char *) gold_acty_table_nbr.arr,&gold_inarea[70],3);
+		gold_acty_table_nbr.arr[3]='\0';
+		gold_acty_table_nbr.len=strlen((char *) gold_acty_table_nbr.arr);
+
+		gold_acty_actn_cde=gold_inarea[103];
+
+
+		#if DEBUG
+			printf("\nGold Acty Rcd read (%s) (%d)",gold_inarea,gold_acty_rcd_size);
+			printf("\nGold Acty Part Number (%s) (%d) ",(char *) gold_acty_partno.arr,gold_acty_partno.len);
+			printf("\nGold Acty Table Nbr (%s) (%d) ",(char *) gold_acty_table_nbr.arr,gold_acty_table_nbr.len);
+			printf("\nGold Acty Action Cde (%c)",gold_acty_actn_cde);
+		#endif
+
+	}
+	else
+	{
+		printf("\nEnd of File Processing - Gold Activity");
+		gold_acty_eof='Y';
+		memset((char *) gold_acty_partno.arr,' ',sizeof(gold_acty_partno.arr)); 
+	}
+		
+	return(errcode);
+}
+/*
+
+*/
+int     A9999_write_gold_acty()
+{
+	int	errcode=0;
+	int	i1=0;
+	
+	#if DEBUG
+		printf("\nA9999_write_gold_acty ####################################################");
+		printf("\nOutput Rcd (%.*s) (%d) ",
+			min(sizeof(gold_acty_outarea), strlen(gold_acty_outarea)), 
+			gold_acty_outarea,gold_acty_output_rcd_size);
+	#endif
+
+	gold_acty_outarea[gold_acty_output_rcd_size]='\0';
+	gold_acty_outarea[gold_acty_output_rcd_size - 1]='\n';
+
+	assert(gold_acty_output_rcd_size <= sizeof(gold_acty_outarea));
+
+	i1=fwrite(gold_acty_outarea,gold_acty_output_rcd_size,1,gold_out_acty_fp); 
+	if(i1!=1)
+	{
+		printf("\n**********************************************************");
+		printf("\nError writing output Gold Ouptut Acty File (%d)",i1);
+		errcode=510;
+	 }
+	 else
+	 {
+		 gold_acty_rcd_written++;
+	 }
+
+	#if DEBUG
+	  printf("A9999_write_gold_acty %d\n", errcode) ;
+	#endif
+	return(errcode);
+}

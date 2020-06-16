@@ -1,0 +1,3046 @@
+/* vim: ts=2:sw=2:sts=2:et:syntax=c:
+ */
+/* Program - Outputs all ACDC data into Excel */
+/* ************************************************************************** 
+ * PROGRAM NAME:  ACDCAll.pc 
+ * *
+PURPOSE:  The purpose of this program is to output all of the ACDC into an Excel Spreadsheet.  
+* 
+* INPUTS:  1.  Connect strings to SLIC and GOLD databases * * *
+OUTPUTS:  1.  Output file 
+* * * CHANGE HISTORY:  
+* REV DATE Programmer CHANGE 
+* --- -------- ----------------- ------ 
+* 00 02/18/03 Kara Cappos Initial coding
+* 01 04/08/03 Kara Cappos Added modifications to either output to file or load data into scm.acdc_order_data Oracle table
+* 02 10/21/03 Kara Cappos Added Sweep logic
+* 03 11/04/04 Kara Cappos Added multiple price sources.  Also, varied pricing logic depending on the contract (TA4, TA5, etc)
+* 04 09/28/04 Kelly Dougherty Added TA8 price source
+************************************************************************** */
+
+#include <stdlib.h> 
+#include <stdio.h> 
+#include <string.h>
+#include <time.h>
+#include <assert.h>
+#include "db_err.h"
+#include "Login.h"
+#include "varcharSetup.h"
+
+
+EXEC SQL INCLUDE sqlca.h;
+
+#define NOTFND 1403
+#define MAX 50
+
+struct tm *tmstruct;
+time_t  tnow;
+
+/* Declare Record Sets 
+slic_vars slic;
+gold_vars gold;*/
+
+/* Declare database ids */
+char *slic_db = "slic_db";
+char *gold_db = "gold_db";
+
+
+char slic_dsn[20];
+char gold_dsn[20];
+char output_file[100];
+char output_type[2];
+
+FILE *fp_out;
+
+/* Host Variables */
+varchar jicc[11];
+short jicc_i;
+varchar order_mod[21]; 
+varchar part[51];
+varchar part_basic[51];
+varchar prime[51];
+varchar noun[41];
+varchar niin[12];
+varchar nsn[17];
+varchar cog[3];
+varchar smic[3];
+varchar MFG_cage[15];
+varchar vendor_code[15];
+varchar lisn_ssn[21];
+varchar releaseType[3];
+varchar ims_designator_code[21];
+varchar order_no[21];
+varchar sc[21];
+varchar buyer[26];
+varchar fdw_buyer[26];
+varchar contract_date[25];
+varchar contract_year[5]; 
+varchar contract_month[4];
+short contract_date_i;
+short contract_year_i;
+short contract_month_i;
+varchar activity_id[16];
+varchar po[21];
+varchar po_line[7];
+varchar po_po_line[31];
+varchar po_po_line_part[71];
+varchar price_type[3];
+varchar crtdocdte[25];
+varchar datesort[8];
+varchar createdte[11];
+varchar crtdocdte_month[4];
+varchar crtdocdte_day[4];
+varchar crtdocdte_year[5];
+varchar pc_release_date[11];
+short	pc_release_date_i;
+varchar smrc[10];
+short releaseType_i;
+int priority;
+short priority_i;
+int lead_time;
+short lead_time_i;
+int lead_time_days;
+short lead_time_days_i;
+varchar est_sched_date[25];
+int est_sched_year;
+int est_sched_mo;
+int est_sched_day;
+varchar sched_cat[29];
+int qty_ordered;
+short qty_ordered_i;
+float unit_price; 
+short unit_price_i;
+float extd_amt_display;
+short extd_amt_display_i;
+float fdw_unit_price;
+float ichs_unit_price;
+short ichs_unit_price_i;
+float ngc_price;
+short ngc_price_i;
+float ichs_part_price;
+short ichs_part_price_i;
+float avg_order_mod_price;
+short avg_order_mod_price_i;
+float avg_price;
+short avg_price_i;
+float avg_price_output;
+short avg_price_output_i;
+float best_price;
+short best_price_i;
+float best_ext_price;
+short best_ext_price_i;
+char	sweep_price_type;
+float sweep_uc_price;
+short sweep_uc_price_i;
+varchar	dps_contract_clin[21];
+varchar dps_contract_elin[21];
+varchar best_price_source[31];
+varchar prcType[15];
+varchar mystatus[31];
+varchar buyAuthNeed[15];
+varchar remarks[181];
+varchar user_ref2[51];
+float rem_amt;
+short rem_amt_i;
+int rem_qty; 
+short rem_qty_i;
+int liq_qty;
+int commit_qty;
+float liq_amt;
+float commit_amt;
+int nwp_commit_qty;
+float nwp_commit_amt;
+int caps_commit_qty;
+float caps_commit_amt;
+varchar asofdate[25];
+varchar vendor_name[51];
+varchar vendor_name_ichs[51];
+varchar cost_acct[21];
+varchar part_source[10];
+varchar hb_part[33];
+varchar sc_list[2000];
+varchar stmt[5000];
+varchar best_price_cat[41];
+varchar escalation_fromdate[5];
+short escalation_fromdate_i;
+varchar escalation_currdate[5];
+short escalation_currdate_i;
+float escalation_pcnt;
+float escalation_price;
+float escalation_temp_price;
+int user_ref2_numeric=0;
+
+int input_ctr=0;
+int ins_output_ctr=0;
+int recs_output_ctr=0;
+
+/* Functions */	
+void show_err_info(char *procname) ;
+void initialize();
+int     A999_00_open_files();
+void query_add_buy_auth_ords();
+void query_best_price();
+void query_best_price_table();
+void query_PO_ICHS_price();
+void query_PO_FDW_price();
+void get_PO_FDW_vendor_name();
+void query_sweep_price();
+/* void query_ngc_price(); */
+void query_part_price();
+void get_scm_price();
+void query_jicc();
+void check_user_ref2_expedite();
+void query_hd_data();
+void query_cage();
+void query_order_deliv_info();
+void query_supplier_deliv_dates();
+void query_cost_acct();
+void query_vendor_name();
+void calculate_escalation_adjmnt();
+void calculate_all_escalation_adjmnt();
+void retrieve_all_escalation_adjmnt();
+void calculate_ngc_escalation_adjmnt();
+void retrieve_ngc_escalation_adjmnt();
+void write_output();
+void insert_record();
+void delete_record();
+void display_record();
+void commit();
+void   SetBasicPart(char *str,int length);
+int  isNum(char *in);
+
+int main(int argc, char *argv[])
+{
+	int i;
+	int errcode=0;
+	long start, stop;
+	long elapsed;
+	float mins;
+	char runtime[25];
+	char pgmtime[25];
+
+  printf("%s compiled on %s at %s\n",__FILE__,__DATE__,__TIME__);
+  printf("\n\n**************************************************************************");
+  time(&tnow);
+  tmstruct=localtime(&tnow);
+  strftime(pgmtime,sizeof(pgmtime),"%m/%d/%Y-%H:%M:%S",tmstruct);
+  printf("\n\n\tStarting Time (%s)\n",pgmtime);
+
+	if(argc != 3)
+	{
+		printf("Usage: %s i|f output_file\n",argv[0]);
+		printf("  where i or f is the ooutput_type\n") ;
+		exit(1);
+	}
+	Login();
+	if(sqlca.sqlcode == 0)
+		printf("Connected to SLIC.\n");
+	else
+	{
+		printf("Error connecting to SLIC.  Exiting.\n");
+		exit(2);
+	}
+	initialize();
+	strcpy(output_file,argv[2]);
+	strcpy(output_type,argv[1]);
+
+  printf("\noutput_file=%s\n", output_file) ;
+  printf("\noutput_type=%s\n", output_type) ;
+
+	if(output_type[0] == 'i')
+	{
+		delete_record();
+	}
+	EXEC SQL
+	SELECT to_char(sysdate,'MM/DD/YYYY HH:MI')
+	INTO :asofdate
+	from dual;
+	if(output_type[0] == 'f')
+	{
+		errcode=A999_00_open_files();
+
+		if(errcode==0)
+		{
+			fprintf(fp_out, "Automated Cost Data Consolidation As Of: ");
+	    recs_output_ctr++;
+			fprintf(fp_out, "%s\n", asofdate.arr);
+    	recs_output_ctr++;
+			fprintf(fp_out,"JICC\tOrder Mod\tPart No.\tMfg Code\tVendor Code\tRelease Type\tIMS Des Code\tCap Order\tContract Date\tContract Year");
+    	recs_output_ctr++;
+			fprintf(fp_out,"\tContract Month\tPO\tPO Line\tPO+LI\tPO+LI+PN\tSubmittal Date\tSubmittal Year\tSubmittal Mo\tSMR Code\tLead Time(Months)");
+    	recs_output_ctr++;
+			fprintf(fp_out,"\tLead Time(Days)\tEst. Sched Date\tEst. Year\tEst. Month\tSched Cat\tQty\tBest Price\tBest Extended Price\tBest Price Source\tBest Price Cat");
+    	recs_output_ctr++;
+			fprintf(fp_out,"\tOrder Status\tAdditional Buy Authorization\tRemarks\tExpedite Info\tCommit Amt\tLiq. Amt\tCommit Qty\tLiq. Qty\tRemaining Amt\tRemaining Qty\tAs of Date\tDownloaded Vendor Name\tBest Vendor Name\tCost Acct\tLISN SSN");
+    	recs_output_ctr++;
+			fprintf(fp_out,"\tEscalation From Date\tEscalation Price\tEscalation Percent\tPO Release Date\n");
+    	recs_output_ctr++;
+			fflush(fp_out); 
+		}
+	}
+	query_add_buy_auth_ords();
+	
+	if(output_type[0] == 'f')
+	{
+		fclose(fp_out);
+	}
+	
+	printf("\nTotal Rows Fetched (%d)",input_ctr);
+	printf("\nTotal Rows Inserted(%d) to scm.acdc_order_data",ins_output_ctr);
+	printf("\nTotal Recs Output(%d) to %s",recs_output_ctr, output_file);
+        printf("\n\n**************************************************************************");
+        time(&tnow);
+        tmstruct=localtime(&tnow);
+        strftime(pgmtime,sizeof(pgmtime),"%m/%d/%Y-%H:%M:%S",tmstruct);
+        printf("\n\n\tEnding Time (%s)\n",pgmtime);
+
+	return 0;
+}
+/*
+
+*/
+void initialize()
+{
+	#if DEBUG
+		printf("\ninitialize");
+	#endif
+	lead_time=0;
+	lead_time_i=0;
+	lead_time_days=0;
+	lead_time_days_i=0;
+	qty_ordered=0;
+	qty_ordered_i=0;
+	unit_price=0;
+	unit_price_i=0;
+	extd_amt_display=0;
+	extd_amt_display_i=0;
+	ichs_unit_price=0;
+	ichs_unit_price_i=0;
+	fdw_unit_price=0;
+	sweep_uc_price=0;
+	sweep_uc_price_i=0;
+	ngc_price=0;
+	ngc_price_i=0;
+	ichs_part_price=0;
+	ichs_part_price_i=0;
+	avg_order_mod_price=0;
+	avg_order_mod_price_i=0;
+	avg_price_output=0;
+	best_price=0;
+	best_price_i=0;
+	best_ext_price=0;
+	best_ext_price_i=0;
+	rem_amt=0;
+	rem_amt_i=0;
+	rem_qty=0;
+	rem_qty_i=0;
+	est_sched_year=0;
+	est_sched_mo=0;
+	est_sched_day=0;
+	nwp_commit_qty=0;
+	nwp_commit_amt=0;
+	caps_commit_qty=0;
+	caps_commit_amt=0;
+	commit_qty=0;
+	commit_amt=0;
+	liq_qty=0;
+	liq_amt=0;
+	/*po_line_num=0;
+	po_line_num_i=0;*/
+	strcpy(part_source.arr, " ");
+	strcpy(buyAuthNeed.arr, " ");
+	STRINIT(order_no.arr);
+	STRINIT(sc.arr);
+	STRINIT(buyer.arr);
+	STRINIT(part.arr);
+	STRINIT(prime.arr);
+	STRINIT(mystatus.arr);
+	STRINIT(vendor_code.arr);
+	STRINIT(crtdocdte.arr);
+	STRINIT(createdte.arr);
+	STRINIT(smrc.arr);
+	STRINIT(remarks.arr);
+	STRINIT(ims_designator_code.arr) ;
+	STRINIT(dps_contract_clin.arr);
+	STRINIT(dps_contract_elin.arr);
+	STRINIT(activity_id.arr);
+	STRINIT(po.arr);
+	STRINIT(po_line.arr);
+	STRINIT(price_type.arr);
+	STRINIT(noun.arr);
+	STRINIT(nsn.arr);
+	STRINIT(niin.arr);
+	STRINIT(cog.arr);
+	STRINIT(smic.arr);
+	escalation_price=0;
+	escalation_pcnt=0;
+	STRINIT(escalation_fromdate.arr);
+	STRINIT(pc_release_date.arr);
+	pc_release_date_i=-1;
+}
+/*
+^L
+*/
+int     A999_00_open_files()
+{
+	int     errcode=0;
+
+	#if DEBUG
+		printf("\nA999_00_open_files");
+	#endif
+
+	if ((fp_out=fopen(output_file,"w")) == NULL)
+	{
+		printf("\n***********************************************************");
+	    	printf("\n*                                                         *");
+		printf("\n* Could not open Input File (%s) ",output_file);
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+		errcode=500;
+	}		
+	else
+	{
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		printf("\n~                                                                   ~");
+		printf("\n~  Processing Output File (%s) ",output_file);
+		printf("\n~                                                                   ~");
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+	}
+	
+	return(errcode);
+}
+/*
+
+*/
+
+/*Finds the initial additional buy information from GOLD.  Loops through query and for each returned row calls several functions to find other data elements*/
+
+void query_add_buy_auth_ords()
+{
+	int found = 1;	
+
+	#if DEBUG
+		printf("\nquery_add_buy_auth_ords");
+	#endif
+
+	
+	EXEC SQL DECLARE add_buy_csr CURSOR FOR
+		select distinct o.order_no, 
+			o.sc,
+			o.part, 
+			c.prime,
+			decode(o.status,'O','OPEN', 'C','CANCELLED', 'F','FROZEN', 'U','UNAUTHORIZED', 'R','RESERVED', 'S','SATISFIED', 'K','K', 'UNKNOWN') mystatus,
+			nvl(o.vendor_code,' ') vendor_code, 
+			0,
+			(nvl(o.qty_original_ordered,0) + nvl(o.qty_added,0)) - nvl(o.qty_canc,0) qty_ordered, 
+			nvl(to_char(o.created_docdate,'mm/dd/yyyy'),' ') crtdocdte,
+			nvl(priority,0),
+			nvl(to_char(o.created_datetime,'yyyy-mm-dd'),' '),
+			nvl(c.smrc,' '), 
+			nvl(c.remarks,' '), 
+			nvl(c.ims_designator_code,' '),
+			nvl(o.po,' ') po, 
+			nvl(o.po_line,' ') poline,
+			nvl(c.noun,' ') noun,
+			nvl(c.nsn,' ') nsn,
+			nvl(c.nin,' ') niin,
+			nvl(c.cognizance_code,' ') cog,
+			nvl(b.buyer_name,' '),
+			nvl(n.nsn_smic,' ') smic,
+			nvl(to_char(o.created_docdate,'yyyymmdd'),' ') datesort
+		from ord1 o,
+			cat1 c,
+			nsn1 n,
+			pur1 p,
+			sybu b,
+			venn vn
+		where o.order_type = 'C' 
+			and o.sc like 'F18%' 
+			and o.part = c.part 
+			and p.order_no = o.order_no (+)
+			and o.buyer=b.buyer_code (+)
+			and c.nsn=n.nsn(+)
+			and o.order_no like 'F18S%'
+			and o.status in ('O','C','F','U','R','S','K')
+			and o.vendor_code = vn.vendor_code(+)
+/*			and o.order_no='F18S0806654'  */
+/*			and o.part = '74A350006-1025' */
+		order by datesort desc, o.order_no, o.part,mystatus,vendor_code;
+		
+	EXEC SQL OPEN add_buy_csr;
+	if(sqlca.sqlcode == 0)
+	{
+	  while(found)
+	  {
+		#if DEBUG
+			printf("\n######################### query_add_buy_auth_ords - Fetch #############################");
+		#endif
+	     initialize();
+	     
+	     EXEC SQL FETCH add_buy_csr INTO
+		:order_no,
+		:sc,
+		:part,
+		:prime,
+		:mystatus,
+		:vendor_code,
+		:unit_price:unit_price_i,
+		:qty_ordered:qty_ordered_i,
+		:crtdocdte,
+		:priority,
+		:createdte,
+		:smrc,
+		:remarks,
+		:ims_designator_code,
+		:po,
+		:po_line,
+		:noun,
+		:nsn,
+		:niin,
+		:cog,
+		:buyer,
+		:smic,
+		:datesort;
+		
+             if(sqlca.sqlcode == NOTFND)
+             {
+		#if DEBUG
+			printf("\n*****************************************************************************");
+			printf("\nNo Rows Found");
+			printf("\n*****************************************************************************");
+		#endif
+             	found = 0;
+             }
+	     else
+	     {
+		if(sqlca.sqlcode == 0)
+		{
+		
+			#if DEBUG
+				printf("\n*****************************************************************************");
+				printf("\nFetch Row Order No (%s)",(char*) order_no.arr);
+				printf("\n          Part No (%s)",(char*) part.arr);
+				printf("\n          unit price (%.2f)",unit_price);
+				printf("\n*****************************************************************************");
+			#endif
+
+			input_ctr++;
+      assert(order_no.len < sizeof(order_no.arr)) ;
+			order_no.arr[order_no.len] ='\0';
+
+      assert(part.len < sizeof(part.arr)) ;
+			part.arr[part.len] ='\0';
+
+      assert(mystatus.len < sizeof(mystatus.arr)) ;
+			mystatus.arr[mystatus.len] ='\0';
+
+      assert(vendor_code.len < sizeof(vendor_code.arr)) ;
+			vendor_code.arr[vendor_code.len] ='\0';
+
+      assert(crtdocdte.len < sizeof(crtdocdte.arr)) ;
+			crtdocdte.arr[crtdocdte.len] ='\0';
+
+      assert(smrc.len < sizeof(smrc.arr)) ;
+			smrc.arr[smrc.len] ='\0';
+
+      assert(remarks.len < sizeof(remarks.arr)) ;
+			remarks.arr[remarks.len] ='\0';
+
+      assert(ims_designator_code.len < sizeof(ims_designator_code.arr)) ;
+			ims_designator_code.arr[ims_designator_code.len] ='\0';
+
+      assert(po.len < sizeof(po.arr)) ;
+			po.arr[po.len] ='\0';
+
+      assert(po_line.len < sizeof(po_line.arr)) ;
+			po_line.arr[po_line.len] ='\0';
+
+			
+			/* determine Basic Part format */
+			STRINIT(part_basic.arr) ;
+      assert(part.len < sizeof(part_basic.arr)) ;
+			strncpy(part_basic.arr, part.arr,part.len);
+			part_basic.len=part.len;
+
+			#if DEBUG
+				printf("\n*****************************************************************************");
+				printf("\nCalling SetBasicPart -  Part (%s) (%d)",part.arr,part.len);
+				printf("\n                        BasicPart (%s) (%d)",part_basic.arr,part_basic.len);
+				printf("\n*****************************************************************************");
+			#endif
+
+			SetBasicPart(part_basic.arr,part_basic.len);
+
+			#if DEBUG
+				printf("\n*****************************************************************************");
+				printf("\nReturn from SetBasicPart BasicPart (%s) (%d)",part_basic.arr,part_basic.len);
+				printf("\n*****************************************************************************");
+			#endif
+
+			/* Extracts the month and year from the submittal date */
+
+      STRINIT(crtdocdte_month.arr) ;
+      assert(2 < sizeof(crtdocdte_month.arr));
+			strncpy(crtdocdte_month.arr, crtdocdte.arr, 2);    
+      assert(strlen(crtdocdte_month.arr) < sizeof(crtdocdte_month.arr));
+			crtdocdte_month.len = strlen(crtdocdte_month.arr);
+
+      STRINIT(crtdocdte_day.arr) ;
+      assert(2 < sizeof(crtdocdte_day.arr));
+			strncpy(crtdocdte_day.arr, crtdocdte.arr+3, 2);
+      assert(strlen(crtdocdte_day.arr) < sizeof(crtdocdte_day.arr));
+			crtdocdte_day.len = strlen(crtdocdte_day.arr);
+
+      STRINIT(crtdocdte_year.arr) ;
+      assert(4 < sizeof(crtdocdte_year.arr));
+			strncpy(crtdocdte_year.arr, crtdocdte.arr+6, 4);
+      assert(strlen(crtdocdte_year.arr) < sizeof(crtdocdte_year.arr));
+			crtdocdte_year.len = strlen(crtdocdte_year.arr);
+
+			
+			/* Concatenates the po and po line item */
+      assert(strlen(po.arr) < sizeof(po_po_line.arr)) ;
+			strcpy(po_po_line.arr, po.arr);
+      assert(strlen(po.arr) + strlen(po_line.arr) < sizeof(po_po_line.arr)) ;
+			strcat(po_po_line.arr, po_line.arr);
+			
+			/* Concatenates the po, po line item, and part */
+      assert(strlen(po_po_line.arr) < sizeof(po_po_line_part.arr)) ;
+			strcpy(po_po_line_part.arr, po_po_line.arr);
+      assert(strlen(po_po_line.arr)+strlen(part.arr) < sizeof(po_po_line_part.arr)) ;
+			strcat(po_po_line_part.arr, part.arr);
+      assert(strlen(po_po_line_part.arr) < sizeof(po_po_line_part.arr));
+			po_po_line_part.len=strlen(po_po_line_part.arr);
+			
+			query_jicc();
+			query_cage();
+			query_order_deliv_info();
+			query_best_price();
+			query_cost_acct();
+			query_vendor_name();
+			calculate_escalation_adjmnt();
+			
+			if(output_type[0] == 'f')
+			{
+				write_output();
+			}
+			else
+			{
+				insert_record();
+			}
+		}
+	     	else
+			db_err("query_add_buy_auth_ords");
+	      }
+	  }
+	}
+	else
+	{
+		db_err("query_add_buy_auth_ords");
+	}
+}
+/*
+
+*/
+void query_best_price()
+{
+/* Finds the best available price for each item.  As soon as it finds a non-zero price it stops.
+The current order for best price is:
+	1. po price from commit_liq_data (scm.acdc_ichs_data)
+	2. northrop price for part (scm.acdc_ngc_pricing)
+	3. last part price from commit_liq_data (scm.acdc_ichs_data)
+	4. Price from SLIC (DLSC, CAT, or NEG)
+	5. avg price for that order mod (scm.acdc_ichs_data)
+	6. avg price for all parts (scm.acdc_ichs_data) 
+*/
+	#if DEBUG
+		printf("\nquery_best_price");
+		printf("\nunit price (%.2f)",unit_price);
+	#endif
+
+	best_price = 0;
+	STRINIT(best_price_source.arr) ;
+	STRINIT(best_price_cat.arr) ;
+
+	if((strncmp(releaseType.arr,"MM",2)==0) ||
+	   (strncmp(releaseType.arr,"PM",2)==0) ||
+	   (strncmp(releaseType.arr,"CD",2)==0))
+	{
+		query_sweep_price();
+	}
+	else
+	{
+	   	#if DEBUG
+			printf("\nPO Number (%s) (%d)",po.arr,po.len);
+			printf("\nPO line (%s) (%d)",po_line.arr,po_line.len);
+			printf("\nRelease Type (%s) (%d)",releaseType.arr,releaseType.len);
+	   	#endif
+		if((releaseType.len== 0) &&
+		   (strncmp(po.arr," ",1)==0) &&
+		   (strncmp(po_line.arr," ",1)==0))
+		{
+			query_sweep_price();
+      assert(2 < sizeof(releaseType.arr)) ;
+			strcpy(releaseType.arr,"??");
+			releaseType.len=2;
+		}
+		else
+		{
+			query_PO_ICHS_price();
+			if(ichs_unit_price != 0)
+			{
+#define PO_PRICE "PO Price"
+        assert(strlen(PO_PRICE) < sizeof(best_price_source.arr)) ;
+		 		strcpy(best_price_source.arr, PO_PRICE);
+
+        assert(strlen(PO_PRICE) < sizeof(best_price_cat.arr)) ;
+				strcpy(best_price_cat.arr, PO_PRICE);
+
+			}
+		}
+	}
+	#if DEBUG
+		printf("\nichs_unit_price (%.2f)",ichs_unit_price);
+	#endif
+	if(ichs_unit_price == 0)
+	{
+	   get_scm_price();
+	   if (best_price == 0)
+	   {
+		query_best_price_table();
+		if(best_price == 0)
+		{
+			query_hd_data();
+			if(unit_price == 0)
+			{
+#define NO_PRICE_INFO "NO_PRICE_INFO"         
+				best_price=0;
+        assert(strlen(NO_PRICE_INFO) < sizeof(best_price_source.arr)) ;
+				strcpy(best_price_source.arr, NO_PRICE_INFO);
+				best_price_source.len=13;
+
+        assert(strlen(NO_PRICE_INFO) < sizeof(best_price_cat.arr)) ;
+				strcpy(best_price_cat.arr, NO_PRICE_INFO);
+				best_price_cat.len=strlen(best_price_cat.arr);
+			 }
+			 else
+			 {	
+				best_price = unit_price;
+        assert(strlen(prcType.arr) < sizeof(best_price_source.arr)) ;
+				strcpy(best_price_source.arr, prcType.arr);
+
+#define PRICE_SUFFIX " Price"         
+        assert(strlen(best_price_source.arr) + strlen(PRICE_SUFFIX) < sizeof(best_price_source.arr)) ;
+				strcat(best_price_source.arr, PRICE_SUFFIX);
+        
+#define SLIC_PRICE "SLIC Price"         
+        assert(strlen(best_price_cat.arr) + strlen(SLIC_PRICE) < sizeof(best_price_cat.arr)) ;
+				strcpy(best_price_cat.arr, SLIC_PRICE);
+
+				#if DEBUG
+					printf("\n\tquery_best_price - SLIC Price");
+					printf("\n\tCat (%s) ",best_price_cat.arr);
+					printf("\n\tSource (%s) ",best_price_source.arr);
+				#endif
+			 }
+		}
+	    }
+	}
+	else
+	{
+	   best_price = ichs_unit_price;
+ 		#if DEBUG
+			printf("\n\tquery_best_price - PO Price");
+			printf("\n\tCat (%s) ",best_price_cat.arr);
+			printf("\n\tSource (%s) ",best_price_source.arr);
+		#endif
+	}
+	best_ext_price = best_price * qty_ordered;
+  assert(strlen(best_price_source.arr) < sizeof(best_price_source.arr));
+	best_price_source.len = strlen(best_price_source.arr);
+	best_price_source.arr[best_price_source.len] = '\0';
+
+  assert(strlen(best_price_cat.arr) < sizeof(best_price_cat.arr));
+	best_price_cat.len = strlen(best_price_cat.arr);
+	best_price_cat.arr[best_price_cat.len] = '\0';
+	#if DEBUG
+		printf("\n\tquery_best_price - PO Price");
+		printf("\n\tBest Prices (%f)",best_price);
+		printf("\n\tBest Extended Prices (%f)",best_ext_price);
+		printf("\n\tQty_ordered (%d)",qty_ordered);
+		printf("\n\tCat (%s) ",best_price_cat.arr);
+		printf("\n\tSource (%s) ",best_price_source.arr);
+	#endif
+}
+/*
+
+*/
+void get_scm_price ()
+{
+
+/*Attempts to find a price based on the part number.  The scm.scm_price_logic contains the actual prices.  The scm.acdc_price_order table 
+tells the order in which to look for the various prices.  If the*/
+	varchar contract[20];
+	
+	float T14_INH_PBOM =0;
+	short T14_INH_PBOM_i=0;
+	float T14_SUP_PBOM =0;
+	short T14_SUP_PBOM_i=0;
+	float T15_INH_PBOM =0;
+	short T15_INH_PBOM_i=0;
+	float T15_SUP_PBOM =0;
+	short T15_SUP_PBOM_i=0;
+	float T16_INH_PBOM =0;
+	short T16_INH_PBOM_i=0;
+	float T16_SUP_PBOM =0;
+	short T16_SUP_PBOM_i=0;
+	float TA9_INH_PBOM =0;
+	short TA9_INH_PBOM_i=0;
+	float TA9_SUP_PBOM =0;
+	short TA9_SUP_PBOM_i=0;
+	float TA8_INH_PBOM =0;
+	short TA8_INH_PBOM_i=0;
+	float TA8_SUP_PBOM =0;
+	short TA8_SUP_PBOM_i=0;
+	float TA6_INH_PBOM =0;
+	short TA6_INH_PBOM_i=0;
+	float TA6_SUP_PBOM=0;
+	short TA6_SUP_PBOM_i=0;
+	float TA5_INH_PBOM=0;
+	short TA5_INH_PBOM_i=0;
+	float TA5_SUP_PBOM=0;
+	short TA5_SUP_PBOM_i=0;
+	float TA4_INH_PBOM=0;
+	short TA4_INH_PBOM_i=0;
+	float TA4_SUP_PBOM=0;
+	short TA4_SUP_PBOM_i=0;
+	float TA4_NGC=0;
+	short TA4_NGC_i=0;
+	float TA12_NGC=0;
+	short TA12_NGC_i=0;
+	float APL_PRICE=0;
+	short APL_PRICE_i=0;
+	float PN_PO_PRICE=0;
+	short PN_PO_PRICE_i=0;
+	int temp_a;
+	int temp_b;
+	int temp_c;
+	int temp_d;
+		
+	#if DEBUG
+		printf("\nget_scm_price");
+		printf("\nPart (%s) ",part.arr);
+		printf("\nPrime (%s) ",prime.arr);
+	#endif
+
+	if ((strstr(jicc.arr, "TA4") != NULL)||(strstr(jicc.arr, "TA1") != NULL)||(strstr(jicc.arr, "TA2") != NULL))
+	{
+		strcpy(contract.arr,"TA4_order");
+	}
+	else if (strstr(jicc.arr, "TA5") != NULL)
+	{
+		strcpy( contract.arr,"TA5_order");
+	}
+	else if (strstr( jicc.arr, "TA6") != NULL)
+	{
+		strcpy( contract.arr,"TA6_order");
+	}
+	else if (strstr( jicc.arr, "TA8") != NULL)
+	{
+		strcpy( contract.arr,"TA8_order");
+	}
+	else if (strstr( jicc.arr, "TA9") != NULL)
+	{
+		strcpy( contract.arr,"TA9_order");
+	}
+	else if (strstr( jicc.arr, "T14") != NULL)
+	{
+		strcpy( contract.arr,"T14_order");
+	}
+	else if (strstr( jicc.arr, "T15") != NULL)
+	{
+		strcpy( contract.arr,"T15_order");
+	}
+	else if (strstr( jicc.arr, "T16") != NULL)
+	{
+		strcpy( contract.arr,"T16_order");
+	}
+	else
+	{
+		#if DEBUG
+			printf("\nget_scm_price");
+			printf("\nTaking Default Contract");
+		#endif
+		strcpy(contract.arr,"TA9_order");
+	}
+  assert(strlen(contract.arr) < sizeof(contract.arr));
+	contract.len = strlen(contract.arr);
+	contract.arr[contract.len] = '\0';
+	
+	EXEC SQL DECLARE get_scm_price CURSOR FOR
+	select TA8_INH_PBOM,
+		TA8_SUP_PBOM,
+		TA6_INH_PBOM,
+		TA6_SUP_PBOM,
+		TA5_INH_PBOM,
+		TA5_SUP_PBOM,
+		TA4_INH_PBOM,
+		TA4_SUP_PBOM,
+		TA4_NGC,        
+		TA12_NGC,       
+		APL_PRICE,      
+		PN_PO_PRICE,
+		TA9_INH_PBOM,
+		TA9_SUP_PBOM,
+		T14_INH_PBOM,
+		T14_SUP_PBOM,
+		T15_INH_PBOM,
+		T15_SUP_PBOM,
+		T16_INH_PBOM,
+		T16_SUP_PBOM 
+		from scm.scm_price_logic
+		where (part = :part or part = :prime);
+	
+	EXEC SQL OPEN get_scm_price;
+	if (sqlca.sqlcode == 0)
+	{
+	   	EXEC SQL FETCH get_scm_price INTO
+		   	:TA8_INH_PBOM:TA8_INH_PBOM_i,
+		   	:TA8_SUP_PBOM:TA8_SUP_PBOM_i,
+		   	:TA6_INH_PBOM:TA6_INH_PBOM_i,
+			:TA6_SUP_PBOM:TA6_SUP_PBOM_i,
+			:TA5_INH_PBOM:TA5_INH_PBOM_i,
+			:TA5_SUP_PBOM:TA5_SUP_PBOM_i,
+			:TA4_INH_PBOM:TA4_INH_PBOM_i,
+			:TA4_SUP_PBOM:TA4_SUP_PBOM_i,
+			:TA4_NGC:TA4_NGC_i,        
+			:TA12_NGC:TA12_NGC_i,       
+			:APL_PRICE:APL_PRICE_i,      
+			:PN_PO_PRICE:PN_PO_PRICE_i,	
+		   	:TA9_INH_PBOM:TA9_INH_PBOM_i,
+		   	:TA9_SUP_PBOM:TA9_SUP_PBOM_i,
+		   	:T14_INH_PBOM:T14_INH_PBOM_i,
+		   	:T14_SUP_PBOM:T14_SUP_PBOM_i,
+		   	:T15_INH_PBOM:T15_INH_PBOM_i,
+		   	:T15_SUP_PBOM:T15_SUP_PBOM_i,
+		   	:T16_INH_PBOM:T16_INH_PBOM_i,
+		   	:T16_SUP_PBOM:T16_SUP_PBOM_i;
+	
+	   memset(stmt.arr, ' ', sizeof(stmt.arr));
+     stmt.arr[sizeof(stmt.arr) - 1] = '\0' ;
+
+		 strcpy( stmt.arr, " select price_type,");
+		 strcat( stmt.arr, "        price_cat,");
+		 strcat( stmt.arr, "        TA4_order,");
+		 strcat( stmt.arr, "        TA5_order,");
+		 strcat( stmt.arr, "        TA6_order,");
+		 strcat( stmt.arr, "        TA8_order,");
+		 strcat( stmt.arr, "        TA9_order,");
+		 strcat( stmt.arr, "        T14_order,");
+		 strcat( stmt.arr, "        T15_order,");
+		 strcat( stmt.arr, "        T16_order");
+		 strcat( stmt.arr, "   from scm.acdc_price_order");
+		 strcat( stmt.arr, "   order by "); 
+		 strcat( stmt.arr,  contract.arr);
+
+
+		stmt.len = strlen(stmt.arr);
+		EXEC SQL PREPARE get_scm_price_stmt FROM :stmt;
+		EXEC SQL DECLARE get_scm_price_order CURSOR FOR get_scm_price_stmt;
+
+
+	/*	EXEC SQL DECLARE get_scm_price_order CURSOR FOR
+			select price_type,
+			price_cat,
+			TA4_order,
+			TA5_order,
+			TA6_order,
+			TA8_order
+			from scm.scm_price_order
+			order by :contract;*/
+
+		#if DEBUG
+			printf("\n\tget_scm_price");
+			printf("\n\tcontract: (%s) ",contract.arr);
+			printf("\n\tSQL (%s) ",stmt.arr);
+		#endif
+			
+		EXEC SQL OPEN get_scm_price_order;
+		int price_count = 0;
+		while(best_price == 0 && price_count < 12)
+		{
+			EXEC SQL FETCH get_scm_price_order INTO
+			:best_price_source,
+			:best_price_cat,
+			:temp_a,
+			:temp_b,
+			:temp_c,
+			:temp_d;
+			
+      assert(best_price_source.len < sizeof(best_price_source.arr));
+			best_price_source.arr[best_price_source.len] = '\0';
+
+      assert(best_price_cat.len < sizeof(best_price_cat.arr));
+			best_price_cat.arr[best_price_cat.len] = '\0';
+		
+			/*
+			#if DEBUG
+				printf("\n\tget_scm_price - Fetch");
+				printf("\n\tCat (%s) ",best_price_cat.arr);
+				printf("\n\tSource (%s) ",best_price_source.arr);
+				printf("\n\tPrice Count (%d) ", price_count);
+			#endif
+			*/
+			if (strcmp(best_price_source.arr, "T14_INH_PBOM")==0)
+			{
+				best_price = T14_INH_PBOM;
+			}
+			else if (strcmp(best_price_source.arr, "T14_SUP_PBOM")==0)
+			{
+				best_price = T14_SUP_PBOM;
+			}
+			if (strcmp(best_price_source.arr, "T15_INH_PBOM")==0)
+			{
+				best_price = T15_INH_PBOM;
+			}
+			else if (strcmp(best_price_source.arr, "T15_SUP_PBOM")==0)
+			{
+				best_price = T15_SUP_PBOM;
+			}
+			if (strcmp(best_price_source.arr, "T16_INH_PBOM")==0)
+			{
+				best_price = T16_INH_PBOM;
+			}
+			else if (strcmp(best_price_source.arr, "T16_SUP_PBOM")==0)
+			{
+				best_price = T16_SUP_PBOM;
+			}
+			else if (strcmp(best_price_source.arr, "TA9_INH_PBOM")==0)
+			{
+				best_price = TA9_INH_PBOM;
+			}
+			else if (strcmp(best_price_source.arr, "TA9_SUP_PBOM")==0)
+			{
+				best_price = TA9_SUP_PBOM;
+			}
+			else if (strcmp(best_price_source.arr, "TA8_INH_PBOM")==0)
+			{
+				best_price = TA8_INH_PBOM;
+			}
+			else if (strcmp(best_price_source.arr, "TA8_SUP_PBOM")==0)
+			{
+				best_price = TA8_SUP_PBOM;
+			}
+			else if (strcmp(best_price_source.arr, "TA6_INH_PBOM")==0)
+			{
+				best_price = TA6_INH_PBOM;
+			}
+			else if (strcmp(best_price_source.arr, "TA6_SUP_PBOM")==0)
+			{
+				best_price = TA6_SUP_PBOM;
+			}
+			else if (strcmp(best_price_source.arr, "TA5_INH_PBOM")==0)
+			{
+				best_price = TA5_INH_PBOM;		
+			}
+			else if (strcmp(best_price_source.arr, "TA5_SUP_PBOM")==0)
+			{
+				best_price = TA5_SUP_PBOM;		
+			}
+			else if (strcmp(best_price_source.arr, "TA4_INH_PBOM")==0)
+			{
+				best_price = TA4_INH_PBOM;		
+			}
+			else if (strcmp(best_price_source.arr, "TA4_SUP_PBOM")==0)
+			{
+				best_price = TA4_SUP_PBOM;		
+			}
+			else if (strcmp(best_price_source.arr, "TA4_NGC")==0)
+			{
+				best_price = TA4_NGC;		
+			}
+			else if (strcmp(best_price_source.arr, "TA12_NGC")==0)
+			{
+				best_price = TA12_NGC;		
+			}
+			else if (strcmp(best_price_source.arr, "APL_PRICE")==0)
+			{
+				best_price = APL_PRICE;		
+			}
+			else if (strcmp(best_price_source.arr, "PN_PO_PRICE")==0)
+			{
+				best_price = PN_PO_PRICE;			
+			}
+			else
+			{
+				best_price = 0;
+/*				printf("Invalid Best Price Source: %s\n",best_price_source.arr); */
+
+			}
+			price_count++;
+			/*printf("Best price = %s\n",best_price);*/
+		}
+	
+	}	
+}
+/*
+
+*/
+void query_jicc()
+{
+/* Using the order mod, finds the proper jicc */
+	int found = 1;
+	int i = 0;
+	int i1 = 0;
+		
+	#if DEBUG
+		printf("\nquery_jicc");
+		printf("\nCreated Doc Date (%s)",crtdocdte.arr);
+		printf("\nCreated DateTime (%s)",createdte.arr);
+		printf("\nOrder Priority   (%i)",priority);
+	#endif
+
+	strcpy(jicc.arr, " ");
+		
+	EXEC SQL DECLARE get_jicc CURSOR FOR
+	        SELECT nvl(order_modif,' ') order_modif, 
+	          nvl(user_ref2,' ')
+		FROM pur1
+		WHERE order_no = :order_no;
+	
+	EXEC SQL OPEN get_jicc;
+	if(sqlca.sqlcode == 0) {
+	   	EXEC SQL FETCH get_jicc INTO
+		:order_mod,
+		:user_ref2;
+		if(sqlca.sqlcode == 0) {
+      assert(order_mod.len < sizeof(order_mod.arr)) ;
+			order_mod.arr[order_mod.len] ='\0';
+
+      assert(user_ref2.len < sizeof(user_ref2.arr)) ;
+			user_ref2.arr[user_ref2.len] ='\0';
+
+			if(order_mod.arr[0] != ' ') {
+				EXEC SQL
+					SELECT jicc
+					INTO :jicc
+					FROM scm.jicc_order_mod
+					WHERE rtrim(order_mod) = rtrim(:order_mod);					
+
+				if(sqlca.sqlcode==0) {
+					#if DEBUG
+						printf("\nquery_jicc");
+						printf("\nJICC (%s) (%d)",jicc.arr,jicc.len);
+					#endif
+				} else {
+					if(sqlca.sqlcode==NOTFND) {
+					} else {
+						printf("\nGold Order No (%s) ",order_no.arr);
+						printf("\nOrder Mod (%s) ",order_mod.arr);
+						db_err("query_jicc - SELECT JICC from scm.jicc_order_mod");
+					}
+				}
+			}
+		} else {
+			strcpy(order_no.arr, " ");
+			order_no.len = 1 ;
+			strcpy(order_mod.arr, " ");
+			order_mod.len = 1 ;
+			strcpy(user_ref2.arr, " ");
+			user_ref2.len = 1 ;
+		}
+	} else {
+		strcpy(order_no.arr, " ");
+		order_no.len = 1 ;
+		strcpy(order_mod.arr, " ");
+		order_mod.len = 1 ;
+		strcpy(user_ref2.arr, " ");
+		user_ref2.len = 1 ;
+	}
+	
+	jicc.len = strlen(jicc.arr);
+  assert(jicc.len < sizeof(jicc.arr)) ;
+	jicc.arr[jicc.len] ='\0';
+
+  assert(order_mod.len < sizeof(order_mod.arr)) ;
+	order_mod.arr[order_mod.len] ='\0';
+
+	#if DEBUG
+		printf("\nUser Ref2 (%s) (%d)",user_ref2.arr,user_ref2.len);
+		printf("\nJICC (%s) (%d) (%d)",jicc.arr,jicc.len,strlen(jicc.arr));
+	#endif
+
+	check_user_ref2_expedite();
+
+  assert(user_ref2.len < sizeof(user_ref2.arr)) ;
+	user_ref2.arr[user_ref2.len] ='\0';
+}
+void	check_user_ref2_expedite()
+{
+	int i1=0;
+	int i=0;
+	char c;
+
+	#if DEBUG
+		printf("\ncheck_user_ref2_expedite");
+		printf("\nUser Ref2 (%s) (%d)",user_ref2.arr,user_ref2.len);
+		printf("\nOrder Priority   (%i)",priority);
+	#endif
+
+	i1=user_ref2.len;
+
+	user_ref2_numeric=isNum(user_ref2.arr);
+
+	#if DEBUG
+		printf("\nReturn from isNum  (%i)",user_ref2_numeric);
+	#endif
+
+	if((priority==3) && (user_ref2_numeric==1))
+	{
+		#if DEBUG
+			printf("\nUser Ref2 is numeric (%s) (%d)",user_ref2.arr,user_ref2.len);
+		#endif
+	}
+	else
+	{
+		if((priority <= 3) && strncmp(createdte.arr,"2005-11-08",10) > 0)
+		{
+      assert(strlen("XPDITE") < sizeof(user_ref2.arr));
+			strcpy(user_ref2.arr,"XPDITE");
+			user_ref2.len= strlen(user_ref2.arr) ;
+			#if DEBUG
+				printf("\nUser Ref2 (%s) (%d) (%d)",user_ref2.arr,user_ref2.len,priority);
+			#endif
+		}
+		else
+		{
+			#if DEBUG
+				printf("\nUser Ref2 (%s) (%d)",user_ref2.arr,user_ref2.len);
+			#endif
+			STRINIT(user_ref2.arr) ;
+			user_ref2.len=0;
+		}
+	}
+}
+/*
+
+*/
+void query_best_price_table()
+{	
+		
+	#if DEBUG
+		printf("\nquery_best_price_table");
+		printf("\nPart (%s) ",part.arr);
+		printf("\nCage (%s) ",MFG_cage.arr);
+	#endif
+
+	EXEC SQL DECLARE best_price CURSOR FOR
+		select nvl(best_price,0),
+	  	       best_price_source,
+		       best_price_cat
+		from scm.acdc_best_price
+		    where 1 = 1
+			and part = :part
+			and best_price > 0;
+
+	EXEC SQL OPEN best_price;
+	if(sqlca.sqlcode == 0)
+	{
+		EXEC SQL FETCH best_price INTO
+			:best_price, 
+			:best_price_source,
+			:best_price_cat;
+
+		if(sqlca.sqlcode == 0)
+		{
+		}
+		else
+		{
+			if(sqlca.sqlcode==NOTFND)
+			{
+				#if DEBUG
+					printf("\nNo Best Price data Found");
+				#endif
+			}
+			else
+			{
+				printf("\nquery_best_price_table - Fetch CURSOR");
+				printf("\nPart (%s) ",part.arr);
+				printf("\nCage (%s) ",MFG_cage.arr);
+				printf("\n?\t\tSQLCODE: %d",sqlca.sqlcode);
+				printf("\n?\t\tSQLERR MSG %s",sqlca.sqlerrm.sqlerrmc);
+			}
+		}
+	}	
+	else
+	{
+		if(sqlca.sqlcode==NOTFND)
+		{
+			#if DEBUG
+				printf("\nNo Best Price data Found");
+			#endif
+		}
+		else
+		{
+			printf("\nquery_best_price_table - OPEN CURSOR");
+			printf("\nPart (%s) ",part.arr);
+			printf("\nCage (%s) ",MFG_cage.arr);
+			printf("\n?\t\tSQLCODE: %d",sqlca.sqlcode);
+			printf("\n?\t\tSQLERR MSG %s",sqlca.sqlerrm.sqlerrmc);
+		}
+	}
+}
+/*
+
+*/
+void query_hd_data()
+{	
+	varchar sortPrcType[3];
+		
+	#if DEBUG
+		printf("\nquery_hd_data");
+		printf("\nPart (%s) ",part.arr);
+		printf("\nCage (%s) ",MFG_cage.arr);
+	#endif
+
+	EXEC SQL DECLARE hd_cage CURSOR FOR
+	select hd.UIPRICHD DLSCPRICE,
+		decode(hd.tuiprchd,'B','1','D','2','C','3',' ') sortPrcType,
+		decode(hd.tuiprchd,'B','SLIC DLSC','C','SLIC CAT','D','SLIC NEG',' ') myPrcType
+	from f18_hd hd
+	where hd.tuiprchd in ('B','C','D')
+	  and hd.can_int = 0 
+	  and hd.refnumha = rpad(:part,32,' ')
+	  and hd.cagecdxh = :MFG_cage
+	order by FISCYRHD DESC, sortPrcType;
+	
+	EXEC SQL OPEN hd_cage;
+	if(sqlca.sqlcode == 0) {
+		EXEC SQL FETCH hd_cage INTO
+		:unit_price, 
+		:sortPrcType,
+		:prcType;
+		if(sqlca.sqlcode == 0) {
+      assert(prcType.len < sizeof(prcType.arr)) ;
+			prcType.arr[prcType.len] ='\0';
+			extd_amt_display = qty_ordered * unit_price; 
+			if(extd_amt_display > 10000) {
+        assert(strlen("NEEDS") < sizeof(buyAuthNeed.arr)) ;
+				strcpy(buyAuthNeed.arr, "NEEDS"); 
+				buyAuthNeed.len = strlen(buyAuthNeed.arr) ;
+			}
+		} else {
+			if(sqlca.sqlcode==NOTFND) {
+				#if DEBUG
+					printf("\nNo HD Data Found");
+				#endif
+			} else {
+				printf("\nquery_hd_data - Fetch CURSOR");
+				printf("\nPart (%s) ",part.arr);
+				printf("\nCage (%s) ",MFG_cage.arr);
+				printf("\n?\t\tSQLCODE: %d",sqlca.sqlcode);
+				printf("\n?\t\tSQLERR MSG %s",sqlca.sqlerrm.sqlerrmc);
+			}
+		}
+	} else {
+		printf("\nquery_hd_data - OPEN CURSOR");
+		printf("\nPart (%s) ",part.arr);
+		printf("\nCage (%s) ",MFG_cage.arr);
+		printf("\n?\t\tSQLCODE: %d",sqlca.sqlcode);
+		printf("\n?\t\tSQLERR MSG %s",sqlca.sqlerrm.sqlerrmc);
+	}
+}
+/*
+
+*/
+void query_cage()
+{
+/*Finds the cage code for the given part.  First looks at the ha table.  If cage code is not found, 
+it looks at the hb table to see if that part has an alternate part number.  Then goes back to the ha 
+table to find the cage code using the alternate part.  If cage code is still not found, it sets it 
+to 'N/A' */
+	
+		
+	#if DEBUG
+		printf("\nquery_cage");
+		printf("\nPart (%s) ",part.arr);
+	#endif
+
+	EXEC SQL DECLARE ha_cage CURSOR FOR
+	SELECT nvl(ha.cagecdxh,' '), nvl(ha.prdldtha,0)
+	FROM f18_ha ha
+	WHERE ha.refnumha = rpad(:part,32,' ')
+	and ha.can_int = 0;
+	
+	EXEC SQL OPEN ha_cage;
+	if(sqlca.sqlcode == 0) {
+		EXEC SQL FETCH ha_cage INTO
+		:MFG_cage, 
+		:lead_time:lead_time_i;
+		
+		if(sqlca.sqlcode == 0) {
+      assert(MFG_cage.len < sizeof(MFG_cage.arr)) ;
+			MFG_cage.arr[MFG_cage.len] ='\0';
+
+      assert(1 < sizeof(part_source.arr));
+			strcpy(part_source.arr,"A");
+
+			part_source.len = 1;
+			hb_part.arr[0] = '\0';
+			hb_part.len = 0;
+		} else {
+			#if DEBUG
+				printf("\nNot Found HA, checking HB");
+			#endif
+			EXEC SQL DECLARE hb_cage CURSOR FOR
+			SELECT hb.refnumhb
+			FROM f18_hb hb
+			WHERE hb.addrefhb like ':part%'
+			and hb.can_int = 0;
+
+			EXEC SQL OPEN hb_cage;
+			if(sqlca.sqlcode == 0) {
+				EXEC SQL FETCH hb_cage INTO
+				:hb_part;
+				
+				if(sqlca.sqlcode == 0) {			
+
+					#if DEBUG
+						printf("\nFound HB, checking HA with (%s) ",hb_part.arr);
+					#endif
+
+          assert(hb_part.len < sizeof(hb_part.arr)) ;  
+					hb_part.arr[hb_part.len] ='\0';
+
+          assert(strlen(part_source.arr) <= 1) ;
+					strcpy(part_source.arr,"B") ;
+					part_source.len = 1 ;
+
+					EXEC SQL DECLARE ha_hb_cage CURSOR FOR
+					SELECT nvl(ha.cagecdxh,' '), nvl(ha.prdldtha,0)
+					FROM f18_ha ha
+					WHERE ha.refnumha = rpad(:hb_part,32,' ')
+					and ha.can_int = 0;
+
+					EXEC SQL OPEN ha_hb_cage;
+					if(sqlca.sqlcode == 0) {
+						EXEC SQL FETCH ha_hb_cage INTO
+						:MFG_cage,
+						:lead_time:lead_time_i;	
+						if(sqlca.sqlcode == 0) {
+              assert(MFG_cage.len < sizeof(MFG_cage.arr)) ;
+							MFG_cage.arr[MFG_cage.len] ='\0';
+						} else {
+              assert(3 < sizeof(MFG_cage.arr)) ;
+							strcpy(MFG_cage.arr, "N/A");
+              MFG_cage.len = strlen(MFG_cage.arr) ;
+							lead_time=0;
+						}
+					}
+				} else {
+					lead_time = 0;
+          assert(strlen("N/A") < sizeof(MFG_cage.arr)) ;
+					strcpy( MFG_cage.arr, "N/A");
+					MFG_cage.len = strlen(MFG_cage.arr) ;
+				}
+			} else {
+				lead_time = 0;
+        assert(strlen("N/A") < sizeof(MFG_cage.arr)) ;
+				strcpy( MFG_cage.arr, "N/A");
+				MFG_cage.len = strlen(MFG_cage.arr) ;
+			}
+		}
+	}
+	lead_time_days = lead_time * 30;
+	
+	/*query_hd_data();*/
+	
+	
+}
+/*
+
+*/
+void query_order_deliv_info()
+{
+/* Finds the contract date.  Uses the lisn_ssn and finds the first supplier contract_date.  Then
+uses this information to estimate the ship date.  If a contract date is found it uses that date.
+If not it takes the submittal date and adds the lead_time. */
+	varchar frst_ship_date[25];
+	int add_year;
+	int num;
+	varchar temp_year[5];
+	varchar temp_day[5];
+	varchar temp_month[5];
+		
+	#if DEBUG
+		printf("\nquery_order_deliv_info");
+	#endif
+
+	contract_date.arr[0] =  '\0';
+	contract_date.len = 0 ;
+	contract_month.arr[0] =  '\0';
+	contract_month.len = 0 ;
+	contract_year.arr[0] =  '\0';
+	contract_year.len = 0 ;
+
+	memset(lisn_ssn.arr,' ',sizeof(lisn_ssn.arr));
+	lisn_ssn.arr[sizeof(lisn_ssn.arr) - 1] = '\0' ;
+	lisn_ssn.len = strlen(lisn_ssn.arr) ;
+
+  assert(2 < sizeof(releaseType.arr));
+	strcpy(releaseType.arr,"  ");
+	releaseType.len = 2 ;
+
+	EXEC SQL DECLARE deliv_info CURSOR FOR	
+		SELECT nvl(li.lisn_ssn,' '), nvl(li.release_type,' ')
+		FROM scm.scm_lisn_ssn li
+		WHERE li.gold_order_no = :order_no;
+
+	EXEC SQL OPEN deliv_info;
+	if(sqlca.sqlcode == 0)
+	{
+		EXEC SQL FETCH deliv_info INTO
+		:lisn_ssn,
+		:releaseType:releaseType_i;
+		
+		
+		if(sqlca.sqlcode == 0)
+		{
+			
+      assert(lisn_ssn.len < sizeof(lisn_ssn.arr)) ;
+			lisn_ssn.arr[lisn_ssn.len] ='\0';
+			if(releaseType_i==1)
+			{
+        assert(2 < sizeof(releaseType.arr)) ;
+				strcpy(releaseType.arr,"  ");
+				releaseType.len=2;
+			} else {
+        assert(releaseType.len < sizeof(releaseType.arr)) ;
+			  releaseType.arr[releaseType.len] ='\0';
+      }
+			#if DEBUG
+				printf("\nlisn ssn (%s) (%d)",lisn_ssn.arr,lisn_ssn.len);
+				printf("\nRelease Type (%s) (%d)",releaseType.arr,releaseType.len);
+			#endif
+
+			EXEC SQL DECLARE ship_date_info CURSOR FOR
+			select to_char(min(supplier_cont_date),'mm/dd/yyyy') contract_date
+			from scm.scm_will_ship
+			where lisn_ssn = :lisn_ssn
+			and rsn = 'SC';
+
+			EXEC SQL OPEN ship_date_info;
+			if(sqlca.sqlcode == 0)
+			{
+				EXEC SQL FETCH ship_date_info INTO
+				:contract_date;
+				if(sqlca.sqlcode == 0)
+				{
+          assert(2 < sizeof(contract_month.arr)) ;
+					strncpy(contract_month.arr, contract_date.arr, 2);
+          assert(4 < sizeof(contract_year.arr)) ;
+					strncpy(contract_year.arr, contract_date.arr+6, 4);
+
+          assert(strlen("Contract Date") < sizeof(sched_cat.arr)) ;
+					strcpy(sched_cat.arr, "Contract Date");
+          sched_cat.len = strlen(sched_cat.arr) ;
+          
+					est_sched_mo = atoi(contract_month.arr);
+					est_sched_year = atoi(contract_year.arr);
+          assert(strlen(contract_date.arr) < sizeof(est_sched_date.arr));
+					strcpy(est_sched_date.arr,contract_date.arr);
+				}
+				else
+				{
+          contract_date.arr[0] = '\0' ;
+          contract_date.len = 0 ;
+          contract_month.arr[0] = '\0' ;
+          contract_month.len = 0 ;
+          contract_year.arr[0] = '\0' ;
+          contract_year.len = 0 ;
+					if(lead_time != 0)
+					{
+						/* If contract date is null and the crtdocdte (Submittal Date) is not null
+						it adds the lead time to the submittal date to determine the estimated ship 
+						date.*/
+
+						/* Converts crtdocdte month and year to integers*/
+						est_sched_mo = atoi(crtdocdte_month.arr);
+						/*est_sched_day = atoi(crtdocdte_day.arr);*/
+						est_sched_year = atoi(crtdocdte_year.arr);
+						
+						/* The number of years that should be added to the submittal year.*/
+						add_year = (lead_time + est_sched_mo)/12;
+						
+						/* Finds the est sched month*/
+						est_sched_mo = (lead_time + est_sched_mo) % 12;
+
+						est_sched_year = est_sched_year + add_year;
+
+						/* If % (mod) function returns 0, convert it to the 12th month */
+						if(est_sched_mo == 0) {
+							est_sched_mo = 12;
+							est_sched_year = est_sched_year - 1;
+						}
+						
+						if(strncmp(crtdocdte_day.arr, "31",2)==0) {
+							if((est_sched_mo == 4) || (est_sched_mo == 6) || (est_sched_mo == 9) || (est_sched_mo == 11)) {
+								strncpy(crtdocdte_day.arr, "30",2);
+							} else {
+								if(est_sched_mo == 2) {
+									strncpy(crtdocdte_day.arr, "28",2);
+								}
+							}
+						} else {
+							if(strncmp(crtdocdte_day.arr, "29",2)>=0) {
+								if(est_sched_mo == 2) {
+									strncpy(crtdocdte_day.arr, "28",2);
+								}
+							}
+						}
+												
+						/* Takes the est schedule month converts it into a string (without converting 
+						the actual est_sched_mo variable) and stores it in the est_sched_date
+						variable. The num variable returns the len of the est_sched_date string. */
+						if(est_sched_mo < 10)
+						{
+							num = sprintf(est_sched_date.arr, "%d", 0);
+							num = sprintf(temp_month.arr, "%d", est_sched_mo);
+							strcat(est_sched_date.arr, temp_month.arr);
+						}
+						else
+						{
+							num = sprintf((char*)est_sched_date.arr, "%d", est_sched_mo);
+						}
+							
+						/* Converts the est_sched_year to a string and stores it in the temp_year
+						variable. */
+						num = sprintf((char*)temp_year.arr, "%d", est_sched_year);
+
+						/* Concatenates the current value in the est_sched_date variable(should be the month) with the '/DD/' segment of the date.*/
+						strcat(est_sched_date.arr, "/");
+						strcat(est_sched_date.arr, (char*) crtdocdte_day.arr);
+						strcat(est_sched_date.arr, "/");
+
+						/* Concatenates the year onto the rest of the est_sched_date */
+						strcat(est_sched_date.arr, temp_year.arr);
+
+					}
+					else
+					{
+						/* If lead time is 0 then set the estimated schedule date to the submittal date*/
+						est_sched_mo = atoi(crtdocdte_month.arr);
+						est_sched_year = atoi(crtdocdte_year.arr);
+						strcpy(est_sched_date.arr, crtdocdte.arr);
+					}
+          assert(strlen("Lead Time") < sizeof(sched_cat.arr)) ;
+					strcpy(sched_cat.arr, "Lead Time");
+          sched_cat.len = strlen(sched_cat.arr) ;
+				}
+
+			}
+		}
+		else
+		{
+			if(releaseType_i==1)
+			{
+        assert(2 < sizeof(releaseType.arr)) ;
+				strcpy(releaseType.arr,"  ");
+				releaseType.len=2;
+			} else {
+        assert(releaseType.len < sizeof(releaseType.arr)) ;
+			  releaseType.arr[releaseType.len] ='\0';
+      }
+	
+			if(crtdocdte.arr[0] != ' ')
+			{
+				/* If contract date is null and the crtdocdte (Submittal Date) is not null
+				it adds the lead time to the submittal date to determine the estimated ship 
+				date.*/
+
+				/* Converts crtdocdte month and year to integers*/
+				est_sched_mo = atoi(crtdocdte_month.arr);
+				est_sched_day = atoi(crtdocdte_day.arr);
+				est_sched_year = atoi(crtdocdte_year.arr);
+
+				/* Finds the est sched month*/
+				add_year = (lead_time + est_sched_mo)/12;
+				est_sched_mo = (lead_time + est_sched_mo) % 12;
+
+				/* The number of years that should be added to the submittal year.*/
+				est_sched_year = est_sched_year + add_year;
+
+				/* If % (mod) function returns 0, convert it to the 12th month */
+				if(est_sched_mo == 0)
+				{
+					est_sched_mo = 12;
+					est_sched_year = est_sched_year -1;
+				}
+
+				
+						if(est_sched_day == 31)
+						{
+							if((est_sched_mo == 4) || (est_sched_mo == 6) || (est_sched_mo == 9) || (est_sched_mo == 11))
+							{
+								strncpy(crtdocdte_day.arr, "30",2);
+							}
+							else 
+							{
+								if(est_sched_mo == 2)
+								{
+									strncpy(crtdocdte_day.arr, "28",2);
+								}
+							}
+						}
+						else 
+						{
+							if(est_sched_day >= 29)
+							{
+								if(est_sched_mo == 2)
+								{
+									strncpy(crtdocdte_day.arr, "28",2);
+								}
+							}
+						}
+						/* Takes the est schedule month converts it into a string (without converting 
+						the actual est_sched_mo variable) and stores it in the est_sched_date
+						variable. The num variable returns the len of the est_sched_date string. */
+						if(est_sched_mo < 10)
+						{
+							num = sprintf((char*)est_sched_date.arr, "%d", 0);
+							num = sprintf((char*)temp_month.arr, "%d", est_sched_mo);
+							strcat(est_sched_date.arr, temp_month.arr);
+						}
+						else
+						{
+							num = sprintf((char*)est_sched_date.arr, "%d", est_sched_mo);
+						}
+						/* Converts the est_sched_day to a string and stores it in the temp_day
+						variable. */
+						num = sprintf((char*)temp_day.arr, "%d", est_sched_day);
+						
+						/* Converts the est_sched_year to a string and stores it in the temp_year
+						variable. */
+						num = sprintf((char*)temp_year.arr, "%d", est_sched_year);
+
+						/* Concatenates the current value in the est_sched_date variable(should be the month) with the '/DD/' segment of the date.*/
+						strcat(est_sched_date.arr, "/");
+						strcat(est_sched_date.arr, crtdocdte_day.arr);
+						strcat(est_sched_date.arr, "/");
+
+						/* Concatenates the year onto the rest of the est_sched_date */
+						strcat(est_sched_date.arr, temp_year.arr);
+						
+			}
+			else
+			{
+				/* If neither the contract nor the Submittal date exists sets the month and year to 0 and the date to "".  (Submittal date should always exist)*/
+				est_sched_mo = 0;
+				est_sched_year = 0;
+				est_sched_date.arr[0] = '\0';
+				est_sched_date.len = 0 ;
+			}
+			strcpy(sched_cat.arr, "Lead Time");
+      sched_cat.len = strlen(sched_cat.arr) ;
+			strcpy(releaseType.arr, "");
+      releaseType.len = strlen(releaseType.arr) ;
+		}
+	}
+  assert(strlen(contract_date.arr) < sizeof(contract_date.arr)) ;
+	contract_date.len = strlen(contract_date.arr);
+	contract_date.arr[contract_date.len] = '\0';
+
+  assert(strlen(contract_month.arr) < sizeof(contract_month.arr)) ;
+	contract_month.len = strlen(contract_month.arr);
+	contract_month.arr[contract_month.len]= '\0';
+
+  assert(strlen(contract_year.arr) < sizeof(contract_year.arr)) ;
+	contract_year.len = strlen(contract_year.arr);
+	contract_year.arr[contract_year.len]= '\0';
+
+  assert(strlen(est_sched_date.arr) < sizeof(est_sched_date.arr)) ;
+	est_sched_date.len = strlen(est_sched_date.arr);
+	est_sched_date.arr[est_sched_date.len]= '\0';
+
+  assert(strlen(releaseType.arr) < sizeof(releaseType.arr)) ;
+	releaseType.len = strlen(releaseType.arr);
+	releaseType.arr[releaseType.len]= '\0';
+
+			#if DEBUG
+				printf("\nlisn ssn (%s) (%d)",lisn_ssn.arr,lisn_ssn.len);
+			#endif
+}
+/*
+
+*/
+void query_cost_acct()	
+{
+/* Finds the cost account for the given jicc (activity id) */
+		
+	#if DEBUG
+		printf("\nquery_cost_acct");
+	#endif
+
+	EXEC SQL DECLARE cost_acct CURSOR FOR
+	select cost_acct
+	from scm.cost_acct_info
+	where ccn = substr(:jicc,1,3)||substr(:jicc,5,2)||substr(:jicc,8,3);
+	
+	EXEC SQL OPEN cost_acct;
+	if(sqlca.sqlcode == 0)
+	{
+		EXEC SQL FETCH cost_acct INTO		
+		:cost_acct;
+		if(sqlca.sqlcode == 0)
+		{
+      assert(cost_acct.len < sizeof(cost_acct.arr)) ;
+			cost_acct.arr[cost_acct.len] = '\0';
+		}
+		else
+		{
+			strcpy(cost_acct.arr, " ");
+			cost_acct.len = 1 ;
+		}
+	}
+	else
+	{
+		strcpy(cost_acct.arr, " ");
+	}
+			#if DEBUG
+				printf("\nlisn ssn (%s) (%d)",lisn_ssn.arr,lisn_ssn.len);
+			#endif
+}
+/*
+
+*/
+void query_vendor_name()
+{
+		
+	#if DEBUG
+		printf("\nquery_vendor_name");
+/*		printf("\nVendor Name ICHS (%s) (%d)",vendor_name_ichs.arr,vendor_name_ichs.len); */
+	#endif
+
+	EXEC SQL DECLARE vendor_name CURSOR FOR
+		select sup_name
+		from scm.acdc_vendor_info
+		where alt_sup_name = upper(:vendor_name_ichs);
+
+	EXEC SQL OPEN vendor_name;
+	if(sqlca.sqlcode == 0)
+	{
+		EXEC SQL FETCH vendor_name INTO
+		:vendor_name;
+		if(sqlca.sqlcode == 0)
+		{
+      assert(vendor_name.len < sizeof(vendor_name.arr)) ;
+			vendor_name.arr[vendor_name.len] ='\0';
+		}
+		else
+		{
+      assert(vendor_name_ichs.len < sizeof(vendor_name_ichs.arr));
+			vendor_name_ichs.arr[vendor_name_ichs.len] ='\0';
+			#if DEBUG
+				printf("\nquery_vendor_name - Select Vendor #2 ");
+				printf("\nVendor Name ICHS (%s) (%d)",vendor_name_ichs.arr,vendor_name_ichs.len);
+			#endif
+			EXEC SQL DECLARE vendor_name_code CURSOR FOR
+			select sup_name
+			from scm.acdc_vendor_info
+			where cage_code = :vendor_code
+			and cage_code is not null;
+			
+			EXEC SQL OPEN vendor_name_code;
+			if(sqlca.sqlcode == 0)
+				{
+					EXEC SQL FETCH vendor_name_code INTO
+					:vendor_name;
+				}
+				
+		}
+	}
+	else
+	{
+		vendor_name.arr[0] = '\0';
+	}
+}
+/*
+
+*/
+void query_PO_ICHS_price()
+{
+	
+		
+	#if DEBUG
+		printf("\nquery_PO_ICHS_price");
+		printf("\n\tJICC (%s) ",jicc.arr);
+		printf("\n\tPO (%s) ",po.arr);
+		printf("\n\tPO Line item (%s) ",po_line.arr);
+	#endif
+
+
+	EXEC SQL DECLARE get_PO_ICHS_price CURSOR FOR
+		select nvl(ichs.commit_qty,0)-nvl(ichs.liq_qty,0) rem_qty, 
+			nvl(ichs.commit_amt,0)-nvl(ichs.liq_amt,0) rem_amt,
+			nvl(ichs.commit_amt,0) commit_amt, 
+			nvl(ichs.commit_qty,0) commit_qty,
+			nvl(liq_amt,0),
+			nvl(liq_qty,0),
+			nvl(vendor_name,' '),
+			nvl(activity_id,' ')
+		from scm.acdc_ichs_data ichs
+		where  ichs.purchase_order =  :po
+		and '0'||ichs.po_line_item = :po_line
+		and ichs.activity_id = substr(:jicc,1,3)||substr(:jicc,5,2)||substr(:jicc,8,3)
+		union all
+		select nvl(ichs.commit_qty,0)-nvl(ichs.liq_qty,0) rem_qty, 
+			nvl(ichs.commit_amt,0)-nvl(ichs.liq_amt,0) rem_amt, 
+			nvl(ichs.commit_amt,0) commit_amt,
+			nvl(ichs.commit_qty,0) commit_qty,
+			nvl(liq_amt,0), nvl(liq_qty,0),
+			nvl(vendor_name,' '),
+			nvl(activity_id,' ')
+		from scm.acdc_ichs_data ichs
+		where  ichs.purchase_order =  :po
+		and '0'||ichs.po_line_item = :po_line;
+	
+	EXEC SQL OPEN get_PO_ICHS_price;
+	if(sqlca.sqlcode == 0)
+	{
+		EXEC SQL FETCH get_PO_ICHS_price INTO
+			:rem_qty:rem_qty_i,
+			:rem_amt:rem_amt_i,
+			:commit_amt,
+			:commit_qty,
+			:liq_amt,
+			:liq_qty,
+			:vendor_name_ichs,
+			:activity_id;
+		
+		if(sqlca.sqlcode == 0)
+		{
+			STRINIT(pc_release_date.arr) ;
+      assert(strlen("          ") < sizeof(pc_release_date.arr));
+			strcpy(pc_release_date.arr,"          ");
+      assert(strlen(pc_release_date.arr) < sizeof(pc_release_date.arr) );
+			pc_release_date.len = strlen(pc_release_date.arr) ;
+			pc_release_date.arr[pc_release_date.len]='\0';
+
+			#if DEBUG
+				printf("\n\tFound in ICHS");
+				printf("\n\t PC Release Date (%s) ",pc_release_date.arr);
+				printf("\n\t Vendor Name (%s) ",vendor_name.arr);
+			#endif
+
+      assert(vendor_name_ichs.len < sizeof(vendor_name_ichs.arr)) ;
+			vendor_name_ichs.arr[vendor_name_ichs.len] ='\0';
+
+			if(commit_qty != 0)
+			{
+
+				ichs_unit_price = commit_amt/commit_qty;
+			}
+			if(jicc.len!=10)
+			{
+				STRINIT(jicc.arr) ;
+				strncpy(jicc.arr,activity_id.arr,3);
+				strncpy(jicc.arr+4,activity_id.arr+3,2);
+				strncpy(jicc.arr+7,activity_id.arr+5,3);
+				jicc.arr[sizeof(jicc.arr) - 1] = '\0';
+        assert(strlen(jicc.arr) < sizeof(jicc.arr)) ;
+				jicc.len=strlen(jicc.arr);
+			}
+		}
+		else
+		{
+			if(sqlca.sqlcode==NOTFND)
+			{
+				ichs_unit_price = 0;
+				rem_qty =0;
+				rem_amt = 0;
+
+				memset(vendor_name_ichs.arr,' ',sizeof(vendor_name_ichs.arr));
+        vendor_name_ichs.arr[sizeof(vendor_name_ichs.arr) - 1] = '\0' ;
+        vendor_name_ichs.len = strlen(vendor_name_ichs.arr) ;
+        assert(vendor_name_ichs.len < sizeof(vendor_name_ichs.arr)) ;
+
+				memset(pc_release_date.arr,' ',sizeof(pc_release_date.arr));
+				pc_release_date.arr[sizeof(pc_release_date.arr) - 1] = '\0' ; 
+				pc_release_date.len= strlen(pc_release_date.arr) ;
+        assert(pc_release_date.len < sizeof(pc_release_date.arr)) ;
+
+				query_PO_FDW_price();
+			}
+			else
+			{
+				db_err("query_PO_ICHS_price - FETCH CURSOR");
+			}
+		}
+	}
+	else
+	{
+		db_err("query_PO_ICHS_price - OPEN CURSOR");
+		ichs_unit_price = 0;
+		rem_qty =0;
+		rem_amt = 100;
+		strcpy(vendor_name_ichs.arr, " ");
+	}
+		
+		query_vendor_name();
+
+}
+/*
+
+*/
+void query_PO_FDW_price()
+{
+	#if DEBUG
+		printf("\nquery_PO_FDW_price");
+		printf("\n\tJICC (%s) (%d)",jicc.arr,jicc.len);
+		printf("\n\tPO (%s) ",po.arr);
+		printf("\n\tPO Line item (%s) ",po_line.arr);
+		printf("\n\tPC Release Date (%s) ",pc_release_date.arr);
+	#endif
+
+
+	EXEC SQL DECLARE get_PO_FDW_price CURSOR FOR
+		select  nwp_commit_qty nwpCQ,
+			caps_commit_qty capCQ,
+			(case
+				 when nwp_commit_qty > 0 then
+		 			  nwp_commit_qty
+				 when caps_commit_qty > 0 then
+				      caps_commit_qty
+			 else
+		      		0
+	 		end) commit_qty,
+			nwp_commit_amt nwpCA,
+			caps_commit_amt capCA, 
+			(case
+		 		when nwp_commit_amt = 0 and caps_commit_amt=0 then
+					0
+		 		when nwp_commit_amt = caps_commit_amt then
+		 	  		nwp_commit_amt
+		 		when nwp_commit_amt > 0 and caps_commit_amt = 0 then
+		 	  		nwp_commit_amt
+		 		when nwp_commit_amt = 0 and caps_commit_amt > 0 then
+		      			caps_commit_amt
+		 		else
+		 	 		0
+	 		end) commit_amt,
+			nwp_invoice_qty + caps_invoice_qty invoice_qty,	
+			nwp_invoice_amt + caps_invoice_amt invoice_amt,
+			(case
+		 		when nwp_commit_amt = 0 and caps_commit_amt=0 then
+					0
+		 		when nwp_commit_amt = caps_commit_amt then
+		 	  		nwp_commit_amt / nwp_commit_qty
+		 		when nwp_commit_amt > 0 and caps_commit_amt = 0 then
+		 	  		nwp_commit_amt / nwp_commit_qty
+		 		when nwp_commit_amt = 0 and caps_commit_amt > 0 then
+		      			caps_commit_amt / caps_commit_qty
+		 		else
+		 	 		0
+	 		end) unit_cost,
+			activity_id
+		from scm.acdc_fdw_summed_data
+			where 1=1
+/*			and ((nwp_commit_qty > 0 and nwp_commit_amt > 0) 
+				or (caps_commit_qty >0 and caps_commit_amt > 0)) */
+			and purchase_order =  :po
+			and po_line_item = :po_line
+			and activity_id = substr(:jicc,1,3)||substr(:jicc,5,2)||substr(:jicc,8,3)
+		union all
+		select nwp_commit_qty nwpCQ,
+			caps_commit_qty capCQ,
+			(case
+		 		when nwp_commit_amt = 0 and caps_commit_amt=0 then
+					0
+				 when nwp_commit_qty > 0 then
+		 			  nwp_commit_qty
+				 when caps_commit_qty > 0 then
+				      caps_commit_qty
+			 else
+		      		0
+	 		end) commit_qty,
+			nwp_commit_amt nwpCA,
+			caps_commit_amt capCA, 
+			(case
+		 		when nwp_commit_amt = 0 and caps_commit_amt=0 then
+					0
+		 		when nwp_commit_amt = caps_commit_amt then
+		 	  		nwp_commit_amt
+		 		when nwp_commit_amt > 0 and caps_commit_amt = 0 then
+		 	  		nwp_commit_amt
+		 		when nwp_commit_amt = 0 and caps_commit_amt > 0 then
+		      			caps_commit_amt
+		 		else
+		 	 		0
+	 		end) commit_amt,
+			nwp_invoice_qty + caps_invoice_qty invoice_qty,	
+			nwp_invoice_amt + caps_invoice_amt invoice_amt,
+			(case
+		 		when nwp_commit_amt = 0 and caps_commit_amt=0 then
+					0
+		 		when nwp_commit_amt = caps_commit_amt then
+		 	  		nwp_commit_amt / nwp_commit_qty
+		 		when nwp_commit_amt > 0 and caps_commit_amt = 0 then
+		 	  		nwp_commit_amt / nwp_commit_qty
+		 		when nwp_commit_amt = 0 and caps_commit_amt > 0 then
+		      			caps_commit_amt / caps_commit_qty
+		 		else
+		 	 		0
+	 		end) unit_cost,
+			activity_id
+		from scm.acdc_fdw_summed_data
+			where 1=1
+/*			and ((nwp_commit_qty > 0 and nwp_commit_amt > 0) 
+				or (caps_commit_qty >0 and caps_commit_amt > 0)) */
+			and purchase_order =  :po
+			and po_line_item = :po_line;
+
+	EXEC SQL OPEN get_PO_FDW_price;
+
+	if(sqlca.sqlcode == 0)
+	{
+		EXEC SQL FETCH get_PO_FDW_price INTO
+			:nwp_commit_qty,
+			:caps_commit_qty,
+			:commit_qty,
+			:nwp_commit_amt,
+			:caps_commit_amt,
+			:commit_amt,
+			:liq_qty,
+			:liq_amt,
+			:fdw_unit_price,
+			:activity_id;
+
+		if(sqlca.sqlcode == 0)
+		{
+
+
+			if(commit_qty != 0)
+			{
+
+				ichs_unit_price = commit_amt/commit_qty;
+				rem_amt=commit_amt-liq_amt;
+				rem_qty=commit_qty-liq_qty;
+			}
+			if(jicc.len!=10)
+			{
+				STRINIT(jicc.arr) ;
+				jicc.len = 0 ;
+
+				strncpy(jicc.arr,activity_id.arr,3);
+				strncpy(jicc.arr+4,activity_id.arr+3,2);
+				strncpy(jicc.arr+7,activity_id.arr+5,3);
+        assert(strlen(jicc.arr) < sizeof(jicc.arr)) ;
+				jicc.len=strlen(jicc.arr);
+			}
+			#if DEBUG
+				printf("\nNWP Commit Qty (%i)",nwp_commit_qty);
+				printf("\nCAPS Commit Qty (%i)",caps_commit_qty);
+				printf("\nCommit Qty (%i)",commit_qty);
+				printf("\nNWP Commit Amt (%.2f)",nwp_commit_amt);
+				printf("\nCAPS Commit Amt (%.2f)",caps_commit_amt);
+				printf("\nCommit Amt (%.2f)",commit_amt);
+				printf("\nInvoice Qty (%i)",liq_qty);
+				printf("\nInvoice Amt (%.2f)",liq_amt);
+				printf("\nUnit Cost (%.2f)",fdw_unit_price);
+				printf("\nActivity ID (%s)",activity_id.arr);
+				printf("\nRemain Amt (%.2f)",rem_amt);
+				printf("\nRemain Qty (%i)",rem_qty);
+				printf("\nJICC Length (%s)",strlen(jicc.arr));
+			#endif
+			get_PO_FDW_vendor_name();
+		}
+		else
+		{
+			if(sqlca.sqlcode == NOTFND)
+			{
+				#if DEBUG
+					printf("\n\tNOT FOUND ******************************");
+				#endif
+			}
+			else
+			{
+				printf("\nProblem with Query");
+				db_err("query_PO_FDW_price - Fetch CURSOR");
+			}
+		}
+
+	}
+	else
+	{
+		printf("\n\t\tOrder Number (%s) ",order_no.arr);
+		printf("\n\t\tPO (%s) PO Line Item (%s) ",po.arr,po_line.arr);
+		printf("\n?\t\tSQLCODE: %d",sqlca.sqlcode);
+		printf("\n?\t\tSQLERR MSG %s",sqlca.sqlerrm.sqlerrmc);
+		printf("\n?");
+		db_err("query_PO_FDW_price - OPEN CURSOR");
+	}
+}
+/*
+
+*/
+void get_PO_FDW_vendor_name()
+{
+	#if DEBUG
+		printf("\nget_PO_FDW_vendor_name");
+		printf("\n\tJICC (%s) ",jicc.arr);
+		printf("\n\tPO (%s) ",po.arr);
+		printf("\n\tPO Line item (%s) ",po_line.arr);
+		printf("\n\t PC Release Date (%s) ",pc_release_date.arr);
+	#endif
+
+	EXEC SQL DECLARE get_PO_FDW_vendor_name CURSOR FOR
+		select distinct nvl(vendor_name,' '),
+			to_char(pc_release_date,'MM/DD/YYYY'),
+			nvl(price_type,' '),
+			nvl(buyer_name,' ')
+		from scm.acdc_fdw_dtl_data
+		where 1=1
+		  and purchase_order =  :po
+		  and po_line_item = :po_line
+		  and activity_id = substr(:jicc,1,3)||substr(:jicc,5,2)||substr(:jicc,8,3)
+		union all
+		select distinct nvl(vendor_name,' '),
+			to_char(pc_release_date,'MM/DD/YYYY'),
+			nvl(price_type,' '),
+			nvl(buyer_name,' ')
+		from scm.acdc_fdw_dtl_data
+		where 1=1
+		  and purchase_order =  :po
+		  and po_line_item = :po_line;
+
+	EXEC SQL OPEN get_PO_FDW_vendor_name;
+
+	if(sqlca.sqlcode == 0)
+	{
+		EXEC SQL FETCH get_PO_FDW_vendor_name INTO
+			:vendor_name_ichs,
+			:pc_release_date:pc_release_date_i,
+			:price_type,
+			:fdw_buyer;
+
+		if(sqlca.sqlcode == 0)
+		{
+			#if DEBUG
+				printf("\n\tData Found");
+				printf("\n\t PC Release Date (%s) ",pc_release_date.arr);
+				printf("\n\t Vendor Name (%s) ",vendor_name_ichs.arr);
+				printf("\n\t Price Type (%s) ",price_type.arr);
+			#endif
+
+      assert(vendor_name_ichs.len < sizeof(vendor_name_ichs.arr)) ;
+			vendor_name_ichs.arr[vendor_name_ichs.len] ='\0';
+
+      assert(pc_release_date.len < sizeof(pc_release_date.arr)) ;
+			pc_release_date.arr[pc_release_date.len]='\0';
+
+			if(strncmp(fdw_buyer.arr," ",1)>0)
+			{
+				STRINIT(buyer.arr) ;
+				buyer.len = 0 ;
+        assert(fdw_buyer.len < sizeof(buyer.arr));
+				strncpy(buyer.arr,fdw_buyer.arr,fdw_buyer.len);
+        assert(strlen(buyer.arr) < sizeof(buyer.arr)) ;
+				buyer.len = strlen(buyer.arr) ;
+
+			}
+		}
+		else
+		{
+			if(sqlca.sqlcode == NOTFND)
+			{
+				#if DEBUG
+					printf("\n\tData Not Found");
+					printf("\n\t PC Release Date (%s) (%d) ",pc_release_date.arr,pc_release_date.len);
+					printf("\n\t Vendor Name (%s) ",vendor_name_ichs.arr);
+					printf("\n\t Price Type (%s) ",price_type.arr);
+				#endif
+
+				STRINIT(vendor_name_ichs.arr) ;
+				vendor_name.len=0;
+
+				STRINIT(pc_release_date.arr) ;
+				pc_release_date.len=0;
+
+				STRINIT(price_type.arr) ;
+				price_type.len=0;
+			}
+			else
+			{
+				printf("\nget_PO_FDW_vendor_name - Fetch Cursor");
+				printf("\n?\t\tSQLCODE: %d",sqlca.sqlcode);
+				printf("\n?\t\tSQLERR MSG %s",sqlca.sqlerrm.sqlerrmc);
+				printf("\n?");
+				db_err("query_PO_FDW_vendor_name - Fetch CURSOR");
+			}
+		}
+	}
+	else
+	{
+		printf("\nget_PO_FDW_vendor_name - Open Cursor");
+		printf("\n?\t\tSQLCODE: %d",sqlca.sqlcode);
+		printf("\n?\t\tSQLERR MSG %s",sqlca.sqlerrm.sqlerrmc);
+		printf("\n?");
+		db_err("query_PO_FDW_vendor_name - Open CURSOR");
+	}
+}
+
+/*
+
+*/
+void query_sweep_price()
+{
+	varchar list_order[5];
+		
+	#if DEBUG
+		printf("\nquery_sweep_price");
+		printf("\nPart (%s) ",part.arr);
+	#endif
+
+	
+	EXEC SQL DECLARE get_sweep_price CURSOR FOR
+		select '1',
+		      nvl(price,0),
+		      rtrim(b.job)||'_SWEEP_PRICE',
+		      a.fiscal_year,
+		      ' '
+		from scm.acdc_sweep_price a,
+		      scm.acdc_contract_job b
+	        where part = :part
+	        and to_char(start_date,'YYYYMMDD') <= to_char(sysdate,'YYYYMMDD')
+	        and a.fiscal_year = b.fiscal_year
+		union all
+		select '2',
+			nvl(unit_price,0),
+			rtrim(b.job)||'_DPS_PRICE',
+			contract_clin,
+			contract_elin
+		from scm.acdc_dps_prices a,
+		     scm.acdc_contract_job b
+		where part = :part
+		and to_char(start_date,'YYYYMMDD') <= to_char(sysdate,'YYYYMMDD')
+		and contract_clin = fiscal_year
+		and unit_price > 0
+		order by 1,4 desc,5 asc;
+	
+	EXEC SQL OPEN get_sweep_price;
+	if(sqlca.sqlcode == 0 || sqlca.sqlcode == 2112)
+	{
+		EXEC SQL FETCH get_sweep_price INTO
+			:sweep_price_type,
+			:sweep_uc_price:sweep_uc_price_i,
+			:best_price_source,
+			:dps_contract_clin,
+			:dps_contract_elin;
+			
+		if(sqlca.sqlcode==NOTFND)
+		{
+			#if DEBUG
+				printf("\nNo Sweep Price Found");
+			#endif
+			sweep_uc_price = 0;
+		}
+		else
+		{
+			if(sqlca.sqlcode ==0)
+			{
+
+        assert(strlen("CATALOG PRICING") < sizeof(best_price_cat.arr)) ;;
+				strcpy(best_price_cat.arr,"CATALOG PRICING");
+				best_price_cat.len = strlen(best_price_cat.arr) ;
+
+				#if DEBUG
+					printf("\nBest Price Source (%s) ",best_price_source.arr);
+					printf("\nclin (%s) ",dps_contract_clin.arr);
+					printf("\nelin (%s) ",dps_contract_elin.arr);
+					printf("\nSweep Price ($%.2f) ",sweep_uc_price);
+				#endif
+			}
+			else
+			{
+				db_err("query_sweep_price - fetch Cursor");
+			}
+		}
+	}			
+	else
+	{
+		if(sqlca.sqlcode==NOTFND)
+		{
+			sweep_uc_price = 0;
+		}
+		else
+		{
+			db_err("query_sweep_price - Open Cursor");
+		}
+	}
+
+	ichs_unit_price=sweep_uc_price;
+}
+/*
+
+*/
+/*
+void query_ngc_price()
+{
+
+		
+	#if DEBUG
+		printf("\nquery_ngc_price");
+	#endif
+
+	EXEC SQL DECLARE get_ngc_price CURSOR FOR
+	select nvl(price,0)
+	from scm.acdc_ngc_pricing
+	where part = :part;
+
+	EXEC SQL OPEN get_ngc_price;
+	if(sqlca.sqlcode == 0)
+	{
+		EXEC SQL FETCH get_ngc_price INTO
+		:ngc_price:ngc_price_i;
+		if(sqlca.sqlcode == NOTFND)
+		{
+			ngc_price = 0;
+		}
+		
+	}
+	else
+	{
+		ngc_price = 0;
+	}
+}
+*/
+/*
+
+*/
+void query_part_price()
+{
+	float commit_amt=0;
+	int commit_qty=0;
+	short commit_amt_i=0;
+	short commit_qty_i=0;
+	
+		
+	#if DEBUG
+		printf("\nquery_part_price");
+	#endif
+
+	
+	EXEC SQL DECLARE get_part_price CURSOR FOR
+		select nvl(commit_amt,0), nvl(commit_qty,0)
+		  from scm.acdc_ichs_data
+		where part = :part and 
+		      purchase_order = (select max(purchase_order) 
+					from scm.acdc_ichs_data 
+					where part = :part
+					and not substr(activity_id,4,2) in ('08','09','15','16','22','23','24','28','29','31')
+					and commit_amt > 0 and commit_qty > 0);
+
+	EXEC SQL OPEN get_part_price;
+	if(sqlca.sqlcode == 0)
+	{
+		EXEC SQL FETCH get_part_price INTO
+		:commit_amt:commit_amt_i,
+		:commit_qty:commit_qty_i;
+		if(sqlca.sqlcode == 0 && commit_qty !=0)
+		{
+			ichs_part_price = commit_amt/commit_qty;
+			
+		}
+		else
+		{
+			ichs_part_price = 0;
+		}
+	}
+	else
+	{
+		ichs_part_price = 0;
+	}
+
+
+}
+/*
+
+*/
+void write_output()
+{
+		
+		
+	#if DEBUG
+		display_record();
+	#endif
+
+
+	fprintf(fp_out,"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%s\t%d\t%d\t%s\t%d\t$%.2f\t$%.2f\t%s\t%s\t%s\t%s\t%s\t%s\t$%.2f\t$%.2f\t%d\t%d\t$%.2f\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t$%.2f\t$%.2f\t%s\t%s\n",jicc.arr,order_mod.arr,part.arr,MFG_cage.arr,vendor_code.arr,releaseType.arr,ims_designator_code.arr,order_no.arr,contract_date.arr,contract_year.arr,contract_month.arr,po.arr,po_line.arr,po_po_line.arr,po_po_line_part.arr,crtdocdte.arr,crtdocdte_year.arr,crtdocdte_month.arr,smrc.arr,lead_time,lead_time_days,est_sched_date.arr,est_sched_year,est_sched_mo,sched_cat.arr,qty_ordered,best_price,best_ext_price,best_price_source.arr,best_price_cat.arr,mystatus.arr,buyAuthNeed.arr,remarks.arr,user_ref2.arr,commit_amt,liq_amt,commit_qty,liq_qty,rem_amt,rem_qty,asofdate.arr,vendor_name_ichs.arr,vendor_name.arr,cost_acct.arr,lisn_ssn.arr,escalation_fromdate.arr,escalation_price,escalation_pcnt,pc_release_date.arr,price_type.arr);
+
+	recs_output_ctr++;
+
+	fflush(fp_out);
+}
+/*
+
+*/
+void delete_record()
+{
+	int errcode = 0;
+		
+	#if DEBUG
+		printf("\ndelete_record");
+	#endif
+
+	EXEC SQL
+		delete from scm.acdc_order_data;
+	errcode = sqlca.sqlcode;
+	if(errcode != 0 && errcode != 1403)
+	{
+		EXEC SQL ROLLBACK;
+	}
+}
+/*
+
+*/
+void commit()
+{
+	EXEC SQL COMMIT;
+	
+	if(sqlca.sqlcode != 0)
+	{
+		EXEC SQL ROLLBACK;
+		db_err("commit funciton");
+	}
+}
+/*
+
+*/
+void insert_record()
+{
+	int errcode = 0;
+		
+	#if DEBUG
+		printf("\ninsert_record");
+		printf("\nnoun (%s) (%d)",noun.arr,noun.len);
+		printf("\nniin (%s) (%d)",niin.arr,niin.len);
+		printf("\nnsn  (%s) (%d)",nsn.arr,nsn.len);
+	#endif
+
+	EXEC SQL alter session set nls_date_format='MM/DD/YYYY';
+
+	if(strncmp(mystatus.arr,"CANCELLED",9)==0)
+	{
+		best_price_i=-1;
+		assert(strlen("CANCELLED") < sizeof(best_price_cat.arr)) ;
+		strcpy(best_price_cat.arr,"CANCELLED");
+		best_price_cat.len= strlen(best_price_cat.arr) ;
+
+		assert(strlen("CANCELLED") < sizeof(best_price_source.arr)) ;
+		strcpy(best_price_source.arr,"CANCELLED");
+		best_price_source.len= strlen(best_price_source.arr) ;
+	}
+	
+		
+	#if DEBUG
+		display_record();
+	#endif
+
+	EXEC SQL INSERT INTO
+	scm.acdc_order_data (
+		jicc,
+		order_mod,
+		part,
+		mfg_code,
+		vendor_code,
+		release_type,
+		ims_des_code,
+		order_no,
+		sc,
+		contract_date,
+		contract_year,
+		contract_month,
+		po,
+		po_line,
+		submittal_date,
+		submittal_year,
+		submittal_mo,
+		smr_code,
+		lead_time_mo,
+		lead_time_days,
+		est_sched_date,
+		est_year,
+		est_month,
+		sched_cat,
+		qty,
+		best_price,
+		best_ext_price,
+		best_price_source,
+		best_price_cat,
+		order_status,
+		add_buy_auth,
+		remarks,
+		user_ref2,
+		commit_amt,
+		liq_amt,
+		commit_qty,
+		liq_qty,
+		remaining_amt,
+		remaining_qty,
+		dwnload_vendor_name,
+		best_vendor_name,
+		cost_acct,
+		lisn_ssn,
+		part_basic,
+		noun,
+		nsn,
+		niin,
+		cog,
+		buyer,
+		smic,
+		escalation_fromdate,
+		escalation_price,
+		escalation_pcnt_amt,
+		po_release_date,
+		price_type,
+		asofdate
+	)
+	values (
+		rtrim(:jicc:jicc_i),
+		rtrim(:order_mod),
+		rtrim(:part),
+		rtrim(:MFG_cage),
+		rtrim(:vendor_code),
+		rtrim(:releaseType:releaseType_i),
+		rtrim(:ims_designator_code),
+		rtrim(:order_no),
+		rtrim(:sc),
+		rtrim(:contract_date:contract_date_i),
+		rtrim(:contract_year:contract_year_i),
+		rtrim(:contract_month:contract_month_i),
+		rtrim(:po),
+		rtrim(:po_line),
+		rtrim(:crtdocdte),
+		rtrim(:crtdocdte_year),
+		rtrim(:crtdocdte_month),
+		rtrim(:smrc),
+		rtrim(:lead_time:lead_time_i),
+		rtrim(:lead_time_days:lead_time_i),
+		rtrim(:est_sched_date),
+		rtrim(:est_sched_year),
+		rtrim(:est_sched_mo),
+		rtrim(:sched_cat),
+		rtrim(:qty_ordered:qty_ordered_i),
+		rtrim(:best_price:best_price_i),
+		rtrim(:best_ext_price),
+		rtrim(:best_price_source),
+		rtrim(:best_price_cat),
+		rtrim(:mystatus),
+		rtrim(:buyAuthNeed),
+		rtrim(:remarks),
+		rtrim(:user_ref2),
+		rtrim(:commit_amt),
+		rtrim(:liq_amt),
+		rtrim(:commit_qty),
+		rtrim(:liq_qty),
+		rtrim(:rem_amt:rem_amt_i),
+		rtrim(:rem_qty:rem_qty_i),
+		rtrim(:vendor_name_ichs),
+		rtrim(:vendor_name),
+		rtrim(:cost_acct),
+		rtrim(:lisn_ssn),
+		rtrim(:part_basic),
+		rtrim(:noun),
+		rtrim(:nsn),
+		rtrim(:niin),
+		rtrim(:cog),
+		rtrim(:buyer),
+		rtrim(:smic),
+		rtrim(:escalation_fromdate),
+		rtrim(:escalation_price),
+		rtrim(:escalation_pcnt),
+		rtrim(:pc_release_date:pc_release_date_i),
+		rtrim(:price_type),
+		sysdate	
+	);
+	errcode = sqlca.sqlcode;
+
+	if(errcode == 0)
+	{
+		ins_output_ctr++;
+		commit();
+	}
+	else
+	{
+		printf("\nError in insert.  Errorcode %d\n",sqlca.sqlcode);
+		write_output();
+    if (errcode == -1) {
+		  printf("\nDuplicate record skipped") ;
+ 		  printf("\nGold Order No (%s)", order_no.arr);
+      show_err_info("insert_record") ;
+    } else { 
+		  db_err("insert_record");
+    }
+	}
+}
+
+void show_err_info(char *procname)
+{
+	char msg[513];
+	size_t size = sizeof(msg) ;
+	size_t msg_len;
+
+  assert(procname != NULL) ;
+
+	printf("\n===========================================================");
+	printf("\n=");
+	printf("\n=\tError occurred in process %s",procname);
+	printf("\n=");
+	printf("\n=\tDatabase Error has Occurred:");
+	sqlglm(msg,&size,&msg_len);
+	msg[msg_len] = '\0';
+	printf("\n=\t\t%s",msg);
+	printf("\n=\t\tSQLCODE: %d",sqlca.sqlcode);
+	printf("\n=\t\tSQLERR MSG %.*s",sqlca.sqlerrm.sqlerrml,sqlca.sqlerrm.sqlerrmc);
+	printf("\n=");
+	printf("\n===========================================================\n");
+
+}
+
+/*
+
+*/
+void calculate_escalation_adjmnt()
+{
+
+	#if DEBUG
+		printf("\n\tcalculate_escalation_adjmnt");
+		printf("\n\tcrtdocdte (%s)",crtdocdte.arr);
+		printf("\n\tBest price = %.2f\n",best_price);
+		printf("\n\tVendor Code = %s\n",vendor_code.arr);
+	#endif
+
+	if(strncmp(vendor_code.arr,"76823",5)==0)
+	{
+		calculate_ngc_escalation_adjmnt();
+	}
+	else
+	{
+		calculate_all_escalation_adjmnt();
+	}
+	#if DEBUG
+		printf("\n\tcalculate_escalation_adjmnt - Exit Function");
+		printf("\n\t\tEscalation Percent  = %.2f",escalation_pcnt);
+		printf("\n\t\tEscalation Price  = %.2f",escalation_price);
+		printf("\n\t\tEscalation FromDate  = %s",escalation_fromdate.arr);
+	#endif
+
+}
+
+/*
+
+*/
+void calculate_all_escalation_adjmnt()
+{
+
+	#if DEBUG
+		printf("\n\tcalculate_all_escalation_adjmnt");
+		printf("\n\tcrtdocdte (%s)",crtdocdte.arr);
+		printf("\n\tcrtdodte_year (%s)",crtdocdte_year.arr);
+		printf("\n\tBest price = %.2f\n",best_price);
+	#endif
+
+	retrieve_all_escalation_adjmnt();
+}
+
+/*
+
+*/
+void retrieve_all_escalation_adjmnt()
+{
+
+	#if DEBUG
+		printf("\n\tretrieve_all_escalation_adjmnt");
+		printf("\n\tcrtdocdte (%s)",crtdocdte.arr);
+		printf("\n\tcrtdodte_year (%s)",crtdocdte_year.arr);
+		printf("\n\tBest price = %.2f\n",best_price);
+	#endif
+
+	strcpy(stmt.arr,"select to_char(fromdate,'YYYY'),escalation_amt, to_char(sysdate,'YYYY')");
+	strcat(stmt.arr,"from scm.acdc_price_escalation_info ");
+	strcat(stmt.arr,"where 1=1");
+	strcat(stmt.arr,"and to_char(fromdate,'YYYY') <= to_char(to_date(rtrim('");
+	strcat(stmt.arr,crtdocdte.arr);
+	strcat(stmt.arr,"'),'MM/DD/YYYY'),'YYYY') ");
+	strcat(stmt.arr,"and supplier<>'76823' ");
+
+	if(strncmp(vendor_code.arr,"76823",5)==0) {
+		strcat(stmt.arr,"and to_char(todate,'YYYY')='2006' ");
+	} else {
+		strcat(stmt.arr,"and to_char(todate,'YYYY')=to_char(sysdate,'YYYY') ");
+	}
+
+	strcat(stmt.arr,"order by 1 desc ");
+
+	stmt.len = strlen(stmt.arr);
+
+	EXEC SQL PREPARE get_all_escalation_price_stmt FROM :stmt;
+	EXEC SQL DECLARE get_all_escalation_price_amt CURSOR FOR get_all_escalation_price_stmt;
+
+
+	#if DEBUG
+		printf("\n\tretrieve_all_escalation_adjmnt");
+		printf("\n\tSQL (%s) ",stmt.arr);
+	#endif
+			
+	EXEC SQL OPEN get_all_escalation_price_amt;
+
+	STRINIT(escalation_fromdate.arr) ;
+	escalation_fromdate.len = 0 ;
+	STRINIT(escalation_currdate.arr) ;
+	escalation_currdate.len = 0 ;
+
+	short escalation_currdate_i;
+	escalation_pcnt=0;
+	escalation_price=0;
+
+	if (sqlca.sqlcode == 0) {
+		EXEC SQL FETCH get_all_escalation_price_amt INTO
+			escalation_fromdate:escalation_fromdate_i,
+			escalation_pcnt,
+			escalation_currdate:escalation_currdate_i;
+
+		if (sqlca.sqlcode == 0) {
+			if(escalation_fromdate_i==0) {
+				escalation_price=escalation_pcnt * best_price;
+			} else {
+				escalation_price=best_price;
+
+				memset(escalation_fromdate.arr,' ',sizeof(escalation_fromdate.arr));
+				escalation_fromdate.arr[sizeof(escalation_fromdate.arr) - 1] = '\0' ;
+
+			}
+		} else {
+			if(sqlca.sqlcode == NOTFND) {
+				escalation_pcnt=0;
+				escalation_price=0;
+				escalation_price=best_price;
+
+				memset(escalation_fromdate.arr,' ',sizeof(escalation_fromdate.arr));
+				escalation_fromdate.arr[sizeof(escalation_fromdate.arr) - 1] = '\0' ;
+
+			} else {
+				printf("\n\tSQL (%s) ",stmt.arr);
+				printf("\nGold Order No (%s) ",order_no.arr);
+				db_err("retrieve_all_escalation_adjmnt - Fetch Cursor");
+				exit;
+			}
+		}
+	} else {
+		printf("\n\tSQL (%s) ",stmt.arr);
+		printf("\nGold Order No (%s) ",order_no.arr);
+		db_err("retrieve_all_escalation_adjmnt - Open Cursor");
+		exit;
+	}
+
+	#if DEBUG
+		printf("\n\t\tBest price = %.2f",best_price);
+		printf("\n\t\tEscalation Percent  = %.2f",escalation_pcnt);
+		printf("\n\t\tEscalation Price  = %.2f",escalation_price);
+		printf("\n\t\tEscalation FromDate  = %s",escalation_fromdate.arr);
+	#endif
+}
+
+/*
+
+*/
+void calculate_ngc_escalation_adjmnt()
+{
+
+	#if DEBUG
+		printf("\n\tcalculate_ngc_escalation_adjmnt");
+		printf("\n\tcrtdocdte (%s)",crtdocdte.arr);
+		printf("\n\tcrtdodte_year (%s)",crtdocdte_year.arr);
+		printf("\n\tBest price = %.2f",best_price);
+		printf("\n\tValue of crtdocdte_year Compare %i",strncmp(crtdocdte_year.arr,"2006",4));
+	#endif
+
+	if(strncmp(crtdocdte_year.arr,"2006",4) < 0) {
+		escalation_temp_price=0;
+		retrieve_all_escalation_adjmnt();
+		escalation_temp_price=escalation_price;
+		escalation_price=0;
+		retrieve_ngc_escalation_adjmnt();
+	} else {
+		escalation_temp_price=best_price;
+		retrieve_ngc_escalation_adjmnt();
+	}
+
+}
+
+/*
+
+*/
+void retrieve_ngc_escalation_adjmnt()
+{
+
+	#if DEBUG
+		printf("\n\tretrieve_ngc_escalation_adjmnt");
+		printf("\n\tcrtdocdte (%s)",crtdocdte.arr);
+		printf("\n\tcrtdodte_year (%s)",crtdocdte_year.arr);
+		printf("\n\tEscalation Temp Price = %.2f\n",escalation_temp_price);
+	#endif
+
+	memset(stmt.arr, ' ', sizeof(stmt.arr));
+  stmt.arr[sizeof(stmt.arr) - 1] = '\0' ;
+
+	strcpy(stmt.arr,"select to_char(fromdate,'YYYY'),escalation_amt, to_char(sysdate,'YYYY')");
+	strcat(stmt.arr,"from scm.acdc_price_escalation_info ");
+	strcat(stmt.arr,"where 1=1");
+	if(strncmp(vendor_code.arr,"76823",5)==0) {
+		strcat(stmt.arr,"and supplier='76823' ");
+	}
+
+	if(strncmp(crtdocdte_year.arr,"2006",4) < 0) {
+		strcat(stmt.arr,"and to_char(fromdate,'YYYY') ='2006'");
+	} else {
+		strcat(stmt.arr,"and to_char(fromdate,'YYYY') <= to_char(to_date(rtrim('");
+		strcat(stmt.arr,crtdocdte.arr);
+		strcat(stmt.arr,"'),'MM/DD/YYYY'),'YYYY') ");
+	}
+
+	strcat(stmt.arr,"and to_char(todate,'YYYY')=to_char(sysdate,'YYYY') ");
+	strcat(stmt.arr,"order by 1 desc ");
+
+	stmt.len = strlen(stmt.arr);
+
+	EXEC SQL PREPARE get_ngc_escalation_price_stmt FROM :stmt;
+	EXEC SQL DECLARE get_ngc_escalation_price_amt CURSOR FOR get_ngc_escalation_price_stmt;
+
+
+	#if DEBUG
+		printf("\n\tretrieve_ngc_escalation_adjmnt");
+		printf("\n\tSQL (%s) ",stmt.arr);
+	#endif
+			
+	EXEC SQL OPEN get_ngc_escalation_price_amt;
+
+	memset(escalation_fromdate.arr,' ',sizeof(escalation_fromdate.arr));
+	escalation_fromdate.arr[sizeof(escalation_fromdate.arr) - 1] = '\0' ;
+
+	escalation_pcnt=0;
+	escalation_price=0;
+
+	if (sqlca.sqlcode == 0) {
+		EXEC SQL FETCH get_ngc_escalation_price_amt INTO
+			escalation_fromdate:escalation_fromdate_i,
+			escalation_pcnt,
+			escalation_currdate;
+
+		if (sqlca.sqlcode == 0) {
+			if(escalation_fromdate_i==0) {
+				escalation_price=escalation_pcnt * escalation_temp_price;
+			} else {
+				escalation_price = escalation_temp_price;
+	      memset(escalation_fromdate.arr,' ',sizeof(escalation_fromdate.arr));
+	      escalation_fromdate.arr[sizeof(escalation_fromdate.arr) - 1] = '\0' ;
+
+	      memset(escalation_currdate.arr,' ',sizeof(escalation_currdate.arr));
+	      escalation_currdate.arr[sizeof(escalation_currdate.arr) - 1] = '\0' ;
+
+			}
+		} else {
+			if(sqlca.sqlcode == NOTFND) {
+				escalation_pcnt=0;
+				escalation_price=0;
+				escalation_price=escalation_temp_price;
+
+	      memset(escalation_fromdate.arr,' ',sizeof(escalation_fromdate.arr));
+	      escalation_fromdate.arr[sizeof(escalation_fromdate.arr) - 1] = '\0' ;
+
+	      memset(escalation_currdate.arr,' ',sizeof(escalation_currdate.arr));
+	      escalation_currdate.arr[sizeof(escalation_currdate.arr) - 1] = '\0' ;
+			} else {
+				printf("\n\tSQL (%s) ",stmt.arr);
+				printf("\nGold Order No (%s) ",order_no.arr);
+				db_err("retrieve_ngc_escalation_adjmnt - Fetch Cursor");
+				exit;
+			}
+		}
+	} else {
+		printf("\n\tSQL (%s) ",stmt.arr);
+		printf("\nGold Order No (%s) ",order_no.arr);
+		db_err("retrieve_ngc_escalation_adjmnt - Open Cursor");
+		exit;
+	}
+
+	#if DEBUG
+		printf("\n\tretrieve_ngc_escalation_adjmnt - Exit Function");
+		printf("\n\t\tEscalation Temp Price  = %.2f",escalation_temp_price);
+		printf("\n\t\tEscalation Percent  = %.2f",escalation_pcnt);
+		printf("\n\t\tEscalation Price  = %.2f",escalation_price);
+		printf("\n\t\tEscalation FromDate  = %s",escalation_fromdate.arr);
+	#endif
+}
+
+/*
+
+*/
+void display_record()
+{
+
+	#if DEBUG
+		printf("\nwrite_output");
+		printf("\n\tJICC (%s) (%d) ",jicc.arr,jicc.len);
+		printf("\n\tOrder Mod (%s) (%d) ",order_mod.arr,order_mod.len);
+		printf("\n\tPart (%s) (%d)",part.arr,part.len);
+		printf("\n\tCage (%s) (%d)",MFG_cage.arr,MFG_cage.len);
+		printf("\n\tVendor (%s) (%d)",vendor_code.arr,vendor_code.len);
+		printf("\n\tRelease Type (%s) (%d)",releaseType.arr,releaseType.len);
+		printf("\n\tIMS Designator (%s) (%d)",ims_designator_code.arr,ims_designator_code.len);
+		printf("\n\tOrder No (%s) (%d)",order_no.arr,order_no.len);
+		printf("\n\tContract date (%s) (%d)",contract_date.arr,contract_date.len);
+		printf("\n\tContract Year (%s) (%d)",contract_year.arr,contract_year.len);
+		printf("\n\tContract Month (%s) (%d)",contract_month.arr,contract_month.len);
+		printf("\n\tPO (%s) (%d)",po.arr,po.len);
+		printf("\n\tPO Line (%s) (%d)",po_line.arr,po_line.len);
+		printf("\n\tPO PO Line (%s) (%d)",po_po_line.arr,po_po_line.len);
+		printf("\n\tPO PO Line Part (%s) (%d)",po_po_line_part.arr,po_po_line_part.len);
+		printf("\n\tCreate Date (%s) (%d)",crtdocdte.arr,crtdocdte.len);
+		printf("\n\tCreate Year (%s) (%d)",crtdocdte_year.arr,crtdocdte_year.len);
+		printf("\n\tCreate Month (%s) (%d)",crtdocdte_month.arr,crtdocdte_month.len);
+		printf("\n\tSMRC (%s) (%d)",smrc.arr,smrc.len);
+		printf("\n\tLead Time (%d)",lead_time);
+		printf("\n\tLead Time Days (%d)",lead_time_days);
+		printf("\n\tEst Sched Date (%s) (%d)",est_sched_date.arr,est_sched_date.len);
+		printf("\n\tEst Sched Year (%d)",est_sched_year);
+		printf("\n\tEst Sched Month (%d)",est_sched_mo);
+		printf("\n\tSched Cat (%s) (%d)",sched_cat.arr,sched_cat.len);
+		printf("\n\tQty Ordered (%d)",qty_ordered);
+		printf("\n\tBest Price ($%.2f) ",best_price);
+		printf("\n\tBest Price Extended ($%.2f) ",best_ext_price);
+		printf("\n\tBest Price Source (%s) (%d)",best_price_source.arr,best_price_source.len);
+		printf("\n\tBest Price Cat (%s) (%d)",best_price_cat.arr,best_price_cat.len);
+		printf("\n\tStatus (%s) (%d)",mystatus.arr,mystatus.len);
+		printf("\n\tBuy Auth Need (%s) (%d)",buyAuthNeed.arr,buyAuthNeed.len);
+		printf("\n\tBuyer (%s) (%d)",buyer.arr,buyer.len);
+		printf("\n\tRemarks (%s) (%d)",remarks.arr,remarks.len);
+		printf("\n\tUser Ref2 (%s) (%d)",user_ref2.arr,user_ref2.len);
+		printf("\n\tCommit Amount ($%.2f) ",commit_amt);
+		printf("\n\tLiquid Amount ($%.2f) ",liq_amt);
+		printf("\n\tCommit Qty (%d) ",commit_qty);
+		printf("\n\tLiquid Amount (%d) ",liq_qty);
+		printf("\n\tRemain Amount ($%.2f) ",rem_amt);
+		printf("\n\tRemain Qty (%d) ",rem_qty);
+		printf("\n\tAs Of Date (%s) (%d)",asofdate.arr,asofdate.len); 
+		printf("\n\tVendor Name ICHS (%s) (%d)",vendor_name_ichs.arr,vendor_name_ichs.len);
+		printf("\n\tVendor Name (%s) (%d)",vendor_name.arr,vendor_name.len);
+		printf("\n\tCost Acct (%s) (%d)",cost_acct.arr,cost_acct.len);
+		printf("\n\tLISN SSN (%s) (%d) ",lisn_ssn.arr,lisn_ssn.len);
+		printf("\n\tEscalation Percent  = %.2f ",escalation_pcnt);
+		printf("\n\tEscalation Price  = %.2f ",escalation_price);
+		printf("\n\tEscalation FromDate  = (%s) (%d) ",escalation_fromdate.arr,escalation_fromdate.len);
+		printf("\n\tPC Release Date = (%s) (%d) ",pc_release_date.arr,pc_release_date.len);
+		printf("\n\tPrice Type = (%s) (%d) ",price_type.arr,price_type.len);
+	#endif
+}

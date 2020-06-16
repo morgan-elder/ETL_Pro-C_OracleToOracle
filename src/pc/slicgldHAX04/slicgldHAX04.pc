@@ -1,0 +1,539 @@
+/* vim: syn=c:ts=2:sw=2:sts=2:et:
+ */
+/*     Program -  SLIC/GOLD HAX04 Change Table Extract Program  */
+/*
+ **************************************************************************
+ *  PROGRAM NAME: slicgldHAX04.pc
+ *
+ *  PURPOSE: The purpose of this program is to extract and qualify from the 
+ *		slic_hax04_chg Table activity that needs to be passed to Gold.
+ *
+ *  INPUTS:   1. Oracle Table slic_hax04_chg Table
+ *           
+ *
+ *  OUTPUTS:  1. Candidate HAX04 Records
+ *           
+ *
+ *  CHANGE HISTORY:
+ *   REV     DATE    Programmer                 CHANGE
+ *   ---  --------   ----------------------     ------
+ *    00  03/02/00   Larry Mills                Initial coding 
+ *    01  08/19/02   Ben Barth                  change signon to use Login() function
+ *    02  07/04/15   Douglas Elder              when fwriting hb just use the struct
+                                                and initialize it with memset
+ **************************************************************************
+*/
+/* C System Includes                  */
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+
+/* Application Peculiar Includes      */
+#include "/mcair/dev/appl/scm/includes/slichax04_chgrcd.h"
+#include "/mcair/dev/appl/scm/includes/slichb_chgrcd.h"
+#include "/mcair/dev/appl/scm/includes/slichg_chgrcd.h"
+
+/* File Pointer Definitions           */
+FILE *hax04_candidates_fp;
+FILE *fh_block2;
+FILE *fh_block3;
+
+/* #define SQLCA_STORAGE_CLASS extern */
+#define NOT_FND 1403
+#define FND 0
+#define MULTI_ROWS -2112
+
+/* Application Peculiar Structures    */
+
+EXEC SQL BEGIN DECLARE SECTION;
+
+/*      Oracle User Sign-on Area   */
+	char	uid[20];
+	char	pwd[20];
+
+/*      SLIC HAX04 Change Table Host Variables */
+	
+        varchar scm_program[11];
+
+/*      SLIC HG Table Host Variables */
+
+        varchar refnumhb[33];
+        varchar cagecdhb[6];
+        varchar addrefhb[33];
+        varchar adcagehb[6];
+
+/*      SLIC HG Table Host Variables */
+
+        varchar refnumha[33];
+        varchar cagecdxh[6];
+        varchar eiacodxa[11];
+        varchar lsaconxb[19];
+        varchar altlcnxb[3];
+        char    lcntypxb;
+
+/*       program variables  */
+char	hax04_chgrcd[100];
+char	hg_chgrcd[500];
+char	hg_candidates[500];
+char	*program_model ;
+
+/*       Flags              */
+
+/*       Record Counts      */
+int	rows_fetched=0;
+int	hax04_candidate_written=0;
+int	hb_candidate_written=0;
+
+EXEC SQL END DECLARE SECTION;
+
+EXEC SQL INCLUDE sqlca;
+
+/*  Function prototype area       */
+
+int	A999_00_open_files(void);
+void	A999_02_dberr(void);
+int     A1000_sql_select();
+int     A2000_build_seq_03_records();
+int     Z9999_write_hax04_candidates();
+int     Z9999_write_hb_seq_03_candidates();
+
+/*       program variables  */
+char	hax04_chgrcd[100];
+char	*hax04_candidates = NULL ;
+
+	slichax04_chgrcd	Slichax04_Chgrcd;
+	slichg_chgrcd	        Slichg_Chgrcd;
+	slichb_chgrcd	        Slichb_Chgrcd;
+
+main(int argc, char *argv[])
+{
+
+	      int	errcode=0;
+        int     opt;
+        char    spaces[]={"                                               "};
+        extern  char *optarg;
+
+       printf("\n%s compiled on %s at %s\n",__FILE__,__DATE__,__TIME__) ;
+
+
+        while ((opt=getopt (argc, argv,"a:b:A:B")) != EOF)
+        {
+            switch (opt)
+            {
+                 case 'a':
+                 case 'A':
+	        	       hax04_candidates = optarg ;
+			             printf("\nProcessing File - (%s)",hax04_candidates);
+                   break;
+                 case 'b':
+                 case 'B':
+	        	       program_model = optarg ;
+			             printf("\nProcessing Program Model - (%s)",program_model);
+                   break;
+                 case '?':
+                     errcode=12;
+                     break;
+		}
+	}
+
+	if((strncmp(program_model,"F18",3)==0)||
+	    (strncmp(program_model,"AV8B",4)==0)||
+	    (strncmp(program_model,"F15",3)==0))
+	{
+    /* do nothing */
+	}
+	else
+	{
+		printf("\n#######################################################");
+		printf("\n# Processing an invalid Program Model (%s) ",program_model);
+		printf("\n#######################################################\n\n");
+		errcode=-1;
+	}
+															    
+	if (errcode == FND)
+	{
+		Login(); 
+		if (sqlca.sqlcode == FND)
+		{
+			printf("\nconnected.\n");
+		}
+		else
+		{
+			printf("\n***********************************************************");
+			printf("\n*                                                         *");
+			printf("\n*       Not connected.                                    *");
+			printf("\n*                                                         *");
+			printf("\n***********************************************************");
+			A999_02_dberr();
+		}
+	}
+	else
+	{
+		printf("\n***********************************************************");
+		printf("\n*                                                         *");
+		printf("\n*     Unable to Read Command Line Arguments               *");
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+	}
+
+	if (errcode == FND)
+	{
+		errcode=A999_00_open_files();
+		if (errcode == FND)
+		{
+			errcode=A1000_sql_select();
+		}
+		else
+		{
+			printf("\n***********************************************************");
+			printf("\n*                                                         *");
+			printf("\n*  Unable to Open Files for Processing                    *");
+			printf("\n*                                                         *");
+			printf("\n***********************************************************");
+		}
+	}
+
+	printf("\n-----------------------------------------------------------");
+	printf("\n- Number of rows selected\t\t\t%d",rows_fetched);
+	printf("\n- Number of HAX04 Candidates written\t\t%d",hax04_candidate_written);
+	printf("\n- Number of HB Candidates written\t\t%d",hb_candidate_written);
+	printf("\n\n- Program Error Code (%d)\t\t",errcode);
+	printf("\n-----------------------------------------------------------");
+
+  if (hax04_candidates_fp != NULL) {
+    int rc = 0 ;
+	  rc = fclose(hax04_candidates_fp);
+    if (rc == EOF) {
+	    printf("\n-----------------------------------------------------------");
+	    printf("\n- failed to close file\t\t%s",hax04_candidates);
+	    printf("\n-----------------------------------------------------------");
+    }
+  }
+
+	if (errcode == FND)
+	{
+		printf("\n-----------------------------------------------------------");
+		printf("\n-                                                         -");
+		printf("\n-                    Commit Work                          -");
+		printf("\n-                                                         -");
+		printf("\n-----------------------------------------------------------");
+		EXEC SQL ROLLBACK WORK RELEASE;
+/*		EXEC SQL COMMIT WORK RELEASE; */
+	}
+	else
+	{
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		printf("\n~                                                         ~");
+		printf("\n~            Work not Committed                           ~");
+		printf("\n~                                                         ~"); 
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		EXEC SQL ROLLBACK WORK RELEASE;
+	}
+	printf("\n");
+	exit(errcode);
+}
+/*
+
+*/
+int	A999_00_open_files(void)
+{
+	int	errcode=0;
+
+	if ((hax04_candidates_fp=fopen(hax04_candidates,"w")) == NULL)
+	{
+		printf("\n***********************************************************");
+		printf("\n*                                                         *");
+		printf("\n*       Could not open Input File (%s)",hax04_candidates);
+		printf("\n*                                                         *");
+		printf("\n***********************************************************");
+		errcode=500;
+	}
+	else
+	{
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+		printf("\n~                                                         ~");
+		printf("\n~  Processing Output File (%s)",hax04_candidates);
+		printf("\n~                                                         ~");
+		printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+	}
+
+	return(errcode);
+}
+/*
+
+*/
+void	A999_02_dberr()
+{
+	char msg_buf[200];
+	int  buf_size=200;
+	int  msg_len;
+	printf("\n???????????????????????????????????????????????????????????");
+	printf("\n?                                                         ?");
+	printf("\n?\tData Base Error has occurred:");
+	sqlglm(msg_buf, &buf_size, &msg_len);
+	sqlglm(msg_buf, &buf_size, &msg_len);
+	msg_buf[msg_len]='\0';
+	printf("\n?\t\t%s",msg_buf);
+	printf("\n?\t\tSQLCODE: %d",sqlca.sqlcode);
+	printf("\n?\t\tSQLERR MSG %s",sqlca.sqlerrm.sqlerrmc);
+	printf("\n?");
+	printf("\n???????????????????????????????????????????????????????????");
+
+	return;
+}
+/*
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+							*/
+int     A1000_sql_select()
+{
+
+	int	errcode=0;
+	int	fetch_hax04_chgs=1;
+	char	mysql[1000];
+	
+	#if DEBUG
+		printf("\nA1000_sql_select");
+	#endif
+
+	memset(mysql,' ',1000);
+
+	strcpy(mysql,"select distinct refnumha, cagecdxh, scm_program ");
+	if(strncmp(program_model,"F18",3)==0)
+	{
+		strcat(mysql,"from scm.slic_hax04_chgs ");
+	}
+	else
+	{
+		strcat(mysql,"from scm.slic_haxscm_chgs_");
+		strcat(mysql,program_model);
+		strcat(mysql," ");
+	}
+	strcat(mysql,"where slicgld_flag='Y' and chg_update_cde in ('A','U') ");
+
+	#if DEBUG
+		printf("\nA1000_sql_select SQL (%s)",mysql);
+	#endif
+
+	EXEC SQL PREPARE S1 from :mysql;
+	EXEC SQL DECLARE C1 CURSOR FOR S1;
+	EXEC SQL OPEN C1;
+
+  if (sqlca.sqlcode==FND) {
+		while (fetch_hax04_chgs==1)
+		{
+			memset((char *) refnumha.arr,' ',32);
+			memset((char *) cagecdxh.arr,' ',5);
+			EXEC SQL FETCH C1 into
+				:refnumha,
+				:cagecdxh,:scm_program;
+                
+      if (sqlca.sqlcode==FND) {
+				rows_fetched++;
+				#if DEBUG
+					printf("\nRefnumhb (%s) %d)",(char *) refnumha.arr,refnumha.len);
+					printf("\nCagecdhb (%s) %d)",(char *) cagecdxh.arr,cagecdxh.len);
+				#endif
+				errcode=Z9999_write_hax04_candidates();
+        errcode=A2000_build_seq_03_records();
+     	} else if (sqlca.sqlcode==NOT_FND) {
+					fetch_hax04_chgs=0;
+					if(rows_fetched==0) {
+						printf("\nNo rows pulled");
+					}
+  		} else {
+					fetch_hax04_chgs=0;
+         	printf("\nA1000_sql_select - Fetch Cursor");
+         	printf("\nBad SQLCODE ");
+         	errcode=sqlca.sqlcode;
+        	A999_02_dberr();
+			}
+		} /* end while */
+
+	} else {
+   	if (errcode==FND) {
+			fetch_hax04_chgs=0;
+			if(rows_fetched==0) {
+				printf("\nNo rows pulled");
+			}
+  	} else {
+			fetch_hax04_chgs=0;
+     	printf("\nA1000_sql_select - Open Cursor");
+    	printf("\nBad SQLCODE ");
+     	errcode=sqlca.sqlcode;
+    	A999_02_dberr();
+		}
+	}
+
+
+	#if DEBUG
+		printf("\nReturn Code from A1000_sql_select (%d)",errcode);
+	#endif
+
+	return(errcode);
+
+}
+/*
+^L
+*/
+/*        EXEC SQL DECLARE hb_acty_csr CURSOR for
+                select hb.refnumhb,
+                        hb.cagecdhb,
+                        hb.addrefhb,
+                        hb.adcagehb
+                from f18_hb hb
+                where can_int = 0
+                  and hb.refnumhb = rpad(:refnumha,32,' ')
+                  and hb.cagecdhb = :cagecdxh; */
+
+int     A2000_build_seq_03_records()
+{
+        int     errcode=0;
+        int     fetch_hb=1;
+	char	mysql[1000];
+
+	#if DEBUG
+		printf("\nA2000_build_seq_03_records");
+	#endif
+
+	memset(mysql,' ',1000);
+
+	strcpy(mysql,"select hb.refnumhb, hb.cagecdhb, hb.addrefhb, hb.adcagehb ");
+	strcat(mysql,"from ");
+	strcat(mysql,program_model);
+	strcat(mysql,"_hb hb ");
+	strcat(mysql,"where can_int = 0 and hb.refnumhb = rpad('");
+	strcat(mysql,(char *) refnumha.arr);
+	strcat(mysql,"',32,' ') and hb.cagecdhb = '");
+	strcat(mysql,(char *) cagecdxh.arr);
+	strcat(mysql,"'" );
+
+
+	#if DEBUG
+		printf("\nA2000_build_seq_03_records SQL (%s)",mysql);
+	#endif
+
+	EXEC SQL PREPARE S2 from :mysql;
+	EXEC SQL DECLARE C2 CURSOR FOR S2;
+        EXEC SQL OPEN C2;
+
+        if (sqlca.sqlcode == FND)
+        {
+                while (fetch_hb)
+                {
+			memset((char *) refnumhb.arr,' ',32);
+			memset((char *) cagecdhb.arr,' ',5);
+			memset((char *) addrefhb.arr,' ',32);
+			memset((char *) adcagehb.arr,' ',5);
+                        EXEC SQL FETCH C2 into
+                                :refnumhb,
+                                :cagecdhb,
+                                :addrefhb,
+                                :adcagehb;
+                        if (sqlca.sqlcode == FND)
+                        {
+                                errcode=Z9999_write_hb_seq_03_candidates()
+;
+                        }
+                        else
+                        {
+                                fetch_hb=0;
+                                if (sqlca.sqlcode == NOT_FND)
+                                {
+					#if DEBUG
+						printf("\nHB Not Found **********************");
+					#endif
+                                }
+                                else
+                                {
+                                        printf("\nA2000_build_seq_03_records - Fetch Cursor");
+                                        printf("\nBad SQLCODE ");
+                                        errcode=sqlca.sqlcode;
+                                        A999_02_dberr();
+                                }
+                        }
+                }
+        }
+        else
+        {
+                printf("\nA2000_build_seq_03_records - Open Cursor");
+                printf("\nBad SQLCODE ");
+                errcode=sqlca.sqlcode;
+                A999_02_dberr();
+        }
+
+        EXEC SQL CLOSE C2;
+
+        return(errcode);
+}
+/*
+^L
+*/
+int     Z9999_write_hb_seq_03_candidates()
+{
+        int     errcode=0;
+        int     i=0;
+        int     i1=0;
+	#if DEBUG
+		printf("\nZ9999_write_hb_seq_03_candidates");
+	#endif
+
+        memset(&Slichb_Chgrcd,' ',sizeof(slichb_chgrcd));
+
+        strncpy ((char *) &Slichb_Chgrcd.rcdtype,"HB",2);
+        strncpy ((char *) &Slichb_Chgrcd.prcsseq,"03",2);
+
+        strncpy ((char *) &Slichb_Chgrcd.refnumhb,(char *) refnumhb.arr,refnumhb.len);
+        strncpy ((char *) &Slichb_Chgrcd.cagecdhb,(char *) cagecdxh.arr,cagecdhb.len);
+        strncpy ((char *) &Slichb_Chgrcd.addrefhb,(char *) addrefhb.arr,addrefhb.len);
+        strncpy ((char *) &Slichb_Chgrcd.adcagehb,(char *) adcagehb.arr,adcagehb.len);
+
+        Slichb_Chgrcd.newline='\n';
+
+
+        i1=fwrite(&Slichb_Chgrcd,sizeof(slichb_chgrcd),1,hax04_candidates_fp);
+        if(i1!=1)
+        {
+                printf("\n**********************************************************");
+                printf("\nError writing output hax04_candidates_fp - writing HB Sequence 03 HB Records (%d)",i1);
+                errcode=520;
+        }
+        else
+        {
+                hb_candidate_written++;
+        }
+
+        return(errcode);
+}
+/*
+
+*/
+int     Z9999_write_hax04_candidates()
+{
+	int	errcode=0;
+	int	i=0;
+	int	i1=0;
+	
+	#if DEBUG
+		printf("\nZ9999_write_hax04_candidates");
+	#endif
+
+	memset((char *) &Slichax04_Chgrcd.refnumhax04,' ',32);
+	memset((char *) &Slichax04_Chgrcd.cagecdhax04,' ',5);
+	memset((char *) &Slichax04_Chgrcd.scm_program,' ',10);
+	strncpy ((char *) &Slichax04_Chgrcd.prcsseq,"00",2);
+	strncpy ((char *) &Slichax04_Chgrcd.rcdtype,"H4",2);
+	strncpy ((char *) &Slichax04_Chgrcd.refnumhax04,(char *) &refnumha.arr,refnumha.len);
+	strncpy ((char *) &Slichax04_Chgrcd.cagecdhax04,(char *) &cagecdxh.arr,cagecdxh.len);
+	strncpy ((char *) &Slichax04_Chgrcd.scm_program,(char *) &scm_program.arr,scm_program.len);
+	Slichax04_Chgrcd.newline='\n';
+	Slichax04_Chgrcd.endline='\0';
+
+	hax04_candidate_written++;
+	fputs((char *) &Slichax04_Chgrcd,hax04_candidates_fp); 
+
+	fflush(hax04_candidates_fp); 
+
+	return(errcode);
+}

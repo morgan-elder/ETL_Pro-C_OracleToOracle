@@ -1,0 +1,3369 @@
+/*============================================================================
+  vim: ts=2:sw=2:sts=2:et:syntax=c    
+  FILE:  gldCATAPIU.pc
+
+  ABSTRACT:  
+     The purpose of this program is to take a pre-filled structure sent as a
+     parameter, parse it, and input into Oracle.
+     
+  10/12/2015  only use fflush for debugging - Douglas Elder
+  08/19/2002  Added processing of ACTD and CATS records - Ben Barth
+  03/17/2003  Changed insert into IFI005006 for gfp_price,price1 & price2 - Ben Barth
+=============================================================================*/
+
+#include <errno.h>
+#include <time.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+
+#include "GetTime.h"
+#include "db_err.h"
+#include "varcharSetup.h"
+#include "gold685_cat1_api.h"
+#include "gold685_actd_api.h"
+#include "gold685_cats_api.h"
+#include "gold685_venc_api.h"
+#include "gold685_whse_api_v2.h"
+#include "gold685_prc1_api.h"
+
+#define NOT_FND 1403
+#define FND 0
+#define MULTI_ROWS  -2112
+
+FILE    *INPUT_FILE,*fh_block2,*fh_block3,*OUTPUT_ERROR_FILE;
+
+gold68_cat1_api_rcd         cat1;
+gold68_actd_api_rcd         actd;
+gold68_cats_api_rcd         cats;
+gold68_venc_api_rcd         venc;
+gold68_whse_api_rcd         whse;
+gold68_prc1_api_rcd         prc1;
+
+EXEC SQL BEGIN DECLARE SECTION;
+
+varchar query_part[51];
+varchar query_prime[51];
+varchar query_sc[21];
+varchar query_activity_code[51];
+varchar query_vendor_code[21];
+varchar query_vendor_flag[21];
+
+varchar type_001_part[51];
+varchar type_001_prime[51];
+varchar selected_prime[51];
+
+
+/*   declarations for the API Interface             */
+varchar  api_interface_name[21];
+varchar  api_ext_app_name[21];
+varchar  api_ext_app_id[21];
+int  api_status;
+varchar  api_intrfce_trans_tk[21];
+varchar  api_misc_field1[5];
+varchar  api_misc_field2[2];
+
+varchar  api_foreign_key_selct[21];
+varchar  api_primary_key_selct[21];
+
+varchar  api_parent_key[21];
+varchar  api_foreign_key[21];
+varchar  api_primary_key[21];
+
+/*  This Flag to 0 in A9999_02a_api_create_inthdr to indicate that the beginning of a logical set of 
+  records is being created.  At the end of the processing of the logical set the programs must call
+  A9999_02c_apo_submit_int in order to complete the processing of this logical set of Records and set the
+  flag to 1. */
+
+int  api_submit_int_flag = '1';
+
+/*   declarations for cat1 table                                            */
+varchar  cat1_customer[21];
+short    cat1_customer_i;
+char   cat1_update_create_delete;
+short  cat1_update_create_delete_i;
+varchar  cat1_error_code[51];
+short    cat1_error_code_i;
+varchar  cat1_part[51];
+short    cat1_part_i;
+varchar  nsn[17];
+short    nsn_i;
+varchar  nsn_smic[3];
+short    nsn_smic_i;
+int  nsn_smic_rowcnt_int;
+varchar  noun[41];
+short    noun_i;
+varchar  prime[51];
+short    prime_i;
+varchar  noun_mod_1[41];
+short    noun_mod_1_i;
+varchar  noun_mod_2[41];
+short    noun_mod_2_i;
+varchar  smrc[7];
+short    smrc_i;
+varchar  errc[4];
+short    errc_i;
+varchar  um_show_code[4];
+short    um_show_code_i;
+varchar  um_issue_code[4];
+short    um_issue_code_i;
+varchar  um_issue_show_count[5];
+int  um_issue_show_count_int;
+short  um_issue_show_count_i;
+varchar  um_issue_code_count[5];
+int  um_issue_code_count_int;
+short  um_issue_code_count_i;
+varchar  um_issue_factor[12];
+float  um_issue_factor_float;
+short  um_issue_factor_i;
+varchar  um_cap_code[4];
+short    um_cap_code_i;
+varchar  um_cap_show_count[5];
+short    um_cap_show_count_i;
+int  um_cap_show_count_int;
+short    um_cap_show_count_i;
+varchar  um_cap_code_count[5];
+int      um_cap_code_count_int;
+short    um_cap_code_count_i;
+varchar  um_cap_factor[12];
+float    um_cap_factor_float;
+short    um_cap_factor_i;
+varchar  um_mil_code[4];
+short    um_mil_code_i;
+varchar  um_mil_show_count[5];
+int      um_mil_show_count_int;
+short    um_mil_show_count_i;
+varchar  um_mil_code_count[5];
+int  um_mil_code_count_int;
+short    um_mil_code_count_i;
+varchar  um_mil_factor[12];
+float    um_mil_factor_float;
+short    um_mil_factor_i;
+varchar  category_instrument[13];
+short    category_instrument_i;
+varchar  security_code[21];
+short    security_code_i;
+varchar  source_code[4];
+short    source_code_i;
+char   order_cap_b;
+short  order_cap_b_i;
+char   order_gfp_b;
+short  order_gfp_b_i;
+varchar  buyer[21];
+short    buyer_i;
+varchar  cognizance_code[3];
+short    cognizance_code_i;
+varchar  abbr_part[16];
+short    abbr_part_i;
+varchar  cat1_user_ref1[21];
+short    cat1_user_ref1_i;
+varchar  cat1_user_ref2[21];
+short    cat1_user_ref2_i;
+varchar  cat1_user_ref3[21];
+short    cat1_user_ref3_i;
+varchar  cat1_user_ref4[21];
+short    cat1_user_ref4_i;
+varchar  cat1_user_ref5[21];
+short    cat1_user_ref5_i;
+varchar  cat1_user_ref6[21];
+short    cat1_user_ref6_i;
+varchar  ship_reps_code[21];
+short    ship_reps_code_i;
+varchar  ship_reps_priority[3];
+int      ship_reps_priority_int;
+short    ship_reps_priority_i;
+char   delete_when_gone;
+short  delete_when_gone_i;
+char   tracked_b;
+short    tracked_b_i;
+varchar  dodic[21];
+short    dodic_i;
+char   part_make_b;
+short  part_make_b_i;
+char   part_buy_b;
+short  part_buy_b_i;
+varchar  remarks[61];
+short    remarks_i;
+varchar  ims_designator_code[21];
+short    ims_designator_code_i;
+varchar  demilitarization_code[21];
+short    demilitarization_code_i;
+varchar  hazardous_material_code[21];
+short    hazardous_material_code_i;
+varchar  pmi_code[21];
+short    pmi_code_i;
+varchar  critical_item_code[21];
+short    critical_item_code_i;
+varchar  inv_class_code[11];
+short    inv_class_code_i;
+varchar  ata_chapter_no[7];
+short    ata_chapter_no_i;
+char   hazardous_material_b;
+short  hazardous_material_b_i;
+char   lot_batch_mandatory_b;
+short  lot_batch_mandatory_b_i;
+char   serial_mandatory_b;
+short  serial_mandatory_b_i;
+varchar  tec[11];
+short    tec_i;
+varchar  wip_type[21];
+short    wip_type_i;
+varchar  manuf_cage[6];
+short    manuf_cage_i;
+char   budget_code;
+short  budget_code_i;
+varchar  cat1_user_ref7[21];
+short    cat1_user_ref7_i;
+varchar  cat1_user_ref8[21];
+short    cat1_user_ref8_i;
+varchar  cat1_user_ref9[21];
+short    cat1_user_ref9_i;
+varchar  cat1_user_ref10[21];
+short    cat1_user_ref10_i;
+varchar  cat1_user_ref11[21];
+short    cat1_user_ref11_i;
+varchar  cat1_user_ref12[21];
+short    cat1_user_ref12_i;
+varchar  cat1_user_ref13[21];
+short    cat1_user_ref13_i;
+varchar  cat1_user_ref14[21];
+short    cat1_user_ref14_i;
+varchar  cat1_user_ref15[21];
+short    cat1_user_ref15_i;
+char   agency_peculiar_b;
+short  agency_peculiar_b_i;
+varchar  es_designator_code[21];
+short    es_designator_code_i;
+varchar  cat1_profile[21];
+short    cat1_profile_i;
+char   mils_auto_process_b;
+short  mils_auto_process_b_i;
+varchar  ave_cap_lead_time[6];
+int  ave_cap_lead_time_int;
+short    ave_cap_lead_time_i;
+varchar  ave_mil_lead_time[6];
+int  ave_mil_lead_time_int;
+short    ave_mil_lead_time_i;
+
+/*   declarations for actd table                                            */
+varchar  actd_customer[21];
+short    actd_customer_i;
+char   actd_update_create_delete;
+short  actd_update_create_delete_i;
+varchar  actd_error_code[51];
+short    actd_error_code_i;
+varchar  activity_code[51];
+short    activity_code_i;
+varchar  structure_code[21];
+short    structure_code_i;
+varchar  sub_structure_code[21];
+short    sub_structure_code_i;
+varchar  pos[21];
+short    pos_i;
+varchar  actd_part[51];
+short    actd_part_i;
+varchar  actd_sc[21];
+short    actd_sc_i;
+varchar  actd_category_instrument[21];
+short    actd_category_instrument_i;
+char     recurring_b;
+short    recurring_b_i;
+varchar  actual_interval[16];
+float    actual_interval_float;
+short    actual_interval_i;
+varchar  warning_interval[16];
+float    warning_interval_float;
+short    warning_interval_i;
+varchar  est_mat_cost[16];
+float    est_mat_cost_float;
+short    est_mat_cost_i;
+varchar  est_labor_hours[16];
+float    est_labor_hours_float;
+short    est_labor_hours_i;
+char     master_life_b;
+short    master_life_b_i;
+varchar  est_days[16];
+float    est_days_float;
+short    est_days_i;
+varchar  actd_remarks[61];
+short    actd_remarks_i;
+varchar  deviation_rebase[16];
+float    deviation_rebase_float;
+short    deviation_rebase_i;
+char     auto_rebase_b;
+short    auto_rebase_b_i;
+char     mandatory_b;
+short    mandatory_b_i;
+varchar  actd_user_ref1[21];
+short    actd_user_ref1_i;
+varchar  actd_user_ref2[21];
+short    actd_user_ref2_i;
+varchar  actd_user_ref3[21];
+short    actd_user_ref3_i;
+varchar  actd_user_ref4[21];
+short    actd_user_ref4_i;
+varchar  actd_user_ref5[21];
+short    actd_user_ref5_i;
+varchar  actd_user_ref6[21];
+short    actd_user_ref6_i;
+char     supply_b;
+short    supply_b_i;
+char     operational_b;
+short    operational_b_i;
+
+/*   declarations for cats table                                            */
+varchar  cats_customer[21];
+short    cats_customer_i;
+char   cats_update_create_delete;
+short  cats_update_create_delete_i;
+varchar  cats_error_code[51];
+short    cats_error_code_i;
+varchar  cats_sc[21];
+short    cats_sc_i;
+varchar  cats_part[51];
+short    cats_part_i;
+varchar  cats_category_instrument[13];
+short    cats_category_instrument_i;
+varchar  cats_security_code[21];
+short    cats_security_code_i;
+
+/*   declarations for venc table                                            */
+varchar  vendor_customer[21];
+short    vendor_customer_i;
+char   vendor_update_create_delete;
+short  vendor_update_create_delete_i;
+varchar  vendor_error_code[51];
+short    vendor_error_code_i;
+varchar  gold_vendor_part[51];
+short    gold_vendor_part_i;
+varchar  vendor_part[51];
+short    vendor_part_i;
+varchar  vendor_code[21];
+short    vendor_code_i;
+varchar  vendor_name[61];
+short    vendor_name_i;
+varchar  vendor_flag[21];
+short    vendor_flag_i;
+varchar  last_order_price[16];
+short    last_order_price_i;
+float  last_order_price_float;
+short  last_order_price_i;
+varchar  vendor_model[51];
+short    vendor_model_i;
+char   approved_vendor_b;
+short  approved_vendor_b_i;
+varchar  approved_date[11];
+short    approved_date_i;
+char   agency_approved_b;
+short  agency_approved_b_i;
+char   preferred_vendor_b;
+short  preferred_vendor_b_i;
+varchar  last_order_date[11];
+short    last_order_date_i;
+varchar  list_price[16];
+short    list_price_i;
+float  list_price_float;
+varchar  list_price_date[11];
+short    list_price_date_i;
+varchar  list_price_valid_date[11];
+short    list_price_valid_date_i;
+varchar  customer_discount[4];
+short    customer_discount_i;
+int      customer_discount_int;
+varchar  customer_cost[16];
+short    customer_cost_i;
+float    customer_cost_float;
+varchar  total_deliveries[5];
+int      total_deliveries_int;
+short    total_deliveries_i;
+varchar  late_deliveries[5];
+short    late_deliveries_i;
+int      late_deliveries_int;
+varchar  vendor_leadtime[5];
+int      vendor_leadtime_int;
+short    vendor_leadtime_i;
+varchar  turnaround_time[6];
+int      turnaround_time_int;
+short    turnaround_time_i;
+varchar  priority[3];
+int      priority_int;
+short    priority_i;
+varchar  cost[16];
+float    cost_float;
+short    cost_i;
+varchar  lead_time[6];
+int      lead_time_int;
+short    lead_time_i;
+varchar  agency_approved_date[11];
+short    agency_approved_date_i;
+varchar  minimum_order_qty[16];
+float    minimum_order_qty_float;
+short    minimum_order_qty_i;
+varchar  total_days_late[16];
+float    total_days_late_float;
+short    total_days_late_i;
+varchar  total_leadtime[10];
+int      total_leadtime_int;
+short    total_leadtime_i;
+
+/*   declarations for whse table                                            */
+varchar  whse_customer[21];
+short    whse_customer_i;
+char   whse_update_create_delete;
+short  whse_update_create_delete_i;
+varchar  whse_error_code[51];
+short    whse_error_code_i;
+varchar  whse_part[51];
+short    whse_part_i;
+varchar  whse_sc[21];
+short    whse_sc_i;
+varchar  whse_user_ref1[21];
+short    whse_user_ref1_i;
+varchar  whse_user_ref2[21];
+short    whse_user_ref2_i;
+varchar  whse_user_ref3[21];
+short    whse_user_ref3_i;
+varchar  whse_user_ref4[21];
+short    whse_user_ref4_i;
+varchar  whse_user_ref5[21];
+short    whse_user_ref5_i;
+varchar  whse_user_ref6[21];
+short    whse_user_ref6_i;
+varchar  whse_user_ref7[21];
+short    whse_user_ref7_i;
+varchar  whse_user_ref8[21];
+short    whse_user_ref8_i;
+varchar  whse_user_ref9[21];
+short    whse_user_ref9_i;
+varchar  whse_user_ref10[21];
+short    whse_user_ref10_i;
+varchar  whse_user_ref11[21];
+short    whse_user_ref11_i;
+varchar  whse_user_ref12[21];
+short    whse_user_ref12_i;
+varchar  whse_user_ref13[21];
+short    whse_user_ref13_i;
+varchar  whse_user_ref14[21];
+short    whse_user_ref14_i;
+varchar  whse_user_ref15[21];
+short    whse_user_ref15_i;
+varchar  stock_level[17];
+float    stock_level_float;
+short    stock_level_i;
+varchar  reorder_point[17];
+float    reorder_point_float;
+short    reorder_point_i;
+varchar  default_bin[21];
+short    default_bin_i;
+char   freeze_ordering_b;
+short    freeze_ordering_b_i;
+char   freeze_receiving_b;
+short  freeze_receiving_b_i;
+char   freeze_iss_disp_b;
+short  freeze_iss_disp_b_i;
+char   freeze_xfer_i_b;
+short  freeze_xfer_i_b_i;
+char   freeze_xfer_o_b;
+short  freeze_xfer_o_b_i;
+char   freeze_other_b;
+short  freeze_other_b_i;
+char   pi_recommend_b;
+short  pi_recommend_b_i;
+varchar  auth_allow[16];
+float    auth_allow_float;
+short    auth_allow_i;
+varchar  c_elin[21];
+short    c_elin_i;
+varchar  whse_ims_designator_code[21];
+short    whse_ims_designator_code_i;
+
+/*      declaration for prc1 table                                               */
+varchar  prc1_customer[21];
+short    prc1_customer_i;
+char   prc1_update_create_delete;
+short  prc1_update_create_delete_i;
+varchar  prc1_part[51];
+short    prc1_part_i;
+varchar  prc1_error_code[51];
+short    prc1_error_code_i;
+varchar  prc1_sc[21];
+short    prc1_sc_i;
+varchar  cmav[18];
+short    cmav_i;
+float  cmav_float;
+varchar  cap_price[18];
+float  cap_price_float;
+short  cap_price_i;
+varchar  gfp_price[18];
+float    gfp_price_float;
+short    gfp_price_i;
+varchar  price1[18];
+float  price1_float;
+short  price1_i;
+varchar  price2[18];
+float  price2_float;
+short  price2_i;
+varchar  price3[18];
+float  price3_float;
+short  price3_i;
+varchar  price4[18];
+float  price4_float;
+short  price4_i;
+varchar  price5[18];
+float  price5_float;
+short  price5_i;
+varchar  price6[18];
+float  price6_float;
+short  price6_i;
+varchar  price7[18];
+float  price7_float;
+short  price7_i;
+varchar  price8[18];
+float  price8_float;
+short  price8_i;
+varchar  price9[18];
+float  price9_float;
+short  price9_i;
+varchar  price10[18];
+float  price10_float;
+short  price10_i;
+varchar  price11[18];
+float  price11_float;
+short  price11_i;
+varchar  price12[18];
+float  price12_float;
+short  price12_i;
+varchar  price_date[11];
+short  price_date_i;
+varchar  price_type[2];
+short  price_type_i;
+
+EXEC SQL END DECLARE SECTION;
+
+EXEC SQL INCLUDE SQLCA;
+
+
+
+ /* Function Prototype Area */
+
+void A000_initialize(void);
+int  A100_get_argmnt(char argc, char **argv);
+int  A999_00_open_files(void);
+void A999_02_dberr(char *procname);
+int  A999_03_commit(void);
+int  A500_process_file(void);
+int  A1000_process_cat1(void);
+int  A1001_clear_cat1_host_variables(void);
+int  A1005_setup_cat1(void);
+int  A1005_01_display_cat1(void);
+int  A1120_insert_cat1(void);
+int  A1999_insert_cat1_shared_table_info(void);
+int  A2000_process_prc1(void);
+int  A2001_clear_prc1_host_variables(void);
+int  A2005_setup_prc1(void);
+int  A2120_insert_prc1(void);
+int  A3000_process_venc(void);
+int  A3001_clear_venc_host_variables(void);
+int  A3005_setup_venc(void);
+int  A3110_update_venc(void);
+int  A3120_insert_venc(void);
+int  A4000_process_whse(void);
+int  A4001_clear_whse_host_variables(void);
+int  A4005_setup_whse(void);
+int  A4120_insert_whse(void);
+int  A5000_process_actd(void);
+int  A5001_clear_actd_host_variables(void);
+int  A5005_setup_actd(void);
+int  A5120_insert_actd(void);
+int  A6000_process_cats(void);
+int  A6001_clear_cats_host_variables(void);
+int  A6005_setup_cats(void);
+int  A6120_insert_cats(void);
+int  A9700_write_output_error_file(void);
+int  A9999_01_setup_type001_part_number(void);
+int  A9999_02a_api_create_int_hdr(void);
+int  A9999_02b_parent_api_vouch_int(void);
+int  A9999_02b_child_api_vouch_int(void);
+int  A9999_02c_api_submit_int(void);
+int  A9999_03_check_mlsm_table(void);
+ 
+ /* Counters  */
+int cnt_rcds=0;
+int missing_part_cnt=0;
+int cnt_error_rcds=0;
+int cnt_total_update_rcds=0;
+int cnt_cat1_001=0;
+int cnt_cat1_001_updates=0;
+int cnt_cat1_001_inserts=0;
+int cnt_cat1_001_generated=0;
+int cnt_actd_002=0;
+int cnt_actd_002_updates=0;
+int cnt_actd_002_inserts=0;
+int cnt_cats_004=0;
+int cnt_cats_004_updates=0;
+int cnt_cats_004_inserts=0;
+int cnt_prc1_005=0;
+int cnt_prc1_005_updates=0;
+int cnt_prc1_005_inserts=0;
+int cnt_venc_008=0;
+int cnt_venc_008_updates=0;
+int cnt_venc_008_inserts=0;
+int cnt_whse_009=0;
+int cnt_whse_009_updates=0;
+int cnt_whse_009_inserts=0;
+
+/* Variable Definition Area */
+time_t  start;
+time_t  stop; 
+
+char  api_rcd_type[4];
+varchar api_update_code[2];
+char  api_customer_type[21];
+char  output_error_msg[30];
+char  input_buffer[5000];
+char  output_buffer[5000];
+char  *input_file ;
+char  *output_file ;
+char  spaces[]={"                                                  "};
+
+/*  previous variables  */
+varchar prev_part[51];
+varchar prev_prime[51];
+varchar prev_vendor_code[22];
+varchar prev_sc[22];
+varchar prev_rcd_type[4];
+
+static int debug = 0 ;
+
+/*
+
+*/
+int main(int argc, char **argv)
+{
+/*---------Start Of Code -----------------------------------------------------*/
+
+  int errcode=0;
+  char  pgmtime[21];
+
+  printf("\n\n**************************************************************************");
+  printf("\n%s compiled on %s at %s\n", __FILE__, __DATE__, __TIME__) ;
+  start = GetTime(pgmtime, sizeof(pgmtime));  
+  printf("\n\n\tStarting Time (%s)\n",&pgmtime);
+
+  errcode=A100_get_argmnt(argc, argv);
+  
+  printf("\nProcessing File (%s)\n",(char *) input_file);
+
+  if(errcode==0)
+  {
+    errcode=A999_00_open_files();
+  }
+
+  A000_initialize();
+
+  if(errcode==0)
+  {
+    Login();
+    if(sqlca.sqlcode==0)
+    {
+      errcode=A500_process_file();
+    }
+    else
+    {
+      errcode=610;
+      printf("*******************************************\n");
+      printf("Error Signing On\n");
+    }
+  }
+  else
+  {
+    errcode=600;
+    printf("*******************************************\n");
+    printf("Error opening Files\n");
+  }
+
+
+  printf("\nTotal Records Records Read\t\t\t\t(%d)\n",cnt_rcds);
+  if (missing_part_cnt > 0) {
+    printf("Total Records Records missing a part - 'review the record'\t\t\t\t(%d)\n",missing_part_cnt);
+  }
+  printf("\tTotal Cat1 Type 001 Records Read\t\t(%d)\n",cnt_cat1_001);
+  printf("\t\tTotal Cat1 Type 001 Records Updated\t(%d)\n",cnt_cat1_001_updates);
+  printf("\t\tTotal Cat1 Type 001 Records Inserted\t(%d)\n",cnt_cat1_001_inserts);
+  printf("\t\tTotal Cat1 Records Generated\t\t(%d)\n\n",cnt_cat1_001_generated);
+  printf("\tTotal Actd Type 002 Records Read\t\t(%d)\n",cnt_actd_002);
+  printf("\t\tTotal Actd Type 002 Records Updated\t(%d)\n",cnt_actd_002_updates);
+  printf("\t\tTotal Actd Type 002 Records Inserted\t(%d)\n\n",cnt_actd_002_inserts);
+  printf("\tTotal Cats Type 004 Records Read\t\t(%d)\n",cnt_cats_004);
+  printf("\t\tTotal Cats Type 004 Records Updated\t(%d)\n",cnt_cats_004_updates);
+  printf("\t\tTotal Cats Type 004 Records Inserted\t(%d)\n\n",cnt_cats_004_inserts);
+  printf("\tTotal Prc1 Type 005 Records Read\t\t(%d)\n",cnt_prc1_005);
+  printf("\t\tTotal Prc1 Type 005 Records Updated\t(%d)\n",cnt_prc1_005_updates);
+  printf("\t\tTotal Prc1 Type 005 Records Inserted\t(%d)\n\n",cnt_prc1_005_inserts);
+  printf("\tTotal Venc Type 008 Records Read\t\t(%d)\n",cnt_venc_008);
+  printf("\t\tTotal Venc Type 008 Records Updated\t(%d)\n",cnt_venc_008_updates);
+  printf("\t\tTotal Venc Type 008 Records Inserted\t(%d)\n\n",cnt_venc_008_inserts);
+  printf("\tTotal Whse Type 009 Records Read\t\t(%d)\n",cnt_whse_009);
+  printf("\t\tTotal Whse Type 009 Records Updated\t(%d)\n",cnt_whse_009_updates);
+  printf("\t\tTotal Whse Type 009 Records Inserted\t(%d)\n\n",cnt_whse_009_inserts);
+  printf("\n\nTotal Update and Inserts\t\t\t\t(%d)\n",cnt_total_update_rcds);
+  printf("Total Output Error Records Written\t\t\t(%d)\n",cnt_error_rcds);
+  if(errcode==0 && debug == 0)
+  {
+    printf("Good End of Job\n");
+    errcode=A999_03_commit();
+  }
+  else
+  {
+
+    if (debug) {
+       printf ("End of Job inserts rolled back because of debugging or error - current record: %d\n", cnt_rcds);
+    } else {
+       printf ("Bad End of Job inserts rolled back current record: %d\n", cnt_rcds);
+    }
+
+    EXEC SQL ROLLBACK;
+
+  }
+  
+  if (INPUT_FILE != NULL)
+    fclose(INPUT_FILE);
+  if (OUTPUT_ERROR_FILE != NULL)
+    fclose(OUTPUT_ERROR_FILE) ;
+  
+  stop = GetTime(pgmtime, sizeof(pgmtime));
+
+  if (debug)
+    printf("\ndebug turned on\n") ;   
+
+  if (errcode)
+    printf("\n\n\terrcode=%d\n",errcode) ;
+
+  printf("\n\n\tEnding Time (%s)\n",&pgmtime);
+  printf("\nElapsed Time of %.2f minutes\n", ((float)(stop - start))/60.0);
+  printf("\n\n**************************************************************************");
+
+  printf("\n");
+  
+  return(errcode);
+}
+/*
+
+*/
+void A000_initialize()
+{
+  #if DEBUG
+    printf("\nA000_initialize") ;
+  #endif 
+
+  strncpy((char *) api_interface_name.arr,"CATALOG_CREATE      ",20);
+  api_interface_name.arr[20]='\0';
+  api_interface_name.len=20;
+
+  memset(api_ext_app_name.arr,' ',20);
+  strncpy((char *) api_ext_app_name.arr,"STLSLIC             ",20);
+  api_ext_app_name.arr[20]='\0';
+  api_ext_app_name.len=20;
+
+  memset(api_ext_app_id.arr,' ',20);
+  strncpy((char *) api_ext_app_id.arr,"gldCATAPIU          ",20);
+  api_ext_app_id.arr[20]='\0';
+  api_ext_app_id.len=20;
+
+  api_status=0;
+
+  memset(api_intrfce_trans_tk.arr,' ',20);
+  memset(api_foreign_key_selct.arr,' ',20);
+  memset(api_primary_key_selct.arr,' ',20);
+
+  memset(api_foreign_key.arr,' ',20);
+  memset(api_primary_key.arr,' ',20);
+  memset(api_parent_key.arr,' ',20);
+
+  assert(strlen("CATO") < sizeof(api_misc_field1.arr)) ;
+  strcpy(api_misc_field1.arr,"CATO");
+  api_misc_field1.len= strlen(api_misc_field1.arr);
+
+  assert(strlen("1") < sizeof(api_misc_field2.arr)) ;
+  strcpy(api_misc_field2.arr,"1");
+  api_misc_field2.len= strlen(api_misc_field2.arr);
+
+  memset(type_001_part.arr,' ',sizeof(type_001_part.arr));
+  type_001_part.arr[sizeof(type_001_part.arr) - 1] = '\0';
+  type_001_part.len= strlen(type_001_part.arr);
+}
+/*
+
+*/
+int A100_get_argmnt(char argc, char **argv)
+{
+  int errcode=0;
+  char opt;
+  extern char *optarg;
+  
+  #if DEBUG
+    printf("\nA100_get_argmnt");
+  #endif
+
+
+  while ((opt=getopt (argc, argv,"a:A:b:B:x")) !=EOF)
+  { 
+    switch (opt)
+    {
+      case 'a':
+      case 'A':   
+        input_file = optarg ;
+        printf("input_file=%s\n", input_file) ;
+        break;
+      case 'b':     
+      case 'B':   
+        output_file = optarg ;
+        printf("output_file=%s\n", output_file) ;
+        break;
+      case 'x':     
+              debug = 1 ;
+        break ;
+      case '?':
+        errcode=12;
+        printf("Usage: %s -ainput_activity_file -boutput_error_file -x\n",argv[0]) ;
+        printf("where -ainput_activity_file is the api activity file\n") ;
+        printf("and -boutput_error_file is an error file that is no longer used\n") ;
+        printf("and -x runs the app buts does a ROLLBACK instead of a COMMIT\n") ;
+        break;
+    }
+  } 
+
+  #if DEBUG
+    printf("\nA100_get_argmnt errcode=%d", errcode);
+  #endif 
+  return(errcode);
+}
+/*
+
+*/
+#define setBufVar(v,src) \
+  do { \
+    memset(v,'\0',sizeof(v)) ; \
+    strncpy(v,(char *) &src,sizeof(v) - 1); \
+    v[sizeof(v) - 1] = '\0' ; \
+   } while (0)
+
+int A500_process_file()
+{
+  int errcode=0;
+  int process_file=1;
+  int rcd_type=0;
+#if DEBUG
+  char zero[] =  "0" ;
+  char *rcdnum ;
+  rcdnum = getenv("RCDNUM") ;
+  if (rcdnum == NULL)
+    rcdnum = zero ;
+#endif
+
+  #if DEBUG
+    printf("\nA500_process_file");
+  #endif
+
+  while(process_file) 
+  {
+    errcode=0;
+    memset(input_buffer,' ',sizeof(input_buffer));
+    #if DEBUG
+      printf("gets(input_buffer........\n") ;
+      fflush(stdout) ;
+    #endif
+    if (fgets(input_buffer,sizeof(input_buffer),INPUT_FILE) == NULL)
+    {
+      printf("\nEnd of File Processing\n");
+      if(api_submit_int_flag=='0')
+      {
+        errcode=A9999_02c_api_submit_int();
+      }
+      if(errcode==0)
+      {
+        errcode=A999_03_commit();
+      }
+      process_file=0;
+    }
+
+    if(process_file==1)
+    {
+      cnt_rcds++;
+      #if DEBUG
+        printf("################### A500_process_file #####################################\n");
+        printf("Input Rcd # %d (%s)\n",cnt_rcds,&input_buffer);
+        fflush(stdout) ;
+      #endif
+
+      setBufVar(api_rcd_type,input_buffer[70]);
+      setBufVar(api_customer_type,input_buffer);
+
+      SETVCHAR(query_part,input_buffer[20]) ;
+      SETVCHAR(api_update_code,input_buffer[103]) ;
+
+      #if DEBUG
+        printf("################### A500_process_file #####################################\n");
+        printf("api_rcd_type (%s)\n",api_rcd_type);
+        printf("api_update_code (%s)\n",api_update_code.arr);
+        printf("Query Part No (%s) (%d)\n",query_part.arr,query_part.len);
+        if (rcdnum != NULL) {
+          if (cnt_rcds == atoi(rcdnum)) {
+            printf("api_submit_int_flag=%c\n", api_submit_int_flag) ;
+            fflush(stdout) ;
+          }
+        }
+      #endif  
+
+
+      if(errcode==0)
+      {
+        rcd_type = atoi(api_rcd_type) ;
+
+        #if DEBUG
+          printf("rcd_type=%d\n", rcd_type) ;
+          if (cnt_rcds == atoi(rcdnum)) 
+            fflush(stdout) ;
+        #endif
+
+        switch (rcd_type)
+        {
+          case 1:
+            if(cnt_rcds>1)
+            {
+              if(api_submit_int_flag=='0')
+              {
+                errcode=A9999_02c_api_submit_int();
+              }
+              if(errcode==0)
+              {
+                errcode=A999_03_commit();
+                #if DEBUG
+                   printf("exit A999_03_commit\n") ;
+                   fflush(stdout) ;
+                #endif
+              }
+            }
+            if(errcode==0)
+            {
+              cnt_cat1_001++;
+              #if DEBUG
+                 printf("start A000_process_cat1\n") ;
+                 fflush(stdout) ;
+              #endif
+              errcode=A1000_process_cat1();
+              if(errcode!=0)
+              {
+                printf("Bad Termination of A1000_process_cat1\n");
+                process_file=0;
+              }
+            }
+            break;
+          case 2:
+            /*    PROCESS ACTD    */
+            cnt_actd_002++;
+            errcode=A5000_process_actd();
+            if(errcode!=0)
+            {
+              printf("Bad Termination of A5000_process_actd\n");
+              process_file=0;
+            }
+            break;
+          case 4:
+            /*    PROCESS CATS    */
+            cnt_cats_004++;
+            errcode=A6000_process_cats();
+            if(errcode!=0)
+            {
+              printf("Bad Termination of A6000_process_cats\n");
+              process_file=0;
+            }
+            break;
+          case 5:
+            cnt_prc1_005++;
+            errcode=A2000_process_prc1();
+            if(errcode!=0)
+            {
+              printf("Bad Termination of A2000_process_prc1\n");
+              process_file=0;
+            }
+            break;
+          case 8:
+            cnt_venc_008++;
+            errcode=A3000_process_venc();
+            if(errcode!=0)
+            {
+              printf("Bad Termination of A3000_process_venc\n");
+              process_file=0;
+            }
+            break;
+          case 9:
+            cnt_whse_009++;
+            errcode=A4000_process_whse();
+            if(errcode!=0)
+            {
+              printf("Bad Termination of A4000_process_whse\n");
+              process_file=0;
+            }
+            break;
+          default:
+            printf("Unidentified API Record (%s) for rec # %d\n",api_rcd_type, cnt_rcds);
+            errcode=500;
+            process_file=0;
+        }
+        #if DEBUG
+          printf("end switch\n") ;
+          fflush(stdout) ;
+        #endif
+      }
+      #if DEBUG
+         printf("end if errcode==0\n") ;
+         fflush(stdout) ;
+      #endif
+    }
+    #if DEBUG
+      printf("end while(process)\n") ;
+      fflush(stdout) ;
+    #endif 
+  }
+
+  if(errcode==1)
+    errcode=0;
+
+  #if DEBUG
+    printf("\nA500_process_file end errcode=%d", errcode);
+    fflush(stdout) ;
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A999_00_open_files(void)
+{
+  int errcode=0;
+  
+/*  open input file                                                            */
+  #if DEBUG
+    printf("\nA999_00_open_files");
+  #endif
+
+  if(errcode==0)
+  {
+    if ((INPUT_FILE = fopen(input_file,"r")) == NULL)
+    {
+      printf("Input File %s could not be assigned\n",input_file);
+      errcode=503;
+    }
+  }
+  
+/*  open input file                                                            */
+
+  if(errcode==0)
+  {
+    if ((OUTPUT_ERROR_FILE = fopen(output_file,"w")) == NULL)
+    {
+      printf("Output File %s could not be assigned\n",output_file);
+      errcode=504;
+    }
+  }
+  #if DEBUG
+  printf("\nA999_00_open_files end errcode=%d", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+void A999_02_dberr(char *procname)
+{
+  char *db ;
+
+  #if DEBUG
+    printf("A999_02_dberr %s\n", procname) ;
+    fflush(stderr) ;
+  #endif
+
+  if (sqlca.sqlcode == -2019) {
+    db = getenv("TWO_TASK") ;
+    if (db == NULL) {
+      printf("Env Var TWO_TASK not set\n") ;
+    } else {
+      printf("current db=%s\n",db) ;
+    }
+  }
+  db_err(procname) ;
+  #if DEBUG
+    printf("end db_err for %s\n", procname) ;
+    fflush(stderr) ;
+  #endif
+
+  return;
+}
+
+int A999_03_commit()
+{
+  int errcode=0;
+
+  #if DEBUG
+    printf("A999_03_commit: debug=%d\n", debug);
+    fflush(stdout) ;
+  #endif  
+
+  if (!debug) {
+    EXEC SQL COMMIT;
+  }
+
+  if(sqlca.sqlcode!=0)
+  {
+    printf("A999_02_commit\n");
+    printf("\tBad SQLCODE Returned sqlca.sqlcode=%d\n", sqlca.sqlcode);
+    errcode=500;
+    A999_02_dberr("A999_03_commit");
+  }
+
+  #if DEBUG
+    printf("A999_03_commit errcode=%d\n", errcode);
+    fflush(stdout) ;
+  #endif  
+  return(errcode);
+}
+/*
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+/*
+
+*/
+int A1000_process_cat1()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A1000_process_cat1\n");
+    fflush(stdout);
+  #endif  
+
+  memcpy(&cat1,input_buffer,sizeof(cat1));
+  /* make sure there is a part number in the rec */
+  { int i = 0 ;
+    #if DEBUG
+      printf("make sure there is a part number in rec\n");
+      fflush(stdout);
+    #endif  
+    for (i = 0; i < sizeof(cat1.part) && cat1.part[i] == ' '; i++) ;
+    if ( i == sizeof(cat1.part)) {
+      printf("\nrecord: %d does not have a part number - skipped\n\n", cnt_rcds) ;
+      printf("Input Rcd # %d (%s)\n",cnt_rcds,&input_buffer);
+      missing_part_cnt++ ;
+      return 0 ;
+    }
+  }
+
+  errcode=A1001_clear_cat1_host_variables();
+
+  SETVCHAR(query_part,cat1.part);
+  SETVCHAR(query_prime,cat1.prime);
+  SETVCHAR(type_001_part,cat1.part);
+  SETVCHAR(type_001_prime,cat1.prime);
+
+  #if DEBUG
+    PVCHAR(query_part) ;  
+    PVCHAR(query_prime) ;  
+    PVCHAR(type_001_part) ;  
+    PVCHAR(type_001_prime) ;  
+  #endif
+
+  errcode=A1005_setup_cat1();
+  if(errcode==0)
+  {
+    errcode=A1999_insert_cat1_shared_table_info();
+  }
+  
+  #if DEBUG
+  printf("A1000_process_cat1 end errcode=%d\n", errcode);
+  #endif  
+  return(errcode);
+}
+/*
+
+*/
+int A1001_clear_cat1_host_variables()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A1005_clear_cat1_host_variables\n");
+    fflush(stdout);
+  #endif
+  
+  memset((char *) cat1_customer.arr,' ',20);
+  cat1_update_create_delete=' ';
+  memset((char *) cat1_error_code.arr,' ',50);
+  memset((char *) cat1_part.arr,' ',50);
+  memset((char *) nsn.arr,' ',16);
+  memset((char *) nsn_smic.arr,' ',2);
+  memset((char *) noun.arr,' ',40);
+  memset((char *) prime.arr,' ',50);
+  memset((char *) noun_mod_1.arr,' ',40);
+  memset((char *) noun_mod_2.arr,' ',40);
+  memset((char *) smrc.arr,' ',6);
+  memset((char *) errc.arr,' ',3);
+  memset((char *) um_show_code.arr,' ',3);
+  memset((char *) um_issue_code.arr,' ',4);
+  memset((char *) um_issue_show_count.arr,' ',4);
+  um_issue_show_count_int=0;
+  memset((char *) um_issue_code_count.arr,' ',4);
+  um_issue_code_count_int=0;
+  memset((char *) um_issue_factor.arr,' ',11);
+  um_issue_factor_float=0;
+  memset((char *) um_cap_code.arr,' ',3);
+  memset((char *) um_cap_show_count.arr,' ',4);
+  um_cap_show_count_int=0;
+  memset((char *) um_cap_code_count.arr,' ',4);
+  um_cap_code_count_int=0;
+  memset((char *) um_cap_factor.arr,' ',11);
+  um_cap_factor_float=0;
+  memset((char *) um_mil_code.arr,' ',3);
+  memset((char *) um_mil_show_count.arr,' ',4);
+  um_mil_show_count_int=0;
+  memset((char *) um_mil_code_count.arr,' ',4);
+  um_mil_code_count_int=0;
+  memset((char *) um_mil_factor.arr,' ',11);
+  um_mil_factor_float=0;
+  memset((char *) category_instrument.arr,' ',11);
+  memset((char *) security_code.arr,' ',21);
+  memset((char *) source_code.arr,' ',3);
+  order_cap_b=' ';
+  order_gfp_b=' ';
+  memset((char *) buyer.arr,' ',20);
+  memset((char *) cognizance_code.arr,' ',2);
+  memset((char *) abbr_part.arr,' ',15);
+  memset((char *) cat1_user_ref1.arr,' ',20);
+  memset((char *) cat1_user_ref2.arr,' ',20);
+  memset((char *) cat1_user_ref3.arr,' ',20);
+  memset((char *) cat1_user_ref4.arr,' ',20);
+  memset((char *) cat1_user_ref5.arr,' ',20);
+  memset((char *) cat1_user_ref6.arr,' ',20);
+  memset((char *) ship_reps_code.arr,' ',20);
+  memset((char *) ship_reps_priority.arr,' ',2);
+  ship_reps_priority_int=0;
+  delete_when_gone=' ';
+  tracked_b=' ';
+  memset((char *) dodic.arr,' ',20);
+  part_make_b=' ';
+  part_buy_b=' ';
+  memset((char *) remarks.arr,' ',60);
+  memset((char *) ims_designator_code.arr,' ',20);
+  memset((char *) demilitarization_code.arr,' ',20);
+  memset((char *) hazardous_material_code.arr,' ',20);
+  memset((char *) pmi_code.arr,' ',20);
+  memset((char *) critical_item_code.arr,' ',20);
+  memset((char *) inv_class_code.arr,' ',10);
+  memset((char *) ata_chapter_no.arr,' ',6);
+  hazardous_material_b=' ';
+  lot_batch_mandatory_b=' ';
+  serial_mandatory_b=' ';
+  memset((char *) tec.arr,' ',10);
+  memset((char *) wip_type.arr,' ',20);
+  memset((char *) manuf_cage.arr,' ',5);
+  budget_code=' ';
+  memset((char *) cat1_user_ref7.arr,' ',20);
+  memset((char *) cat1_user_ref8.arr,' ',20);
+  memset((char *) cat1_user_ref9.arr,' ',20);
+  memset((char *) cat1_user_ref10.arr,' ',20);
+  memset((char *) cat1_user_ref11.arr,' ',20);
+  memset((char *) cat1_user_ref12.arr,' ',20);
+  memset((char *) cat1_user_ref13.arr,' ',20);
+  memset((char *) cat1_user_ref14.arr,' ',20);
+  memset((char *) cat1_user_ref15.arr,' ',20);
+  agency_peculiar_b=' ';
+  memset((char *) es_designator_code.arr,' ',20);
+  memset((char *) cat1_profile.arr,' ',20);
+  mils_auto_process_b=' ';
+  memset((char *) ave_cap_lead_time.arr,' ',5);
+  ave_cap_lead_time_int=0;
+  memset((char *) ave_mil_lead_time.arr,' ',5);
+  ave_mil_lead_time_int=0;
+
+  #if DEBUG
+  printf("A1005_clear_cat1_host_variables end errcode=%d\n", errcode);
+  #endif  
+  return(errcode);
+}
+/*
+
+*/
+int A1005_setup_cat1()
+{
+  int errcode=0;
+
+  int len;
+  struct interface cat1_interface1[] = {
+    INTF(cat1_customer, cat1.customer),
+    INTF(cat1_part, cat1.part),
+    INTFI(nsn,cat1.nsn),
+    {NULL}
+  } ;
+  struct interface nsn_smic_intf = INTFI(nsn_smic,cat1.nsn_smic);
+  struct interface nsn_smic_empty_intf = INTFI(nsn_smic,"");
+
+  int indx ;
+  assert(sizeof(nsn_smic) - 1 <= strlen(cat1.nsn_smic) ) ; 
+  #if DEBUG
+    printf("A1005_setup_cat1\n");
+    printf("\tPART    (%s)\n",cat1.part);
+    printf("\tNSN    (%s)\n",cat1.nsn);
+    printf("\tCAP ORDER    (%c)\n",cat1.order_cap_b);
+    printf("\tMILS AUTO    (%c)\n",cat1.mils_auto_process_b);
+    fflush(stdout);
+  #endif
+  
+  for (indx = 0; cat1_interface1[indx].arr != NULL; indx++) {
+    len = varcharSetup2(&cat1_interface1[indx]) ; 
+    #if DEBUG
+      printf("name=%s arr=%s len=%hu\n", cat1_interface1[indx].name,
+        cat1_interface1[indx].arr,
+        (*cat1_interface1[indx].len)) ;
+      fflush(stdout);
+    #endif
+  }
+
+  cat1_update_create_delete=cat1.update_create_delete;
+
+  if(strcmp(cat1.nsn,"NSL") > 0)
+  {
+    #if DEBUG
+      printf("varcharSetup2(&nsn_smic_intf\n") ;
+      fflush(stdout) ;
+    #endif
+    len = varcharSetup2(&nsn_smic_intf);
+    errcode=A9999_03_check_mlsm_table();
+    if(errcode==0) {
+      if(nsn_smic_rowcnt_int > 0) {
+    #if DEBUG
+      printf("varcharSetup2(&nsn_empty_intf 1\n") ;
+      fflush(stdout) ;
+    #endif
+    len = varcharSetup2(&nsn_smic_empty_intf);
+      }
+    }
+  } else {
+    #if DEBUG
+      printf("varcharSetup2(&nsn_empty_intf 2\n") ;
+      fflush(stdout) ;
+    #endif
+    len = varcharSetup2(&nsn_smic_empty_intf);
+  }
+
+  if(cat1.order_cap_b == 'Y')
+  {
+    cat1.order_cap_b = 'T';
+  }
+  else
+  {
+    if(cat1.order_cap_b == 'N')
+    {
+      cat1.order_cap_b = 'F';
+    }
+    else
+    {
+    }
+  }
+  
+
+  {
+    struct interface cat1_interface[] = {
+      INTFI(noun,cat1.noun),
+    INTFI(prime,cat1.prime),
+    INTFI(noun_mod_1,cat1.noun_mod_1),
+    INTFI(noun_mod_2,cat1.noun_mod_2),
+    INTFI(smrc,cat1.smrc),
+    INTFI(errc,cat1.errc),
+    INTFI(um_show_code,cat1.um_show_code),
+    INTFI(um_issue_code,cat1.um_issue_code),
+    INTFN(um_issue_show_count,cat1.um_issue_show_count),
+    INTFN(um_issue_code_count,cat1.um_issue_code_count),
+    INTFF(um_issue_factor,cat1.um_issue_factor),
+    INTFI(um_cap_code,cat1.um_cap_code),
+    INTFN(um_cap_show_count,cat1.um_cap_show_count),
+    INTFN(um_cap_code_count,cat1.um_cap_code_count),
+    INTFF(um_cap_factor,cat1.um_cap_factor),
+    INTFI(um_mil_code,cat1.um_mil_code),
+    INTFN(um_mil_show_count,cat1.um_mil_show_count),
+    INTFN(um_mil_code_count,cat1.um_mil_code_count),
+    INTFF(um_mil_factor,cat1.um_mil_factor),
+    INTFI(category_instrument,cat1.category_instrument),
+    INTFI(source_code,cat1.source_code),
+    INTFI(buyer,cat1.buyer),
+    INTFI(cognizance_code,cat1.cognizance_code),
+    INTFI(abbr_part,cat1.abbr_part),
+    INTFI(cat1_user_ref1,cat1.user_ref1),
+    INTFI(cat1_user_ref2,cat1.user_ref2),
+    INTFI(cat1_user_ref3,cat1.user_ref3),
+    INTFI(cat1_user_ref4,cat1.user_ref4),
+    INTFI(cat1_user_ref5,cat1.user_ref5),
+    INTFI(cat1_user_ref6,cat1.user_ref6),
+    INTFI(ship_reps_code,cat1.ship_reps_code),
+    INTFN(ship_reps_priority,cat1.ship_reps_priority),
+    INTFI(dodic,cat1.dodic),
+    INTFI(remarks,cat1.remarks),
+    INTFI(demilitarization_code,cat1.demilitarization_code),
+    INTF(hazardous_material_code,cat1.hazardous_material_code),
+    INTFI(pmi_code,cat1.pmi_code),
+    INTFI(critical_item_code,cat1.critical_item_code),
+    INTFI(inv_class_code,cat1.inv_class_code),
+    INTFI(ata_chapter_no,cat1.ata_chapter_no),
+    INTFI(tec,cat1.tec),
+    INTFI(wip_type,cat1.wip_type),
+    INTFI(manuf_cage,cat1.manuf_cage),
+    INTFI(cat1_user_ref7,cat1.user_ref7),
+    INTFI(cat1_user_ref8,cat1.user_ref8),
+    INTFI(cat1_user_ref9,cat1.user_ref9),
+    INTFI(cat1_user_ref10,cat1.user_ref10),
+    INTFI(cat1_user_ref11,cat1.user_ref11),
+    INTFI(cat1_user_ref12,cat1.user_ref12),
+    INTFI(cat1_user_ref13,cat1.user_ref13),
+    INTFI(cat1_user_ref14,cat1.user_ref14),
+    INTFI(cat1_user_ref15,cat1.user_ref15),
+    INTFI(ims_designator_code,""),
+    INTFI(es_designator_code,cat1.es_designator_code),
+    INTFI(cat1_profile,cat1.cat1_profile),
+    INTFN(ave_cap_lead_time,cat1.ave_cap_lead_time),
+    INTFN(ave_mil_lead_time,cat1.ave_mil_lead_time),
+    INTFI(security_code,&cat1.security_code),
+    INTFC(order_cap_b,cat1.order_cap_b),
+    INTFC(order_gfp_b,cat1.order_gfp_b),
+    INTFC(delete_when_gone,cat1.delete_when_gone),
+    INTFC(tracked_b,cat1.tracked_b),
+    INTFC(part_make_b,cat1.part_make_b),
+    INTFC(part_buy_b,cat1.part_buy_b),
+    INTFC(lot_batch_mandatory_b,cat1.lot_batch_mandatory_b),
+    INTFC(serial_mandatory_b,cat1.serial_mandatory_b),
+    INTFC(budget_code,cat1.budget_code),
+    INTFC(agency_peculiar_b,cat1.agency_peculiar_b),
+    INTFC(mils_auto_process_b,cat1.mils_auto_process_b),
+    INTFC(hazardous_material_b,cat1.hazardous_material_b),
+    {NULL}
+    } ;
+    
+    #if DEBUG
+      printf("start cat1_interface\n");
+      fflush(stdout) ;
+    #endif
+
+    for (indx = 0; cat1_interface[indx].arr != NULL; indx++) {
+    len = varcharSetup2(&cat1_interface[indx]) ;  
+    }
+  }
+  
+  #if DEBUG
+    printf("A1005_setup_cat1\n");
+    printf("cat1_customer (%s)\n",cat1_customer.arr);
+    printf("um_issue_show_count_i(%d)\n",um_issue_show_count_i);
+    printf("um_issue_show_count_int(%d)\n",um_issue_show_count_int);
+    fflush(stdout);
+  #endif
+
+  #if DEBUG
+    printf("A1005_setup_cat1 end errcode=%d\n", errcode);
+    fflush(stdout);
+  #endif
+  return(errcode);
+}
+
+/*
+
+*/
+int A1120_insert_cat1()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A1120_insert_cat1\n");
+    printf("IFI0050_TK (%s)\n",api_parent_key.arr);
+    printf("INT_TRANS_TK (%s)\n",api_intrfce_trans_tk.arr);
+    printf("\tPART         (%s)\n",cat1_part.arr);
+    printf("\tPRIME        (%s)\n",prime.arr);
+    printf("\tCAP ORDER    (%c)\n",order_cap_b);
+    printf("\tMILS AUTO    (%c)\n",mils_auto_process_b);
+  #endif
+
+  EXEC SQL
+      INSERT INTO IFI0050
+                (ifi0050_tk,
+                 int_trans_tk,
+                 part,
+                 customer,
+                 update_create_delete,
+                 nsn,
+                 nsn_smic,
+                 noun,
+                 prime,
+                 noun_mod_1,
+                 noun_mod_2,
+                 smrc,
+                 errc,
+                 um_show_code,
+                 um_issue_code,
+                 um_issue_show_count,
+                 um_issue_code_count,
+                 um_issue_factor,
+                 um_cap_code,
+                 um_cap_show_count,
+                 um_cap_code_count,
+                 um_cap_factor,
+                 um_mil_code,
+                 um_mil_show_count,
+                 um_mil_code_count,
+                 um_mil_factor,
+                 category_instrument,
+                 security_code,
+                 source_code,
+                 order_cap_b,
+                 order_gfp_b,
+                 buyer,
+                 cognizance_code,
+                 abbr_part,
+                 user_ref1,
+                 user_ref2,
+                 user_ref3,
+                 user_ref4, 
+                 user_ref5,
+                 user_ref6,
+                 ship_reps_code, 
+                 ship_reps_priority,
+                 delete_when_gone,
+                 tracked_b,
+                 dodic,
+                 part_make_b,
+                 part_buy_b,
+                 remarks,
+                 ims_designator_code,
+                 demilitarization_code,
+                 hazardous_material_code,
+                 pmi_code,
+                 critical_item_code,
+                 inv_class_code,
+                 ata_chapter_no,
+                 hazardous_material_b,
+                 lot_batch_mandatory_b,
+                 serial_mandatory_b,
+                 tec,
+                 wip_type,
+                 manuf_cage,
+                 budget_code,
+                 user_ref7,
+                 user_ref8,
+                 user_ref9, 
+                 user_ref10,
+                 user_ref11,
+                 user_ref12, 
+                 user_ref13,
+                 user_ref14,
+                 user_ref15, 
+                 agency_peculiar_b,
+                 es_designator_code,
+                 cat1_profile,
+                 mils_auto_process_b,
+                 ave_cap_lead_time,
+                 ave_mil_lead_time)
+         VALUES
+                (rtrim(:api_parent_key),
+                 rtrim(:api_intrfce_trans_tk),
+                 rtrim(:cat1_part:cat1_part_i),
+                 rtrim(:cat1_customer:cat1_customer_i),
+                 rtrim(:cat1_update_create_delete:cat1_update_create_delete_i),
+                 rtrim(:nsn:nsn_i),
+                 rtrim(:nsn_smic:nsn_smic_i),
+                 rtrim(:noun:noun_i),
+                 rtrim(:prime:prime_i),
+                 rtrim(:noun_mod_1:noun_mod_1_i),
+                 rtrim(:noun_mod_2:noun_mod_2_i),
+                 rtrim(:smrc:smrc_i),
+                 rtrim(:errc:errc_i),
+                 rtrim(:um_show_code:um_show_code_i),
+                 rtrim(:um_issue_code:um_issue_code_i),
+                 :um_issue_show_count_int:um_issue_show_count_i,
+                 :um_issue_code_count_int:um_issue_code_count_i,
+                 :um_issue_factor_float:um_issue_factor_i,
+                 rtrim(:um_cap_code:um_cap_code_i),
+                 :um_cap_show_count_int:um_cap_show_count_i,
+                 :um_cap_code_count_int:um_cap_code_count_i,
+                 :um_cap_factor_float:um_cap_factor_i,
+                 rtrim(:um_mil_code:um_mil_code_i),
+                 :um_mil_show_count_int:um_mil_show_count_i,
+                 :um_mil_code_count_int:um_mil_code_count_i,
+                 :um_mil_factor_float:um_mil_factor_i,
+                 rtrim(:category_instrument:category_instrument_i),
+                 rtrim(:security_code:security_code_i),
+                 rtrim(:source_code:source_code_i),
+                 rtrim(:order_cap_b:order_cap_b_i),
+                 rtrim(:order_gfp_b:order_gfp_b_i),
+                 rtrim(:buyer:buyer_i),
+                 rtrim(:cognizance_code:cognizance_code_i),
+                 rtrim(:abbr_part:abbr_part_i),
+                 rtrim(:cat1_user_ref1:cat1_user_ref1_i),
+                 rtrim(:cat1_user_ref2:cat1_user_ref2_i),
+                 rtrim(:cat1_user_ref3:cat1_user_ref3_i),
+                 rtrim(:cat1_user_ref4:cat1_user_ref4_i), 
+                 rtrim(:cat1_user_ref5:cat1_user_ref5_i),
+                 rtrim(:cat1_user_ref6:cat1_user_ref6_i),
+                 rtrim(:ship_reps_code:ship_reps_code_i), 
+                 :ship_reps_priority_int:ship_reps_priority_i,
+                 rtrim(:delete_when_gone:delete_when_gone_i),
+                 rtrim(:tracked_b:tracked_b_i),
+                 rtrim(:dodic:dodic_i),
+                 rtrim(:part_make_b:part_make_b_i),
+                 rtrim(:part_buy_b:part_buy_b_i),
+                 rtrim(:remarks:remarks_i),
+/*                 rtrim(:ims_designator_code:ims_designator_code_i),  */
+                 null,
+                 rtrim(:demilitarization_code:demilitarization_code_i),
+                 rtrim(:hazardous_material_code:hazardous_material_code_i),
+                 rtrim(:pmi_code:pmi_code_i),
+                 rtrim(:critical_item_code:critical_item_code_i),
+                 rtrim(:inv_class_code:inv_class_code_i),
+                 rtrim(:ata_chapter_no:ata_chapter_no_i),
+                 rtrim(:hazardous_material_b:hazardous_material_b_i),
+                 rtrim(:lot_batch_mandatory_b:lot_batch_mandatory_b_i),
+                 rtrim(:serial_mandatory_b:serial_mandatory_b_i),
+                 rtrim(:tec:tec_i),
+                 rtrim(:wip_type:wip_type_i),
+                 rtrim(:manuf_cage:manuf_cage_i),
+                 rtrim(:budget_code:budget_code_i),
+                 rtrim(:cat1_user_ref7:cat1_user_ref7_i),
+                 rtrim(:cat1_user_ref8:cat1_user_ref8_i),
+                 rtrim(:cat1_user_ref9:cat1_user_ref9_i), 
+                 rtrim(:cat1_user_ref10:cat1_user_ref10_i),
+                 rtrim(:cat1_user_ref11:cat1_user_ref11_i),
+                 rtrim(:cat1_user_ref12:cat1_user_ref12_i), 
+                 rtrim(:cat1_user_ref13:cat1_user_ref13_i),
+                 rtrim(:cat1_user_ref14:cat1_user_ref14_i),
+                 rtrim(:cat1_user_ref15:cat1_user_ref15_i), 
+                 rtrim(:agency_peculiar_b:agency_peculiar_b_i),
+                 rtrim(:es_designator_code:es_designator_code_i),
+                 rtrim(:cat1_profile:cat1_profile_i),
+                 rtrim(:mils_auto_process_b:mils_auto_process_b_i),
+                 :ave_cap_lead_time_int:ave_cap_lead_time_i,
+                 :ave_mil_lead_time_int:ave_mil_lead_time_i);  
+
+  if (sqlca.sqlcode==FND)
+  {
+    cnt_total_update_rcds++;
+    cnt_cat1_001_inserts++; 
+  }
+  else
+  {
+    if(sqlca.sqlcode!=NOT_FND)
+    {
+      printf("\tA1120_insert_cat1\n");
+      printf("\tBad SQLCODE Returned sqlca.sqlcode=%d\n", sqlca.sqlcode);
+      printf("\tIFI005_TK    (%s)\n",api_parent_key.arr);
+      printf("\tINT_TRANS_TK (%s)\n",api_intrfce_trans_tk.arr);
+      printf("\tCUSTOMER     (%s)\n",cat1_customer.arr);
+      printf("\tPART         (%s)\n",cat1_part.arr);
+      printf("\tPRIME        (%s)\n",prime.arr);
+      printf("\tUpdate/Create(%c)\n",cat1_update_create_delete),
+      errcode=1120;
+      A999_02_dberr("A1120_insert_cat1");
+    }
+   }
+
+  #if DEBUG
+    printf("A1120_insert_cat1 end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A1999_insert_cat1_shared_table_info()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A1999_insert_cat1_shared_table_info\n");
+  #endif
+  
+  errcode=A9999_02a_api_create_int_hdr();
+  if(errcode==0)
+  {
+    errcode=A9999_02b_parent_api_vouch_int();
+    if(errcode==0)
+    {
+      errcode=A1120_insert_cat1();
+    }
+  }
+  
+  #if DEBUG
+    printf("A1999_insert_cat1_shared_table_info end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A2000_process_prc1()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A2000_process_prc1\n");
+  #endif
+  
+  memcpy((char *) &prc1,input_buffer,sizeof(gold68_prc1_api_rcd));
+
+  #if DEBUG
+    printf("Update/Create Flag (%c)\n",prc1.update_create_delete);
+  #endif
+
+  memset((char *) query_part.arr,' ',50);
+  memset((char *) query_sc.arr,' ',20);
+
+  strncpy((char *) query_part.arr,(char *) &prc1.part,50);
+  query_part.arr[50]='\0';
+  query_part.len=50;
+
+  strncpy((char *) query_sc.arr,(char *) &prc1.sc,20);
+  query_sc.arr[20]='\0';
+  query_sc.len=20;
+
+  errcode=0;
+  errcode=A2005_setup_prc1();
+  errcode=A9999_02b_child_api_vouch_int();
+  if(errcode==0)
+  {
+    errcode=A2120_insert_prc1();
+  }
+  
+  if(errcode==1)
+  {
+    errcode=0;
+  }
+
+  #if DEBUG
+    printf("A2000_process_prc1 errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A2001_clear_prc1_host_variables()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A2005_clear_prc1_host_variables\n");
+  #endif
+
+  memset((char *) prc1_customer.arr,' ',20);
+  prc1_update_create_delete=' ';
+  memset((char *) prc1_error_code.arr,' ',50);
+  memset((char *) prc1_sc.arr,' ',20);
+  memset((char *) prc1_part.arr,' ',20);
+  memset((char *) cmav.arr,' ',18);
+  cmav_float=0;
+  memset((char *) cap_price.arr,' ',18);
+  cap_price_float=0;
+  memset((char *) gfp_price.arr,' ',18);
+  gfp_price_float=0;
+  memset((char *) price1.arr,' ',18);
+  price1_float=0;
+  memset((char *) price2.arr,' ',18);
+  price2_float=0;
+  memset((char *) price3.arr,' ',18);
+  price3_float=0;
+  memset((char *) price4.arr,' ',18);
+  price4_float=0;
+  memset((char *) price5.arr,' ',18);
+  price5_float=0;
+  memset((char *) price6.arr,' ',18);
+  price6_float=0;
+  memset((char *) price7.arr,' ',18);
+  price7_float=0;
+  memset((char *) price8.arr,' ',18);
+  price8_float=0;
+  memset((char *) price9.arr,' ',18);
+  price9_float=0;
+  memset((char *) price10.arr,' ',18);
+  price10_float=0;
+  memset((char *) price11.arr,' ',18);
+  price11_float=0;
+  memset((char *) price12.arr,' ',18);
+  price12_float=0;
+  memset((char *) price_date.arr,' ',11);
+  memset((char *) price_type.arr,' ',20);
+
+  
+  #if DEBUG
+    printf("A2005_clear_prc1_host_variables end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A2005_setup_prc1()
+{
+  int errcode=0;
+  int indx = 0 ;
+  int len = 0 ;
+
+  struct interface intf[] = {
+    INTFI(prc1_customer,prc1.customer),
+    INTFC(prc1_update_create_delete,prc1.update_create_delete),
+    INTFI(prc1_sc,prc1.sc),
+    INTFI(prc1_part,prc1.part),
+    INTFF(cmav,prc1.cmav),
+    INTFF(cap_price,prc1.cap_price),
+    INTFF(gfp_price,prc1.gfp_price),
+    INTFF(price1,prc1.price1),
+    INTFF(price2,prc1.price2),
+    INTFF(price3,prc1.price3),
+    INTFF(price4,prc1.price4),
+    INTFF(price5,prc1.price5),
+    INTFF(price6,prc1.price6),
+    INTFF(price7,prc1.price7),
+    INTFF(price8,prc1.price8),
+    INTFF(price9,prc1.price9),
+    INTFF(price10,prc1.price10),
+    INTFF(price11,prc1.price11),
+    INTFF(price12,prc1.price12),
+    INTFI(price_date,prc1.price_date),
+    INTFI(price_type,prc1.price_type),
+    {NULL}
+  } ;
+  
+  for (indx = 0; intf[indx].arr != NULL; indx++) {
+    len = varcharSetup2(&intf[indx]) ;  
+  }
+  
+  #if DEBUG
+    printf("A2005_setup_prc1\n");
+  #endif
+
+  #if DEBUG
+    printf("Price1 Price String (%s)\n",price1.arr);
+    printf("Price1 Price Float  (%15.2f)\n",price1_float);
+    printf("Price2 Price String (%s)\n",price2.arr);
+    printf("Price2 Price Float  (%15.2f)\n",price2_float);
+  #endif
+
+
+  #if DEBUG
+    printf("A2005_setup_prc1 end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A2120_insert_prc1()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A2120_insert_prc1\n");
+    printf("IFI005006_TK (%s)\n",api_primary_key.arr);
+    printf("IFI0050_TK (%s)\n",api_parent_key.arr);
+    printf("Update/Create Flag (%c)\n",prc1_update_create_delete);
+    printf("gfp_price   (%s)\n",gfp_price.arr);
+    printf("gfp_price_i (%d)\n",gfp_price_i);
+    printf("price1   (%s)\n",price1.arr);
+    printf("price1_i (%d)\n",price1_i);
+    printf("price2   (%s)\n",price2.arr);
+    printf("price2_i (%d)\n",price2_i);
+    printf("price1_float   (%.2f)\n",price1_float);
+    printf("price2_float   (%.2f)\n",price2_float);
+  #endif
+
+  EXEC SQL
+       INSERT INTO IFI005006 
+         (ifi005006_tk,
+          ifi0050_tk,
+          customer,
+          update_create_delete,
+          part,
+          sc,
+          cmav,
+          cap_price,
+          gfp_price,
+          price1,
+          price2,
+          price3,
+          price4,
+          price5,
+          price6,
+          price7,
+          price8,
+          price9,
+          price10,
+          price11,
+          price12,
+          price_date,
+          price_type)
+       VALUES
+         (rtrim(:api_primary_key),
+          rtrim(:api_parent_key),
+          rtrim(:prc1_customer:prc1_customer_i),
+          rtrim(:prc1_update_create_delete:prc1_update_create_delete_i),
+          rtrim(:prc1_part:prc1_part_i),
+          rtrim(:prc1_sc:prc1_sc_i),
+          :cmav_float:cmav_i,
+          :cap_price_float:cap_price_i,
+          :gfp_price_float:gfp_price_i,
+          :price1_float:price1_i,
+          :price2_float:price2_i,
+          :price3_float:price3_i,
+          :price4_float:price4_i,
+          :price5_float:price5_i,
+          :price6_float:price6_i,
+          :price7_float:price7_i,
+          :price8_float:price8_i,
+          :price9_float:price9_i,
+          :price10_float:price10_i,
+          :price11_float:price11_i,
+          :price12_float:price12_i,
+          to_date('01/01/1901','MM/DD/YYYY'),
+          :price_type:price_type_i);
+
+  if (sqlca.sqlcode==FND)
+  {
+    cnt_total_update_rcds++;
+    cnt_prc1_005_inserts++; 
+  }
+  else
+  {
+    if(sqlca.sqlcode!=NOT_FND)
+    {
+      printf("\tA2120_insert_prc1\n");
+      printf("\tBad SQLCODE Returned sqlca.sqlcode=%d\n", sqlca.sqlcode);
+      printf("\tIFI005006_TK (%s)\n",api_primary_key.arr);
+      printf("\tIFI005_TK    (%s)\n",api_parent_key.arr);
+      printf("\tCUSTOMER     (%s)\n",prc1_customer.arr);
+      printf("\tPART         (%s)\n",prc1_part.arr);
+      printf("\tSC           (%s)\n",prc1_sc.arr);
+      printf("\tUpdate/Create(%c)\n",prc1_update_create_delete),
+      errcode=2120;
+      A999_02_dberr("A2120_insert_prc1");
+    }
+   }
+
+  #if DEBUG
+    printf("A2120_insert_prc1 end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A3000_process_venc()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A3000_process_venc\n");
+  #endif
+
+  memcpy((char *) &venc,(char *) input_buffer,sizeof(gold68_venc_api_rcd));
+
+  memset((char *) query_part.arr,' ',50);
+  memset((char *) query_vendor_code.arr,' ',20);
+  memset((char *) query_vendor_flag.arr,' ',20);
+
+  strncpy((char *) query_part.arr,(char *) &venc.part,50);
+  query_part.arr[50]='\0';
+  query_part.len=50;
+
+  strncpy((char *) query_vendor_code.arr,(char *) &venc.vendor_code,20);
+  query_vendor_code.arr[20]='\0';
+  query_vendor_code.len=20;
+
+  strncpy((char *) query_vendor_flag.arr,(char *) &venc.vendor_flag,20);
+  query_vendor_flag.arr[20]='\0';
+  query_vendor_flag.len=20;
+
+  errcode=0;
+  errcode=A3005_setup_venc();
+  errcode=A9999_02b_child_api_vouch_int();
+  if(errcode==0)
+  {
+    errcode=A3120_insert_venc();
+  }
+  
+  if(errcode==1)
+  {
+    errcode=0;
+  }
+
+  #if DEBUG
+    printf("A3000_process_venc end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A3001_clear_venc_host_variables()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A3005_clear_venc_host_variables\n");
+  #endif
+
+  memset((char *) vendor_customer.arr,' ',50);
+  vendor_update_create_delete=' ';
+  memset((char *) vendor_error_code.arr,' ',50);
+  memset((char *) gold_vendor_part.arr,' ',50);
+  memset((char *) vendor_part.arr,' ',50);
+  memset((char *) vendor_code.arr,' ',20);
+  memset((char *) vendor_name.arr,' ',60);
+  memset((char *) vendor_flag.arr,' ',20);
+  memset((char *) last_order_price.arr,' ',18);
+  last_order_price_float=0;
+  memset((char *) vendor_model.arr,' ',50);
+  approved_vendor_b=' ';
+  memset((char *) approved_date.arr,' ',11);
+  agency_approved_b=' ';
+  preferred_vendor_b=' ';
+  memset((char *) last_order_date.arr,' ',11);
+  memset((char *) list_price.arr,' ',15);
+  list_price_float=0;
+  memset((char *) list_price_date.arr,' ',11);
+  memset((char *) list_price_valid_date.arr,' ',11);
+  memset((char *) customer_discount.arr,' ',3);
+  customer_discount_int=0;
+  memset((char *) customer_cost.arr,' ',15);
+  customer_cost_float=0;
+  memset((char *) total_deliveries.arr,' ',4);
+  total_deliveries_int=0;
+  memset((char *) late_deliveries.arr,' ',4);
+  late_deliveries_int=0;
+  memset((char *) vendor_leadtime.arr,' ',4);
+  vendor_leadtime_int=0;
+  memset((char *) turnaround_time.arr,' ',5);
+  turnaround_time_int=0;
+  memset((char *) priority.arr,' ',2);
+  priority_int=0;
+  memset((char *) cost.arr,' ',15);
+  cost_float=0;
+  memset((char *) lead_time.arr,' ',8);
+  lead_time_int=0;
+  memset((char *) agency_approved_date.arr,' ',11);
+  memset((char *) minimum_order_qty.arr,' ',15);
+  minimum_order_qty_float=0;
+  memset((char *) total_days_late.arr,' ',15);
+  total_days_late_float=0;
+  memset((char *) total_leadtime.arr,' ',8);
+  total_leadtime_int=0;
+
+  #if DEBUG
+    printf("A3005_clear_venc_host_variables end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A3005_setup_venc()
+{
+  int errcode=0;
+  int indx = 0 ;
+  int len = 0 ;
+ 
+  #if DEBUG
+    printf("A3005_setup_venc\n");
+  #endif
+
+  struct interface venc_interface[] = {
+    INTFI(vendor_customer,venc.customer),
+    INTFC(vendor_update_create_delete,venc.update_create_delete),
+    INTFI(gold_vendor_part,venc.part),
+    INTFI(vendor_part,venc.vendor_part),
+    INTFI(vendor_code,venc.vendor_code),
+    INTFI(vendor_name,venc.vendor_name),
+    INTFI(vendor_flag,venc.vendor_flag),
+    INTFI(last_order_price,venc.last_order_price),
+    INTFI(vendor_model,venc.vendor_model),
+    INTFC(approved_vendor_b,venc.approved_vendor_b),
+    INTFC(agency_approved_b,venc.agency_approved_b),
+    INTFC(preferred_vendor_b,venc.preferred_vendor_b),
+    INTFF(list_price,venc.list_price),
+    INTFN(customer_discount,venc.customer_discount),
+    INTFF(customer_cost,venc.customer_cost),
+    INTFN(total_deliveries,venc.total_deliveries),
+    INTFN(late_deliveries,venc.late_deliveries),
+    INTFN(lead_time,venc.lead_time),
+    INTFN(turnaround_time,venc.turnaround_time),
+    INTFN(priority,venc.priority),
+    INTFF(cost,venc.cost),
+    INTFN(lead_time,venc.lead_time),
+    INTFF(minimum_order_qty,venc.minimum_order_qty),
+    INTFF(total_days_late,venc.total_days_late),
+    INTFN(total_leadtime,venc.total_leadtime),
+    {NULL}
+  } ;
+  
+  for (indx = 0; venc_interface[indx].arr != NULL; indx++) {
+    len = varcharSetup2(&venc_interface[indx]) ;  
+  }
+
+    
+  #if DEBUG
+    printf("A3005_setup_venc end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A3120_insert_venc()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A3120_insert_venc\n");
+    printf("IFI005007_TK (%s)\n",api_primary_key.arr);
+    printf("IFI0050_TK (%s)\n",api_parent_key.arr);
+  #endif  
+  
+
+  EXEC SQL
+      INSERT INTO IFI005007
+        (ifi005007_tk,
+         ifi0050_tk,
+         customer,
+         update_create_delete,
+         part,
+         vendor_part,
+         vendor_code,
+         vendor_name,
+         vendor_flag,
+         last_order_price,
+         vendor_model,
+         approved_vendor_b,
+         approved_date,
+         agency_approved_b,
+         preferred_vendor_b,
+         last_order_date,
+         list_price,
+         list_price_date,
+         list_price_valid_date,
+         customer_discount,
+         customer_cost,
+         total_deliveries,
+         late_deliveries,
+         vendor_leadtime,
+         turnaround_time,
+         priority,
+         cost,
+         lead_time,
+         agency_approved_date,
+         minimum_order_qty,
+         total_days_late,
+         total_leadtime)  
+      VALUES  
+        (rtrim(:api_primary_key),
+         rtrim(:api_parent_key),
+         rtrim(:vendor_customer:vendor_customer_i),
+         rtrim(:vendor_update_create_delete:vendor_update_create_delete_i),
+         rtrim(:gold_vendor_part:gold_vendor_part_i),
+         rtrim(:vendor_part:vendor_part_i),
+         rtrim(:vendor_code:vendor_code_i),
+         rtrim(:vendor_name:vendor_name_i),
+         rtrim(:vendor_flag:vendor_flag_i),
+         :last_order_price_float:last_order_price_i,
+         rtrim(:vendor_model:vendor_model_i),
+         rtrim(:approved_vendor_b:approved_vendor_b_i),
+         to_date('01/01/1901','MM/DD/YYYY'), 
+         rtrim(:agency_approved_b:agency_approved_b_i),
+         rtrim(:preferred_vendor_b:preferred_vendor_b_i),
+         to_date('01/01/1901','MM/DD/YYYY'),
+         :list_price_float:list_price_i,
+         to_date('01/01/1901','MM/DD/YYYY'),
+         to_date('01/01/1901','MM/DD/YYYY'),
+         :customer_discount_int:customer_discount_i,
+         :customer_cost_float:customer_cost_i,
+         :total_deliveries_int:total_deliveries_i,
+         :late_deliveries_int:late_deliveries_i,
+         :vendor_leadtime_int:vendor_leadtime_i,
+         :turnaround_time_int:turnaround_time_i,
+         :priority_int:priority_i,
+         :cost_float:cost_i,
+         :lead_time_int:lead_time_i,
+         to_date('01/01/1901','MM/DD/YYYY'),
+         :minimum_order_qty_float:minimum_order_qty_i,
+         :total_days_late_float:total_days_late_i,
+         :total_leadtime_int:total_leadtime_i);  
+
+  if (sqlca.sqlcode==FND)
+  {
+    cnt_total_update_rcds++;
+    cnt_venc_008_inserts++; 
+  }
+  else
+  {
+    if(sqlca.sqlcode!=NOT_FND)
+    {
+      #if DEBUG
+        printf("\nCustomer (%s) Length (%d) Ind (%d)",vendor_customer.arr,vendor_customer.len,vendor_customer_i);
+        printf("\nUpdate Create Delete (%c) Ind (%d)",vendor_update_create_delete,vendor_update_create_delete_i);
+        printf("\nGold Part (%s) Length (%d) Ind (%d)",gold_vendor_part.arr,gold_vendor_part.len,gold_vendor_part_i);
+        printf("\nVendor Part (%s) Length (%d) Ind (%d)",vendor_part.arr,vendor_part.len,vendor_part_i);
+        printf("\nVendor Code (%s) Length (%d) Ind (%d)",vendor_code.arr,vendor_code.len,vendor_code_i);
+        printf("\nVendor Name (%s) Length (%d) Ind (%d)",vendor_name.arr,vendor_name.len,vendor_name_i);
+        printf("\nFlag (%s) Length (%d) Ind (%d)",vendor_flag.arr,vendor_flag.len,vendor_flag_i);
+        printf("\nLast Order Price (%f) Ind (%d)",last_order_price_float,last_order_price_i);
+        printf("\nModel (%s) Length (%d) Ind (%d)",vendor_model.arr,vendor_model.len,vendor_model_i);
+        printf("\nApproved Vendor (%c) Ind (%d)",approved_vendor_b,approved_vendor_b_i);
+        printf("\nAgency Approved (%c) Ind (%d)",agency_approved_b,agency_approved_b_i);
+        printf("\nPreferred Vendor (%c) Ind (%d)",preferred_vendor_b,preferred_vendor_b_i);
+        printf("\nList Price (%f) Ind (%d)",list_price_float,list_price_i);
+        printf("\nCust Discount (%d) Ind (%d)",customer_discount_int,customer_discount_i);
+        printf("\nCustomer Cost (%f) Ind (%d)",customer_cost_float,customer_cost_i);
+        printf("\nTotal Deliveries (%d) Ind (%d)",total_deliveries_int,total_deliveries_i);
+        printf("\nLate Deliveries (%d) Ind (%d)",late_deliveries_int,late_deliveries_i);
+        printf("\nVendor Leadtime (%d) Ind (%d)",vendor_leadtime_int,vendor_leadtime_i);
+        printf("\nTurnaround Time (%d) Ind (%d)",turnaround_time_int,turnaround_time_i);
+        printf("\nPriority (%d) Ind (%d)",priority_int,priority_i);
+        printf("\nCost (%f) Ind (%d)",cost_float,cost_i);
+        printf("\nLead Time (%d) Ind (%d)",lead_time_int,lead_time_i);
+        printf("\nMOQ (%f) Ind (%d)",minimum_order_qty_float,minimum_order_qty_i);
+        printf("\nDays Late (%f) Ind (%d)",total_days_late_float,total_days_late_i);
+        printf("\nTotal LeadTime (%d) Ind (%d)",total_leadtime_int,total_leadtime_i);
+      #endif
+      printf("\tA3120_insert_venc\n");
+      printf("\tBad SQLCODE Returned sqlca.sqlcode=%d\n", sqlca.sqlcode);
+      printf("\tIFI005007_TK (%s)\n",api_primary_key.arr);
+      printf("\tIFI005_TK    (%s)\n",api_parent_key.arr);
+      printf("\tCUSTOMER     (%s)\n",vendor_customer.arr);
+      printf("\tPART         (%s)\n",gold_vendor_part.arr);
+      printf("\tVENDOR CODE  (%s)\n",vendor_code.arr);
+      printf("\tUpdate/Create(%c)\n",vendor_update_create_delete),
+      errcode=3120;
+      A999_02_dberr("A3120_insert_venc");
+    }
+   }
+
+  #if DEBUG
+    printf("A3120_insert_venc end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A4000_process_whse()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A4000_process_whse\n");
+  #endif
+  
+  memcpy((char *) &whse,input_buffer,sizeof(gold68_whse_api_rcd));
+
+  memset((char *) query_part.arr,' ',50);
+  memset((char *) query_sc.arr,' ',20);
+  
+  strncpy((char *) query_part.arr,(char *) &whse.part,50);
+  query_part.arr[50]='\0';
+  query_part.len=50;
+
+  strncpy((char *) query_sc.arr,(char *) &whse.sc,20);
+  query_sc.arr[20]='\0';
+  query_sc.len=20;
+
+  errcode=0;
+  errcode=A4005_setup_whse();
+  errcode=A9999_02b_child_api_vouch_int();
+  if(errcode==0)
+  {
+    errcode=A4120_insert_whse();
+  }
+  
+  if(errcode==1)
+  {
+    errcode=0;
+  }
+
+  #if DEBUG
+    printf("A4000_process_whse end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A4001_clear_whse_host_variables()
+{
+  int errcode=0;
+
+  #if DEBUG
+    printf("A4005_clear_whse_host_variables\n");
+  #endif
+
+  memset((char *) whse_customer.arr,' ',50);
+  whse_update_create_delete=' ';
+  memset((char *) whse_error_code.arr,' ',50);
+  memset((char *) whse_part.arr,' ',50);
+  memset((char *) whse_sc.arr,' ',20);
+  memset((char *) whse_user_ref1.arr,' ',20);
+  memset((char *) whse_user_ref2.arr,' ',20);
+  memset((char *) whse_user_ref3.arr,' ',20);
+  memset((char *) whse_user_ref4.arr,' ',20);
+  memset((char *) whse_user_ref5.arr,' ',20);
+  memset((char *) whse_user_ref6.arr,' ',20);
+  memset((char *) whse_user_ref7.arr,' ',20);
+  memset((char *) whse_user_ref8.arr,' ',20);
+  memset((char *) whse_user_ref9.arr,' ',20);
+  memset((char *) whse_user_ref10.arr,' ',20);
+  memset((char *) whse_user_ref11.arr,' ',20);
+  memset((char *) whse_user_ref12.arr,' ',20);
+  memset((char *) whse_user_ref13.arr,' ',20);
+  memset((char *) whse_user_ref14.arr,' ',20);
+  memset((char *) whse_user_ref15.arr,' ',20);
+  memset((char *) stock_level.arr,' ',15);
+  stock_level_float=0;
+  memset((char *) reorder_point.arr,' ',15);
+  reorder_point_float=0;
+  memset((char *) remarks.arr,' ',60);
+  memset((char *) default_bin.arr,' ',20);
+  freeze_ordering_b=' ';
+  freeze_receiving_b=' ';
+  freeze_iss_disp_b=' ';
+  freeze_xfer_i_b=' ';
+  freeze_xfer_o_b=' ';
+  freeze_other_b=' ';
+  pi_recommend_b=' ';
+  memset((char *) auth_allow.arr,' ',17);
+  auth_allow_float=0;
+  memset((char *) c_elin.arr,' ',20);
+  memset((char *) whse_ims_designator_code.arr,' ',20);
+
+  #if DEBUG
+    printf("A4005_clear_whse_host_variables end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A4005_setup_whse()
+{
+  int errcode=0;
+  int indx = 0 ;
+  int len = 0 ;
+
+  struct interface intf[] = {
+    INTFI(whse_customer,whse.customer),
+    INTFC(whse_update_create_delete,whse.update_create_delete),
+    INTFI(whse_part,whse.part),
+    INTFI(whse_sc,whse.sc),
+    INTFI(whse_user_ref1,whse.user_ref1),
+    INTFI(whse_user_ref2,whse.user_ref2),
+    INTFI(whse_user_ref3,whse.user_ref3),
+    INTFI(whse_user_ref4,whse.user_ref4),
+    INTFI(whse_user_ref5,whse.user_ref5),
+    INTFI(whse_user_ref6,whse.user_ref6),
+    INTFI(whse_user_ref7,whse.user_ref7),
+    INTFI(whse_user_ref8,whse.user_ref8),
+    INTFI(whse_user_ref9,whse.user_ref9),
+    INTFI(whse_user_ref10,whse.user_ref10),
+    INTFI(whse_user_ref11,whse.user_ref11),
+    INTFI(whse_user_ref12,whse.user_ref12),
+    INTFI(whse_user_ref13,whse.user_ref13),
+    INTFI(whse_user_ref14,whse.user_ref14),
+    INTFI(whse_user_ref15,whse.user_ref15),
+    INTFF(stock_level,whse.stock_level),
+    INTFF(reorder_point,whse.reorder_point),
+    INTFI(remarks,whse.remarks),
+    INTFI(default_bin,whse.default_bin),
+    INTFC(freeze_ordering_b,whse.freeze_ordering_b),
+    INTFC(freeze_receiving_b,whse.freeze_receiving_b),
+    INTFC(freeze_xfer_i_b,whse.freeze_xfer_i_b),
+    INTFC(freeze_xfer_o_b,whse.freeze_xfer_o_b),
+    INTFC(pi_recommend_b,whse.pi_recommend_b),
+    INTFF(auth_allow,whse.auth_allow),
+    INTF(c_elin,whse.c_elin),
+    INTFI(whse_ims_designator_code,whse.ims_designator_code),
+    {NULL}
+  } ;
+
+        for (indx = 0; intf[indx].arr != NULL; indx++) {
+    len = varcharSetup2(&intf[indx]) ;  
+  }
+
+  #if DEBUG
+    printf("A4005_setup_whse\n");
+  #endif
+
+
+  #if DEBUG
+    printf("A4005_setup_whse end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A4120_insert_whse()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A4120_insert_whse\n");
+    printf("IFI005008_TK (%s)\n",api_primary_key.arr);
+    printf("IFI0050_TK (%s)\n",api_parent_key.arr);
+    printf("Customer (%s)\n",whse_customer.arr);
+    printf("UCD (%c)\n",whse_update_create_delete);
+    printf("Part (%s)\n",whse_part.arr);
+    printf("\nSC (%s)\n",whse_sc.arr);
+  #endif
+
+  EXEC SQL
+      INSERT INTO IFI005008
+        (ifi005008_tk,
+         ifi0050_tk,
+         customer,
+         update_create_delete,part,
+         sc,
+         user_ref1,
+         user_ref2,
+         user_ref3,
+         user_ref4,
+         user_ref5,
+         user_ref6,
+         user_ref7,
+         user_ref8,
+         user_ref9,
+         user_ref10,
+         user_ref11,
+         user_ref12,
+         user_ref13,
+         user_ref14,
+         user_ref15,
+         stock_level,
+         reorder_point,
+         remarks,
+         default_bin,
+         freeze_ordering_b,
+         freeze_receiving_b,
+         freeze_iss_disp_b,
+         freeze_xfer_i_b,
+         freeze_xfer_o_b,
+         freeze_other_b,
+         pi_recommend_b,
+         auth_allow,c_elin,
+   ims_designator_code)  
+      VALUES
+        (rtrim(:api_primary_key),
+         rtrim(:api_parent_key),
+         rtrim(:whse_customer:whse_customer_i),
+         rtrim(:whse_update_create_delete:whse_update_create_delete_i),
+         rtrim(:whse_part:whse_part_i),
+         rtrim(:whse_sc:whse_sc_i),
+         rtrim(:whse_user_ref1:whse_user_ref1_i),
+         rtrim(:whse_user_ref2:whse_user_ref2_i),
+         rtrim(:whse_user_ref3:whse_user_ref3_i),
+         rtrim(:whse_user_ref4:whse_user_ref4_i),
+         rtrim(:whse_user_ref5:whse_user_ref5_i),
+         rtrim(:whse_user_ref6:whse_user_ref6_i),
+         rtrim(:whse_user_ref7:whse_user_ref7_i),
+         rtrim(:whse_user_ref8:whse_user_ref8_i),
+         rtrim(:whse_user_ref9:whse_user_ref9_i),
+         rtrim(:whse_user_ref10:whse_user_ref10_i),
+         rtrim(:whse_user_ref11:whse_user_ref11_i),
+         rtrim(:whse_user_ref12:whse_user_ref12_i),
+         rtrim(:whse_user_ref13:whse_user_ref13_i),
+         rtrim(:whse_user_ref14:whse_user_ref14_i),
+         rtrim(:whse_user_ref15:whse_user_ref15_i),
+         :stock_level_float:stock_level_i,
+         :reorder_point_float:reorder_point_i,
+         rtrim(:remarks:remarks_i),
+         rtrim(:default_bin:default_bin_i),
+         :freeze_ordering_b:freeze_ordering_b_i,
+         :freeze_receiving_b:freeze_receiving_b_i,
+         :freeze_iss_disp_b:freeze_iss_disp_b_i,
+         :freeze_xfer_i_b:freeze_xfer_i_b_i,
+         :freeze_xfer_o_b:freeze_xfer_o_b_i,
+         :freeze_other_b:freeze_other_b_i,
+         :pi_recommend_b:pi_recommend_b_i,
+         :auth_allow_float:auth_allow_i,
+         rtrim(:c_elin:c_elin_i),
+   rtrim(:whse_ims_designator_code:whse_ims_designator_code_i)); 
+
+  if (sqlca.sqlcode==FND)
+  {
+    cnt_total_update_rcds++;
+    cnt_whse_009_inserts++; 
+  }
+  else
+  {
+    if(sqlca.sqlcode!=NOT_FND)
+    {
+      printf("\tA4120_insert_whse\n");
+      printf("\tBad SQLCODE Returned sqlca.sqlcode=%d\n", sqlca.sqlcode);
+      printf("\tIFI005008_TK (%s)\n",api_primary_key.arr);
+      printf("\tIFI008_TK    (%s)\n",api_parent_key.arr);
+      printf("\tCUSTOMER     (%s)\n",whse_customer.arr);
+      printf("\tPART         (%s)\n",whse_part.arr);
+      printf("\tSC           (%s)\n",whse_sc.arr);
+      printf("\tUpdate/Create(%c)\n",whse_update_create_delete),
+      errcode=4210;
+      A999_02_dberr("A4120_insert_whse");
+    }
+  }
+
+  #if DEBUG
+    printf("A4120_insert_whse end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int  A5000_process_actd()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A5000_process_actd\n");
+  #endif
+  
+  memcpy((char *) &actd,input_buffer,sizeof(gold68_actd_api_rcd));
+
+  memset((char *) query_part.arr,' ',50);
+  memset((char *) query_sc.arr,' ',20);
+  memset((char *) query_activity_code.arr,' ',50);
+  
+  strncpy((char *) query_part.arr,(char *) &actd.part,50);
+  query_part.arr[50]='\0';
+  query_part.len=50;
+
+  /*strncpy((char *) query_sc.arr,(char *) &whse.sc,20);
+  query_sc.arr[20]='\0';
+  query_sc.len=20;*/
+
+  strncpy((char *) query_activity_code.arr,(char *) &actd.activity_code,50);
+  query_activity_code.arr[50]='\0';
+  query_activity_code.len=50;
+
+  errcode=0;
+  errcode=A5005_setup_actd();
+  errcode=A9999_02b_child_api_vouch_int();
+  if(errcode==0)
+    errcode=A5120_insert_actd();
+  
+  if(errcode==1)
+    errcode=0;
+
+  #if DEBUG
+    printf("A5000_process_actd end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A5001_clear_actd_host_variables()
+{
+  int errcode=0;
+
+  #if DEBUG
+    printf("A5001_clear_actd_host_variables\n");
+  #endif
+
+  memset((char *) actd_customer.arr,' ',50);
+  actd_update_create_delete=' ';
+  memset((char *) actd_error_code.arr,' ',50);
+  memset((char *) actd_part.arr,' ',50);
+  memset((char *) actd_sc.arr,' ',20);
+  memset((char *) activity_code.arr,' ',50);
+  memset((char *) structure_code.arr,' ',20);
+  memset((char *) sub_structure_code.arr,' ',20);
+  memset((char *) pos.arr,' ',20);
+  memset((char *) actd_category_instrument.arr,' ',20);
+  memset((char *) actual_interval.arr,' ',15);
+  memset((char *) warning_interval.arr,' ',15);
+  memset((char *) est_mat_cost.arr,' ',15);
+  memset((char *) est_labor_hours.arr,' ',15);
+  memset((char *) est_days.arr,' ',15);
+  memset((char *) deviation_rebase.arr,' ',15);
+  memset((char *) actd_user_ref1.arr,' ',20);
+  memset((char *) actd_user_ref2.arr,' ',20);
+  memset((char *) actd_user_ref3.arr,' ',20);
+  memset((char *) actd_user_ref4.arr,' ',20);
+  memset((char *) actd_user_ref5.arr,' ',20);
+  memset((char *) actd_user_ref6.arr,' ',20);
+  memset((char *) actd_remarks.arr,' ',60);
+  memset((char *) default_bin.arr,' ',20);
+  recurring_b=' ';
+  master_life_b=' ';
+  auto_rebase_b=' ';
+  mandatory_b=' ';
+  supply_b=' ';
+  operational_b=' ';
+  actual_interval_float = 0.0;
+  warning_interval_float = 0.0;
+  est_mat_cost_float = 0.0;
+  est_labor_hours_float = 0.0;
+  est_days_float = 0.0;
+  deviation_rebase_float = 0.0;
+  
+  #if DEBUG
+    printf("A5001_clear_actd_host_variables end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A5005_setup_actd()
+{
+  int errcode = 0 ;
+  struct interface actdintf[] = {
+    INTFI(actd_customer, actd.customer),
+    INTFI(actd_part, actd.part),
+    INTFI(actd_sc, actd.sc),
+    INTFI(activity_code, actd.activity_code),
+    INTFI(structure_code, actd.structure_code),
+    INTFI(sub_structure_code, actd.sub_structure_code),
+    INTFI(pos, actd.pos),
+    INTFI(category_instrument, actd.category_instrument),
+    INTFI(actd_user_ref1, actd.user_ref1),
+    INTFI(actd_user_ref2, actd.user_ref2),
+    INTFI(actd_user_ref3, actd.user_ref3),
+    INTFI(actd_user_ref4, actd.user_ref4),
+    INTFI(actd_user_ref5, actd.user_ref5),
+    INTFI(actd_user_ref6, actd.user_ref6),
+    INTFF(actual_interval, actd.actual_interval),
+    INTFF(warning_interval, actd.actual_interval),
+    INTFF(est_mat_cost, actd.est_mat_cost),
+    INTFF(est_labor_hours, actd.est_labor_hours),
+    INTFF(est_days, actd.est_days),
+    INTFF(deviation_rebase, actd.deviation_rebase),
+    INTFI(remarks, actd.remarks),
+    INTFC(actd_update_create_delete, actd.update_create_delete),
+    INTFC(recurring_b, actd.recurring_b),
+    INTFC(master_life_b, actd.master_life_b),
+    INTFC(auto_rebase_b, actd.auto_rebase_b),
+    INTFC(mandatory_b, actd.mandatory_b),
+    INTFC(supply_b, actd.supply_b),
+    INTFC(operational_b, actd.operational_b),
+    {NULL}
+  } ;
+
+  int indx = 0 ;
+  int len = 0 ;
+
+  #if DEBUG
+    printf("A5005_setup_actd\n");
+  #endif
+
+  for (indx = 0; actdintf[indx].arr != NULL; indx++) {
+    len = varcharSetup2(&actdintf[indx]) ;
+    #if DEBUG
+      printf("name=%s ",actdintf[indx].name);
+      if (len > 1)
+        printf("indx=%d x.len=%hu x.arr=%s ", indx, (*actdintf[indx].len), actdintf[indx].arr) ;
+      else if (len == 1)
+        printf("len=%d x.arr=%c ", len, (*actdintf[indx].arr)) ;
+      else if (len == 0)
+        printf("len=%d x.arr=NULL ", len) ;
+      if (actdintf[indx].ind == NULL)
+        printf("ind=NULL ") ;
+      else
+        printf("ind=%d ",(*actdintf[indx].ind)) ;
+      printf("\n") ;
+    #endif
+  }
+
+
+  #if DEBUG
+    printf("actual_interval_float=%f\n",actual_interval_float) ;
+    printf("warning_interval_float=%f\n",warning_interval_float) ;
+    printf("est_mat_cost_float=%f\n",est_mat_cost_float) ;
+    printf("est_labor_hours_float=%f\n",est_labor_hours_float) ;
+    printf("est_days_float=%f\n",est_days_float) ;
+    printf("deviation_rebase_float=%f\n",deviation_rebase_float) ;
+    printf("ACTD Act Code (%2.2s)\n",actd.activity_code);
+  #endif  
+
+  #if DEBUG
+    printf("A5005_setup_actd end errcode=%d\n", errcode);
+  #endif
+  return(errcode);  
+}
+/*
+
+*/
+int A5120_insert_actd()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A5120_insert_actd\n");
+    printf("IFI005001_TK (%s)\n",api_primary_key.arr);
+    printf("IFI0050_TK (%s)\n",api_parent_key.arr);
+    printf("Customer (%s)\n",actd_customer.arr);
+    printf("UCD (%c)\n",actd_update_create_delete);
+    printf("Part (%s)\n",actd_part.arr);
+    printf("SC (%s)\n",actd_sc.arr);
+  #endif
+
+  EXEC SQL
+      INSERT INTO IFI005001
+        (ifi005001_tk,
+         ifi0050_tk,
+         customer,
+         update_create_delete,
+         activity_code,
+         structure_code,
+         sub_structure_code,
+         pos,
+         part,
+         sc,
+         category_instrument,
+         recurring_b,
+         actual_interval,
+         warning_interval,
+         est_mat_cost,
+         est_labor_hours,
+         master_life_b,
+         est_days,
+         remarks,
+         deviation_rebase,
+         auto_rebase_b,
+         mandatory_b,
+         user_ref1,
+         user_ref2,
+         user_ref3,
+         user_ref4,
+         user_ref5,
+         user_ref6,
+         supply_b,
+         operational_b)
+      VALUES
+        (rtrim(:api_primary_key),
+         rtrim(:api_parent_key),
+         rtrim(:actd_customer:actd_customer_i),
+         rtrim(:actd_update_create_delete:actd_update_create_delete_i),
+         rtrim(:activity_code:activity_code_i),
+         rtrim(:structure_code:structure_code_i),
+         rtrim(:sub_structure_code:sub_structure_code_i),
+         rtrim(:pos:pos_i),
+         rtrim(:actd_part:actd_part_i),
+         rtrim(:actd_sc:actd_sc_i),
+         rtrim(:actd_category_instrument:actd_category_instrument_i),
+         :recurring_b:recurring_b_i,
+         :actual_interval_float:actual_interval_i,
+         :warning_interval_float:warning_interval_i,
+         :est_mat_cost_float:est_mat_cost_i,
+         :est_labor_hours_float:est_labor_hours_i,
+         :master_life_b:master_life_b_i,
+         :est_days_float:est_days_i,
+         :actd_remarks:actd_remarks_i,
+         :deviation_rebase_float:deviation_rebase_i,
+         :auto_rebase_b:auto_rebase_b_i,
+         :mandatory_b:mandatory_b_i,
+         rtrim(:actd_user_ref1:actd_user_ref1_i),
+         rtrim(:actd_user_ref2:actd_user_ref2_i),
+         rtrim(:actd_user_ref3:actd_user_ref3_i),
+         rtrim(:actd_user_ref4:actd_user_ref4_i),
+         rtrim(:actd_user_ref5:actd_user_ref5_i),
+         rtrim(:actd_user_ref6:actd_user_ref6_i),
+         :supply_b:supply_b_i,
+         :operational_b:operational_b_i); 
+
+  if (sqlca.sqlcode==FND)
+  {
+    cnt_total_update_rcds++;
+    cnt_actd_002_inserts++; 
+  }
+  else
+  {
+    if(sqlca.sqlcode!=NOT_FND)
+    {
+      printf("\tA5120_insert_actd\n");
+      printf("\tBad SQLCODE Returned sqlca.sqlcode=%d\n", sqlca.sqlcode);
+      printf("\tIFI005001_TK (%s)\n",api_primary_key.arr);
+      printf("\tIFI005_TK    (%s)\n",api_parent_key.arr);
+      printf("\tCUSTOMER     (%s)\n",actd_customer.arr);
+      printf("\tPART         (%s)\n",actd_part.arr);
+      printf("\tSC           (%s)\n",actd_sc.arr);
+      printf("\tUpdate/Create(%c)\n",actd_update_create_delete),
+      errcode=4210;
+      A999_02_dberr("A5120_insert_actd");
+    }
+  }
+
+  #if DEBUG
+    printf("A5120_insert_actd end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+
+/*
+
+*/
+int  A6000_process_cats()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A5000_process_cats\n");
+  #endif
+  
+  memcpy((char *) &cats,input_buffer,sizeof(gold68_cats_api_rcd));
+
+  memset((char *) query_part.arr,' ',50);
+  memset((char *) query_sc.arr,' ',20);
+  
+  strncpy((char *) query_part.arr,(char *) &cats.part,50);
+  query_part.arr[50]='\0';
+  query_part.len=50;
+
+  /*strncpy((char *) query_sc.arr,(char *) &whse.sc,20);
+  query_sc.arr[20]='\0';
+  query_sc.len=20;*/
+
+  errcode=0;
+  errcode=A6005_setup_cats();
+  errcode=A9999_02b_child_api_vouch_int();
+  if(errcode==0)
+  {
+    errcode=A6120_insert_cats();
+  }
+  
+  if(errcode==1)
+  {
+    errcode=0;
+  }
+
+  #if DEBUG
+    printf("A5000_process_cats end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A6001_clear_cats_host_variables()
+{
+  int errcode=0;
+
+  #if DEBUG
+    printf("A6001_clear_cats_host_variables\n");
+  #endif
+
+  memset((char *) cats_customer.arr,' ',50);
+  cats_update_create_delete=' ';
+  memset((char *) cats_error_code.arr,' ',50);
+  memset((char *) cats_part.arr,' ',50);
+  memset((char *) cats_sc.arr,' ',20);
+  memset((char *) cats_category_instrument.arr,' ',12);
+  memset((char *) cats_security_code.arr,' ',20);
+  
+  #if DEBUG
+    printf("A6001_clear_cats_host_variables end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A6005_setup_cats()
+{
+  int errcode=0;
+  struct interface cats_interface1[] = {
+    INTFI(cats_customer, cats.customer),
+    INTFC(cats_update_create_delete, cats.update_create_delete),
+    INTFI(cats_part, cats.part),
+    INTFI(cats_sc, cats.sc),
+    INTFI(cats_security_code, cats.security_code),
+    INTFI(cats_category_instrument, cats.category_instrument),
+    {NULL}
+  } ;
+  int indx ;
+  int len = 0 ;
+  
+  
+  #if DEBUG
+    printf("A6005_setup_cats\n");
+  #endif
+
+  for (indx = 0; cats_interface1[indx].arr != NULL; indx++) {
+    len = varcharSetup2(&cats_interface1[indx]) ; 
+    #if DEBUG
+      printf("name=%s arr=%s len=%hu\n", cats_interface1[indx].name,
+        cats_interface1[indx].arr,
+        (*cats_interface1[indx].len)) ;
+    #endif
+  }
+
+  #if DEBUG
+    printf("A6005_setup_cats end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A6120_insert_cats()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A6120_insert_cats\n");
+    printf("IFI005004_TK (%s)\n",api_primary_key.arr);
+    printf("IFI0050_TK (%s)\n",api_parent_key.arr);
+    printf("Customer (%s)\n",cats_customer.arr);
+    printf("UCD (%c)\n",cats_update_create_delete);
+    printf("Part (%s)\n",cats_part.arr);
+    printf("SC (%s)\n",cats_sc.arr);
+  #endif
+
+  EXEC SQL
+        INSERT INTO IFI005004
+         (ifi005004_tk,
+          ifi0050_tk,
+          customer,
+          update_create_delete,
+          part,
+          sc,
+          category_instrument,
+          security_code)
+       VALUES
+         (rtrim(:api_primary_key),
+         rtrim(:api_parent_key),
+         rtrim(:cats_customer:cats_customer_i),
+         rtrim(:cats_update_create_delete:cats_update_create_delete_i),
+         rtrim(:cats_part:cats_part_i),
+         rtrim(:cats_sc:cats_sc_i),
+         rtrim(:cats_category_instrument:cats_category_instrument_i),
+         rtrim(:cats_security_code:cats_security_code_i)); 
+
+  if (sqlca.sqlcode==FND)
+  {
+    cnt_total_update_rcds++;
+    cnt_cats_004_inserts++; 
+  }
+  else
+  {
+    if(sqlca.sqlcode!=NOT_FND)
+    {
+      printf("\tA4120_insert_whse\n");
+      printf("\tBad SQLCODE Returned sqlca.sqlcode=%d\n", sqlca.sqlcode);
+      printf("\tIFI005008_TK (%s)\n",api_primary_key.arr);
+      printf("\tIFI008_TK    (%s)\n",api_parent_key.arr);
+      printf("\tCUSTOMER     (%s)\n",cats_customer.arr);
+      printf("\tPART         (%s)\n",cats_part.arr);
+      printf("\tSC           (%s)\n",cats_sc.arr);
+      printf("\tUpdate/Create(%c)\n",cats_update_create_delete),
+      errcode=4210;
+      A999_02_dberr("A4120_insert_whse");
+    }
+  }
+
+  #if DEBUG
+    printf("A6120_insert_cats end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A9700_write_output_error_file()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A9700_write_output_error_file\n");
+  #endif
+
+  memset(output_buffer,' ',5000);
+  strncpy(output_buffer,"UNABLE TO LOCATE CAT1 PART - ",30);
+  strcat(output_buffer,(char *) &input_buffer);
+  
+  fputs(output_buffer,OUTPUT_ERROR_FILE);
+  
+  /* use fflush when debugging otherwise for more efficient I/O
+   * use the automatic buffer
+   */
+  #if DEBUG
+    fflush(OUTPUT_ERROR_FILE);
+  #endif
+
+  cnt_error_rcds++;
+
+  return(errcode);
+}
+/*
+
+*/
+int A9999_01_setup_type001_part_number()
+{
+  int errcode=0;
+
+  if(strncmp(api_rcd_type,"001",3)==0)
+  {
+    assert(sizeof(type_001_part.arr) >= sizeof(cat1.part)+1) ;
+    strncpy(type_001_part.arr,cat1.part,sizeof(cat1.part));
+    type_001_part.arr[sizeof(type_001_part.arr) - 1] = '\0';
+
+    assert(sizeof(type_001_prime.arr) >= sizeof(cat1.prime)+1) ;
+    strncpy(type_001_prime.arr,cat1.prime,sizeof(cat1.prime));
+    type_001_prime.arr[sizeof(type_001_prime.arr) - 1] = '\0';
+  }
+  else
+  {
+    if(strncmp(api_rcd_type,"005",3)==0)
+    {
+    }
+    else
+    {
+      if(strncmp(api_rcd_type,"008",3)==0)
+      {
+      }
+      else
+      {
+        if(strncmp(api_rcd_type,"009",3)==0)
+        {
+        }
+        else
+        {
+          printf("A9999_01_setup_type001_part_number\n");
+          printf("Unidentified API Record Type\n");
+          errcode=9001;
+        }
+      }
+    }
+  }
+  #if DEBUG
+    printf("A9700_write_output_error_file end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A9999_02a_api_create_int_hdr()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A9999_02a_api_create_int_hdr\n");
+  #endif
+  
+  exec sql execute
+   begin
+    if_xs.create_inthdr(rtrim(:api_interface_name),
+        rtrim(:api_ext_app_name),
+        rtrim(:api_ext_app_id),
+        :api_status,
+        :api_intrfce_trans_tk);
+   end;
+  end-exec;
+
+  if(sqlca.sqlcode==FND)
+  {
+    if(api_status==0)
+    {
+/*      Setting this Flag to 0 means the a create_inthdr has been created and that the program needs to call 
+      A9999_02c_apo_submit_int in order to complete the processing of this logical set of Records. */
+
+      api_submit_int_flag='0';
+
+      #if DEBUG
+        printf("Values returned from create_inthdr procedure\n");
+        printf("Interface Name(%s)\n",api_interface_name.arr);
+        printf("Application Name - (%s)\n",api_ext_app_name.arr);
+        printf("Application Id   - (%s)\n",api_ext_app_id.arr);
+        printf("Status           - (%d)\n",api_status);
+        printf("Intrfce Trans Key- (%s)\n",api_intrfce_trans_tk.arr);
+      #endif  
+    }
+    else
+    {
+      printf("Bad Status Code returned from Procedure create_inthdr\n");
+      printf("Interface Name(%s)\n",api_interface_name.arr);
+      printf("Application Name - (%s)\n",api_ext_app_name.arr);
+      printf("Application Id   - (%s)\n",api_ext_app_id.arr);
+      printf("Status           - (%d)\n",api_status);
+      printf("Intrfce Trans Key- (%s)\n",api_intrfce_trans_tk.arr);
+      errcode=9016;
+    }
+  }
+  else
+  {
+    printf("Bad Sqlcode from Procedure create_inthdr sqlca.sqlcode=%d\n", sqlca.sqlcode);
+    printf("Interface Name(%s)\n",api_interface_name.arr);
+    printf("Application Name - (%s)\n",api_ext_app_name.arr);
+    printf("Application Id   - (%s)\n",api_ext_app_id.arr);
+    printf("Status           - (%d)\n",api_status);
+    printf("Trans TK         - (%s)\n",api_intrfce_trans_tk.arr);
+    errcode=9011;
+    A999_02_dberr("A9999_02a_api_create_int_hdr 1");
+  }
+  #if DEBUG
+    printf("A9999_02a_api_create_int_hdr end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A9999_02b_parent_api_vouch_int()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A9999_02b_parent_api_vouch_int\n");
+  #endif
+
+  exec sql execute
+   begin
+    if_xs.vouch_int(:api_status,
+        :api_parent_key);
+   end;
+  end-exec;
+
+  if(sqlca.sqlcode==FND)
+  {
+    if(api_status==0)
+    {
+            memset(api_foreign_key.arr,' ',sizeof(api_foreign_key));
+      strncpy(api_foreign_key.arr,api_parent_key.arr,api_parent_key.len);
+      api_foreign_key.arr[api_parent_key.len] = '\0';
+      api_foreign_key.len=strlen(api_foreign_key.arr);
+      #if DEBUG
+        printf("Values returned from vouch_int\n");
+        printf("Status           - (%d)\n",api_status);
+        printf("Parent Key       - (%s)\n",api_parent_key.arr);
+        printf("Foreign Key      - (%s)\n",api_foreign_key.arr);
+      #endif  
+    }
+    else
+    {
+      printf("Bad Status Code returned from Procedure vouch_int\n");
+      printf("Interface Name(%s)\n",api_interface_name.arr);
+      printf("Application Name - (%s)\n",api_ext_app_name.arr);
+      printf("Application Id   - (%s)\n",api_ext_app_id.arr);
+      printf("Status           - (%d)\n",api_status);
+      printf("Intrfce Trans Key- (%s)\n",api_intrfce_trans_tk.arr);
+      printf("Parent Table Key - (%s)\n",api_parent_key.arr);
+      printf("Foreign Key      - (%s)\n",api_foreign_key.arr);
+      errcode=9015;
+    }
+  }
+  else
+  {
+    printf("Bad Sqlcode from Procedure create_inthdr sqlca.sqlcode=%d\n", sqlca.sqlcode);
+    printf("Interface Name(%s)\n",api_interface_name.arr);
+    printf("Application Name - (%s)\n",api_ext_app_name.arr);
+    printf("Application Id   - (%s)\n",api_ext_app_id.arr);
+    printf("Status           - (%d)\n",api_status);
+    printf("Intrfce Trans Key- (%s)\n",api_intrfce_trans_tk.arr);
+    printf("Parent Table Key - (%s)\n",api_parent_key.arr);
+    printf("Foreign Key      - (%s)\n",api_foreign_key.arr);
+    errcode=9012;
+    A999_02_dberr("A9999_02a_api_create_int_hdr 2");
+  }
+  
+  #if DEBUG
+    printf("A9999_02b_parent_api_vouch_int end errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A9999_02b_child_api_vouch_int()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A9999_02b_child_api_vouch_int\n");
+  #endif
+
+  exec sql execute
+   begin
+    if_xs.vouch_int(:api_status,
+        :api_primary_key);
+   end;
+  end-exec;
+
+  if(sqlca.sqlcode==FND)
+  {
+    if(api_status==0)
+    {
+      #if DEBUG
+        printf("Values returned from vouch_int\n");
+        printf("Status           - (%d)\n",api_status);
+        printf("Primary Key      - (%s)\n",api_primary_key.arr);
+      #endif  
+    }
+    else
+    {
+      printf("Bad Status Code returned from Procedure vouch_int\n");
+      printf("Interface Name(%s)\n",api_interface_name.arr);
+      printf("Application Name - (%s)\n",api_ext_app_name.arr);
+      printf("Application Id   - (%s)\n",api_ext_app_id.arr);
+      printf("Status           - (%d)\n",api_status);
+      printf("Primary Key            - (%s)\n",api_primary_key.arr);
+      errcode=9015;
+    }
+  }
+  else
+  {
+    printf("Bad Sqlcode from Procedure create_inthdr sqlca.sqlcode=%d\n", sqlca.sqlcode);
+    printf("Interface Name(%s)\n",api_interface_name.arr);
+    printf("Application Name - (%s)\n",api_ext_app_name.arr);
+    printf("Application Id   - (%s)\n",api_ext_app_id.arr);
+    printf("Status           - (%d)\n",api_status);
+    printf("Parent Table Key        - (%s)\n",api_parent_key.arr);
+    printf("Child Table Key        - (%s)\n",api_primary_key.arr);
+    errcode=9012;
+    A999_02_dberr("A9999_02b_child_api_vouch_int");
+  }
+  
+  #if DEBUG
+    printf("A9999_02b_child_api_vouch_int errcode=%d\n", errcode);
+  #endif
+  return(errcode);
+}
+/*
+
+*/
+int A9999_02c_api_submit_int()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A9999_02c_api_submit_int\n");
+    fflush(stdout) ;
+  #endif  
+  exec sql execute
+    begin
+      if_xs.submit_int(:api_intrfce_trans_tk,
+            :api_misc_field1,
+            :api_misc_field2,
+            :api_status);
+     end;
+  end-exec;
+  if(sqlca.sqlcode==FND)
+  {
+    if(api_status==0)
+    {
+/*      Setting this flag to 1 means that submit_int has been processed */
+      api_submit_int_flag='1';
+      #if DEBUG
+        printf("Values returned from api_submit_int\n");
+        printf("Misc Field1      - (%s)\n",api_misc_field1.arr);
+        printf("Misc Field2      - (%s)\n",api_misc_field2.arr);
+        printf("Status           - (%d)\n",api_status);
+        printf("Intrfce Key      - (%s)\n",api_intrfce_trans_tk.arr);
+        fflush(stdout) ;
+      #endif  
+    }
+    else
+    {
+      printf("Bad Status Code returned from Procedure submit_int\n");
+      printf("Interface Name(%s)\n",api_interface_name.arr);
+      printf("Application Name - (%s)\n",api_ext_app_name.arr);
+      printf("Application Id   - (%s)\n",api_ext_app_id.arr);
+      printf("Status           - (%d)\n",api_status);
+      printf("Trans TK         - (%s)\n",api_intrfce_trans_tk.arr);
+      printf("Misc Field 1     - (%s)\n",api_misc_field1.arr);
+      printf("Misc Field 2     - (%s)\n",api_misc_field2.arr);
+      #if DEBUG
+        fflush(stdout) ;
+      #endif
+      errcode=9014;
+    }
+  }
+  else
+  {
+    printf("Bad Sqlcode from Procedure create_inthdr sqlca.sqlcode=%d\n", sqlca.sqlcode);
+    printf("Interface Name(%s)\n",api_interface_name.arr);
+    printf("Application Name - (%s)\n",api_ext_app_name.arr);
+    printf("Application Id   - (%s)\n",api_ext_app_id.arr);
+    printf("Status           - (%d)\n",api_status);
+    printf("Trans TK         - (%s)\n",api_intrfce_trans_tk.arr);
+    printf("Misc Field 1     - (%s)\n",api_misc_field1.arr);
+    printf("Misc Field 2     - (%s)\n",api_misc_field2.arr);
+    #if DEBUG
+      fflush(stdout) ;
+    #endif
+    errcode=9013;
+    A999_02_dberr("A9999_02c_api_submit_int");
+  }
+
+  #if DEBUG
+    printf("A9999_02c_api_submit_int end errcode=%d\n", errcode);
+    fflush(stdout) ;
+  #endif  
+  return(errcode);
+}
+/*
+
+*/
+int  A9999_03_check_mlsm_table()
+{
+  int errcode=0;
+  
+  #if DEBUG
+    printf("A9999_03_check_mlsm_table\n");
+    fflush(stdout);
+  #endif  
+
+  nsn_smic_rowcnt_int=0;
+  if (nsn_smic.len == 0) {
+    #if DEBUG
+      printf("nsn_smic is null string for mlsm lookup\n") ;
+      fflush(stdout) ;
+    #endif
+    return errcode ;
+  }
+
+  EXEC SQL
+        select count(*)
+          into :nsn_smic_rowcnt_int
+        from MLSM
+          where smic_code = :nsn_smic;
+
+    
+
+  #if DEBUG
+    printf("end select count(*) for mlsm sqlcode=%d\n", sqlca.sqlcode);
+    fflush(stdout);
+  #endif  
+
+  if(sqlca.sqlcode==FND) {
+    /* do nothing */
+  } else if(sqlca.sqlcode==NOT_FND) {
+      nsn_smic_rowcnt_int=0;
+   } else {
+      printf("A9999_03_check_mlsm_table\n");
+      assert(strlen(nsn_smic.arr) < sizeof(nsn_smic.arr) ) ;
+      printf("select count(*)\ninto :nsn_smic_rowcnt_int\nfrom GOLD__MASTER.MLSM@PGOLDSL.WORLD\nwhere smic_code = %s;",nsn_smic.arr) ;
+      printf("Bad Sqlcode sqlca.sqlcode=%d\n", sqlca.sqlcode);
+      fflush(stdout) ;
+      errcode=9014;
+      A999_02_dberr("A9999_03_check_mlsm_table");
+    }
+  
+  #if DEBUG
+    printf("A9999_03_check_mlsm_table end errcode=%d\n", errcode);
+    fflush(stdout) ;
+  #endif  
+  return(errcode);
+
+}

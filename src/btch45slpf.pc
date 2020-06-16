@@ -1,0 +1,3717 @@
+/*     Program -  Proof/SLIC HA Table Update Program */
+
+/*
+ **************************************************************************
+ *  PROGRAM NAME: 
+ *
+ *  PURPOSE: This application pulls from SLIC/PROOF those items that are 
+ *          candidates for moving to the IMS PROOF Data Base in SAMS.  This
+ *          is the main program.  It runs for F-18, F-15 and T45.  Determination
+ *          of which Program is being run is based upon a parmeter being passed.
+ *          If the selected Part Number/Cage does not have the
+ *          PROOF_TRANSFR_FLAG set to "Y" on the HAX, then it will be set.
+ *        
+ *
+ *  INPUTS:
+ *	    1.  Input Program Code (F18/F15/T45)
+ *	    2.  Output Dataset Name for Extract Data
+ *          3.  Output Dataset Name for Program Counts
+ *           
+ *
+ *  OUTPUTS: 
+ *	    1.  Output Extract Data
+ *          2.  Output Program Counts
+ *           
+ *
+ *  CHANGE HISTORY:
+ *   REV     DATE    Programmer                 CHANGE
+ *   ---  --------   ----------------------     ------
+ *    00  5/27/1996  Larry Mills                Initial coding 
+ *    01  1/23/1998  Larry Mills                Added F15 SLIC/PROOF
+ *    02  6/11/1998  Larry Mills                Added AV8 SLIC/PROOF
+ *    03  9/21/1998  Larry Mills                Added Harpoon SLIC/PROOF
+ *    04  11/10/2014 Thuy Pham                  Removed COGNSN and MATNSN
+ *
+ **************************************************************************
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+#include <time.h>
+#include <errno.h>
+
+FILE *outfp;
+
+#include "btch_slicprf_struct.h"
+#include "btch_slicprf_proto.h"
+
+struct cnt_rcd {
+	char	processed_mdl[10];
+	char	filler1;
+	char	process_cnt[9];
+	char	filler2;
+	char	process_date[19];
+	char	nline;
+	};
+
+/* #define SQLCA_STORAGE_CLASS extern */
+#define NOT_FND 1403
+#define FND 0
+
+
+EXEC SQL INCLUDE SQLCA;
+
+
+EXEC SQL BEGIN DECLARE SECTION;
+
+/*      Oracle User Sign-on Area   */
+	varchar	UIDS[21];
+	varchar	PWDS[21];
+
+
+EXEC SQL END DECLARE SECTION;
+
+EXEC SQL INCLUDE sqlca;
+
+/*      Global Variables   */
+char	filename[100];
+char	cnt_filename[100];
+char	model[11];
+
+
+/*	Time variables   */
+
+time_t	tnow;
+struct tm *tmstruct;
+
+/*       Record Counts      */
+int	rcds_created=0;
+
+main(int argc, char *argv)
+{
+
+	FILE	*fp_cntrcd;
+	
+	struct	cntrl_rcd CNTRL_RCD;
+	struct	cnt_rcd CNT_RCD;
+	int	errcode=0;
+	int	numrecs=0;
+	int	**argv_ptr=&argv;
+	char	pgmtime[21];
+
+	time(&tnow);
+	tmstruct=localtime(&tnow);
+	strftime(pgmtime,sizeof(pgmtime),"%m/%d/%Y-%H:%M:%S",tmstruct);
+	printf("\nStarting Time (%s)\n",&pgmtime);
+
+	errcode=btchslpf_signon(); 
+	if (errcode == FND)
+	{
+		errcode=get_btchsp_argmnt(argc, *argv_ptr, &CNTRL_RCD);
+		if (errcode == FND)
+		{
+			printf("\n\tProcessing Model\t(%s)",model);
+			strncpy(CNT_RCD.processed_mdl,model,10);
+			printf("\n\tOutput Data File\t(%s)",filename);
+			printf("\n\tOutput Count File\t(%s)",cnt_filename);
+			CNTRL_RCD.built_01='N';
+			CNTRL_RCD.built_04='Y';
+			CNTRL_RCD.built_05='Y';
+			CNTRL_RCD.built_08='N';
+			CNTRL_RCD.rcds_created=0;
+	 		if (strcmp(model,"T45       ") == 0)
+			{
+				errcode=qualify_t45_proof_candidates((char *) &filename, &CNTRL_RCD);
+			}
+			else
+			{
+				printf("\n*********************************");
+				printf("\n\t\tUnidentified input model (%s)",model);
+				printf("\n\t\tLength of Model (%d)",strlen(model));
+				printf("\n*********************************");
+				errcode=100;
+			}
+		}
+		else
+		{
+			printf("\n\t\tNo processing.\n");
+			printf("\n\t\tUnable to prcess input");
+			errcode=101;
+		}
+	}
+	else
+	{
+		printf("\n\t\tUnable to Connect to Oracle\n");
+		btchslpf_dberr();
+	}
+
+	printf("\n\tNumber of records Created\t%d",rcds_created);
+
+	if (errcode == FND)
+	{
+		printf("\n\tWork Committed");
+		EXEC SQL COMMIT WORK RELEASE;
+	}
+	else
+	{
+		printf("\n\tWork not Committed - Errcode (%d)",errcode);
+		EXEC SQL ROLLBACK WORK RELEASE;
+	}
+
+	time(&tnow);
+	tmstruct=localtime(&tnow);
+	strftime(pgmtime,sizeof(pgmtime),"%m/%d/%Y-%H:%M:%S",tmstruct);
+	sprintf(CNT_RCD.process_cnt,"%09d",rcds_created);
+	strncpy(CNT_RCD.process_date,pgmtime,strlen(pgmtime));
+	CNT_RCD.filler1=' ';
+	CNT_RCD.filler2=' ';
+	CNT_RCD.nline='\n';
+	
+	fp_cntrcd=(fopen(cnt_filename,"w"));
+  if (fp_cntrcd == NULL) {
+    printf("Opening %s failed: %s\n", cnt_filename, strerror(errno)) ;
+    exit(errno) ;
+  }
+	
+	numrecs=fwrite(&CNT_RCD,sizeof(CNT_RCD),1,fp_cntrcd);
+	if (numrecs >0)
+	{
+	}
+	else
+	{
+		printf("\nError Writing Number Record File");
+	}
+		
+	printf("\nEnding Time (%s)\n",&pgmtime);
+  if (fp_cntrcd != NULL)
+    fclose(fp_cntrcd) ;
+
+	exit(errcode);
+}
+int	get_btchsp_argmnt(char argc, char *argv,struct cntrl_rcd *CNTRL_RCD)
+{
+	int	errcode=0;
+	char opt;
+	char	spaces[]={"                                       "};
+	extern char *optarg;
+	while ((opt=getopt (argc, argv,"a:b:c:A:B:C:")) !=EOF)
+	{	
+		switch (opt)
+		{
+			case 'a':
+	                case 'A':		
+				strncpy(filename,spaces,100);
+				strncpy(filename,optarg,strlen(optarg));
+				strncat(filename,spaces,100-strlen(filename));
+				filename[strlen(optarg)]='\0'; 
+				break;		
+			case 'b':
+	                case 'B':		
+				strncpy(cnt_filename,spaces,100);
+				strncpy(cnt_filename,optarg,strlen(optarg));
+				strncat(cnt_filename,spaces,100-strlen(cnt_filename));
+				cnt_filename[strlen(optarg)]='\0'; 
+			case 'c':
+	                case 'C':		
+				strncpy(model,spaces,10);
+				strncpy(model,optarg,10);
+				strncat(model,spaces,10-strlen(model));
+				strncpy(CNTRL_RCD->mdl_acft_prf,model,10);
+				model[11]='\0';
+				break;
+			case '?':
+				errcode=12;
+				break;
+		}
+	}	
+	return(errcode);
+}
+int	btchslpf_signon(void)
+{
+	int	errcode=0;
+	char    usrid[]="ops$provftp";
+	char    pswd[]="provftp";
+
+
+	#if DEBUG
+		printf("\nsignon");
+	#endif
+
+	strcpy((char *) UIDS.arr,usrid);
+	UIDS.len=strlen((char *) UIDS.arr);
+	strcpy((char *) PWDS.arr,pswd);
+	PWDS.len=strlen((char *) PWDS.arr);
+
+
+	EXEC SQL CONNECT :UIDS IDENTIFIED BY :PWDS;
+	
+	#if DEBUG
+		printf("\nExit signon");
+	#endif
+
+	return(sqlca.sqlcode);
+}
+void	btchslpf_dberr()
+{
+	char msg_buf[200];
+	int  buf_size=200;
+	int  msg_len;
+
+	#if DEBUG
+		printf("\nbtchslpf_dberr");
+	#endif
+
+	sqlglm(msg_buf, &buf_size, &msg_len);
+	sqlglm(msg_buf, &buf_size, &msg_len);
+	msg_buf[msg_len]='\0';
+	
+	printf("\n\nData Base Error has occurred:\n");
+	printf("\n%70s\n",msg_buf);
+	printf("SQLCODE: %d\n",sqlca.sqlcode);
+	printf("SQLERR MSG %s\n",sqlca.sqlerrm.sqlerrmc);
+	
+	EXEC SQL ROLLBACK RELEASE;
+	return;
+}
+/*
+ **************************************************************************
+ *  PROGRAM NAME: btchsp45sel.pc
+ *
+ *  PURPOSE: This application qualifies the PROOF Information being processed
+ *          against the 1388 Tables.  
+ *
+ *  INPUTS:   N/A
+ *            
+ *           
+ *
+ *  OUTPUTS:  N/A 
+ *            
+ *           
+ *
+ *  CHANGE HISTORY:
+ *   REV     DATE    Programmer                 CHANGE
+ *   ---  --------   ----------------------     ------
+ *    00  05/24/1996 Larry Mills                Initial coding
+ *    01  01/21/1999 Larry Mills                Tailor Conversion 
+ *
+ **************************************************************************
+*/
+
+EXEC SQL BEGIN DECLARE SECTION;
+
+/*	PROOF HOST VARIABLES   */
+
+	varchar	refno[33];
+	varchar	cage_code[6];
+	varchar	eiac[11];
+	int	num_eff;
+	short	num_eff_i;
+
+	
+/*	1388 HAX Table Host Variables */
+
+	char	proof_transfer_flag;
+	short	proof_transfer_i;
+	
+/*	SLIC Extension HBX Table   */
+
+	varchar	hbx_addrefhb[33];
+	varchar	hbx_adcagehb[6];
+	varchar	hbx_refnumha[33];
+	varchar	hbx_cagecdxh[6];
+			
+
+/*	1388 HG Table Host variables */
+
+
+	varchar	eiacodxa[11];
+	varchar	lsaconxb[19];
+	varchar	altlcnxb[03];
+	varchar	qtypeihg[06];
+	short	qtypeihg_i;
+	varchar	itmcathg[3];
+	short	itmcathg_i;
+	char	smrcodhg_pos1;
+	short	smrcodhg_pos1_i;
+
+/*      HGX Extension Table Host Variables */
+
+	varchar	hgx_refnumha[33];
+	varchar	hgx_cagecdxh[6];
+	varchar	hgx_suplyrcd[6];
+	short	hgx_suplyrcd_i;
+	varchar	hgx_nharefno[33];
+	short	hgx_nharefno_i;
+	varchar	hgx_nhacgecd[6];
+	short	hgx_nhacgecd_i;
+
+EXEC SQL END DECLARE SECTION;
+int	qualify_t45_proof_candidates(char *filename,struct cntrl_rcd *CNTRL_RCD) 
+
+{
+	struct	prtsc01 SEGMNT01;
+	struct	prtsc02 SEGMNT02;
+	struct	prtsc03 SEGMNT03;
+	struct	prtsc04 SEGMNT04;
+	struct	prtsc05 SEGMNT05;
+	struct	prtsc08 SEGMNT08;
+
+	int	errcode=0;
+	char	spaces[]="                                        ";
+	
+
+	#if DEBUG
+		printf("\nqualify_t45_proof_candidates");
+	#endif
+	
+	CNTRL_RCD->built_01='N';
+	CNTRL_RCD->built_04='Y';
+	CNTRL_RCD->built_05='Y';
+	CNTRL_RCD->valid_application='N';
+	strncpy(CNTRL_RCD->mdl_acft_prf,spaces,10);
+	strncpy(CNTRL_RCD->cn,spaces,2);
+	strncpy(CNTRL_RCD->ha_eiac,spaces,10);
+	strncpy(CNTRL_RCD->ha_ref_no,spaces,32);
+	strncpy(CNTRL_RCD->ha_cage_code,spaces,5);
+	strncpy(CNTRL_RCD->hb_ref_no,spaces,32);
+	strncpy(CNTRL_RCD->hb_cage_code,spaces,5);
+
+/*  Setup Oracle Host variables   */
+
+
+	if ((outfp=fopen(filename,"w")) == NULL)
+	{
+		printf("\nqualify_t45_proof_candidates");
+		printf("\nCould not open Output file %s - failed: %s",&filename, strerror(errno));
+		errcode=500;
+	}
+	else
+	{
+		strncpy(CNTRL_RCD->ha_hb_code,"HA",2);
+		errcode=fetch_t45_proof_HA_candidates(CNTRL_RCD,&SEGMNT01,&SEGMNT02,&SEGMNT03,&SEGMNT04,&SEGMNT05,&SEGMNT08);
+		if (errcode==0)
+		{
+			strncpy(CNTRL_RCD->ha_hb_code,"HB",2);
+			errcode=select_t45_proof_HB_candidates(CNTRL_RCD,&SEGMNT01,&SEGMNT02,&SEGMNT03,&SEGMNT04,&SEGMNT05,&SEGMNT08);
+		}
+	}
+
+	return(errcode);		
+}
+
+EXEC SQL DECLARE selct_t45_HA_candidate_csr CURSOR for 
+    select slic_hg.refnumha,
+    	   slic_hg.cagecdxh,
+    	   slic_hg.eiacodxa,
+    	   slic_hg.lsaconxb,
+    	   slic_hg.altlcnxb,
+	   slic_hg.qtypeihg,
+	   slic_hg.itmcathg,
+	   substr(slic_hg.smrcodhg,1,1),
+	   hgx.nharefno,
+	   hgx.nhacgecd,
+	   hgx.suplyrcd,
+	   intrfce.proof_transfer_flag
+       from t45_hgx01 hgx,
+            prov.t45_intrfce_ext intrfce,
+	    t45_hg slic_hg
+        where
+              slic_hg.can_int = 0
+	  and slic_hg.eiacodxa in ('T45SE','T45TS')
+          and slic_hg.eiacodxa = hgx.eiacodxa (+)
+          and slic_hg.lsaconxb = hgx.lsaconxb (+)
+          and slic_hg.altlcnxb = hgx.altlcnxb (+)
+          and slic_hg.refnumha = hgx.refnumha (+)
+          and slic_hg.cagecdxh = hgx.cagecdxh (+)
+          and slic_hg.can_int  = hgx.can_int (+)
+          and slic_hg.lcntypxb = hgx.lcntypxb (+)
+          and slic_hg.itmcathg > ' '
+          and slic_hg.refnumha = rpad(intrfce.ref_no,32,' ')
+          and slic_hg.cagecdxh = intrfce.cage_code
+             order by 1,2;
+
+int     fetch_t45_proof_HA_candidates(struct cntrl_rcd *CNTRL_RCD,struct prtsc01 *SEGMNT01,struct prtsc02 *SEGMNT02,struct prtsc03 *SEGMNT03,struct prtsc04 *SEGMNT04,struct prtsc05 *SEGMNT05,struct prtsc08 *SEGMNT08)
+
+{
+	
+	int	errcode=0;
+	int     fetched_row=0;
+	int	fetched_ctr=0;
+	char    spaces[]={"                                        "};
+
+
+	#if DEBUG
+		printf("\nfetch_t45_proof_HA_candidates");
+	#endif
+
+	EXEC SQL OPEN selct_t45_HA_candidate_csr;
+	
+	if (sqlca.sqlcode == FND)
+	{
+		while(!fetched_row)
+		{
+			errcode=initlze_segmnt08_host_var();
+			EXEC SQL FETCH selct_t45_HA_candidate_csr
+			   INTO :hgx_refnumha,
+				:hgx_cagecdxh,
+				:eiacodxa,
+				:lsaconxb,
+			   	:altlcnxb,
+		   		:qtypeihg:qtypeihg_i,
+				:itmcathg:itmcathg_i,
+				:smrcodhg_pos1:smrcodhg_pos1_i,
+				:hgx_nharefno:hgx_nharefno_i,
+				:hgx_nhacgecd:hgx_nhacgecd_i,
+				:hgx_suplyrcd:hgx_suplyrcd_i,
+				:proof_transfer_flag:proof_transfer_i;
+			if (sqlca.sqlcode == FND)
+			{
+				errcode=check_t45_cntrl(CNTRL_RCD);
+
+				if (errcode == 0)
+				{
+					strncpy(SEGMNT03->hg_icc,spaces,2);
+					strncpy(SEGMNT03->hg_icc,(char *) itmcathg.arr,itmcathg.len);
+					strncpy(CNTRL_RCD->ha_eiac,(char *) eiacodxa.arr,eiacodxa.len);
+					strncpy(CNTRL_RCD->ha_ref_no,(char *) hgx_refnumha.arr,hgx_refnumha.len);
+					strncpy(CNTRL_RCD->ha_cage_code,(char *) hgx_cagecdxh.arr,hgx_cagecdxh.len);
+					
+					strncpy((char *) refno.arr,CNTRL_RCD->ha_ref_no,32);
+					refno.arr[32]='\0';
+					refno.len=strlen((char *) refno.arr);
+					strncpy((char *) cage_code.arr,CNTRL_RCD->ha_cage_code,5);
+					cage_code.len=5;
+					cage_code.arr[5]='\0';
+					strncpy((char *) eiac.arr,CNTRL_RCD->ha_eiac,10);
+					eiac.arr[10]='\0';
+					eiac.len=10;
+					strncpy(CNTRL_RCD->hg_lcn,(char *) lsaconxb.arr,lsaconxb.len);
+					strncpy(CNTRL_RCD->hg_alc,(char *) altlcnxb.arr,altlcnxb.len);
+					
+					errcode=validate_t45_hg_rcd(CNTRL_RCD);
+				}
+				if (CNTRL_RCD->valid_application == 'Y')
+				{
+					fetched_ctr++;
+/* 
+
+	Code needs to be inserted her in order to determine if the Customer on SEGMNT02 needs to be reset
+	
+	*/
+					strncpy(CNTRL_RCD->mdl_acft_prf,spaces,10);
+					strncpy(CNTRL_RCD->mdl_acft_prf,(char *) eiacodxa.arr,eiacodxa.len);
+					errcode=gather_t45_proof_data(CNTRL_RCD,SEGMNT01,SEGMNT02,SEGMNT03,SEGMNT04,SEGMNT05,SEGMNT08);
+					if(errcode==0) 
+					{
+					}
+					else
+					{
+						fetched_row=1;
+					}
+				}
+				else
+				{
+				}
+			}
+			else
+			{
+				fetched_row=1;
+				if (sqlca.sqlcode == NOT_FND)
+				{
+					if(fetched_ctr>0)
+					{
+					}
+					else
+					{
+						CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+					}
+				}
+				else
+				{
+					printf("\n\tfetch_proof_candidates");
+					printf("\n\tBad SQLCODE on Fetch of Cursor");
+					printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+					printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+					printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+					printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+					printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+					printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+					printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+					CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+					errcode=2101;
+					btchslpf_dberr();
+				}
+			}			   	
+		}
+	}
+	else
+	{
+		if (sqlca.sqlcode == NOT_FND)
+		{
+			printf("\nfetch_proof_candidates");
+			printf("\n\tUnable to locate information on Initial Select");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+			errcode=2102;
+			btchslpf_dberr();
+		}
+		else
+		{
+			printf("\nfetch_proof_candidates");
+			printf("\n\tBad SQLCODE on Open of Cursor");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			errcode=2103;
+			btchslpf_dberr();
+		}
+	}		
+			
+	EXEC SQL CLOSE selct_t45_HA_candidate_csr;
+	return(errcode);
+}
+
+EXEC SQL DECLARE selct_t45_HB_candidate_info CURSOR for 
+    select distinct hb.addrefhb,
+    	   hb.adcagehb,
+    	   hb.refnumhb,
+    	   hb.cagecdhb,
+    	   intrfce.proof_transfer_flag
+    	 from t45_hb hb,
+    	      prov.t45_intrfce_ext intrfce
+        where
+              hb.addrefhb = rpad(ref_no,32, ' ')
+          and hb.adcagehb = cage_code
+          and hb.can_int = 0
+          and intrfce.proof_transfer_flag = 'Y'
+	  and intrfce.ha_hb_ind = 'HB'
+             order by 1,2;
+
+int     select_t45_proof_HB_candidates(struct cntrl_rcd *CNTRL_RCD,struct prtsc01 *SEGMNT01,struct prtsc02 *SEGMNT02,struct prtsc03 *SEGMNT03,struct prtsc04 *SEGMNT04,struct prtsc05 *SEGMNT05,struct prtsc08 *SEGMNT08)
+
+{
+	int	errcode=0;
+	int     fetched_row=0;
+	int	fetched_ctr=0;
+	char    spaces[]={"                                        "};
+
+
+	#if DEBUG
+		printf("\nselect_t45_proof_HB_candidates");
+	#endif
+	
+	CNTRL_RCD->built_01='N';
+	CNTRL_RCD->built_04='Y';
+	CNTRL_RCD->built_05='Y';
+	CNTRL_RCD->valid_application='N';
+	
+	EXEC SQL OPEN selct_t45_HB_candidate_info;
+	
+	if (sqlca.sqlcode == FND)
+	{
+		while(!fetched_row)
+		{
+			errcode=initlze_segmnt08_host_var();
+			EXEC SQL FETCH selct_t45_HB_candidate_info
+			   INTO :hbx_addrefhb,
+				:hbx_adcagehb,
+				:hbx_refnumha,
+				:hbx_cagecdxh,
+				:proof_transfer_flag:proof_transfer_i;
+
+			if (sqlca.sqlcode == FND)
+			{
+				errcode=check_t45_hb_cntrl(CNTRL_RCD);
+				if (errcode == 0)
+				{
+					strncpy(CNTRL_RCD->ha_ref_no,spaces,32);
+					strncpy(CNTRL_RCD->ha_cage_code,spaces,5);
+					strncpy(CNTRL_RCD->hb_ref_no,spaces,32);
+					strncpy(CNTRL_RCD->hb_cage_code,spaces,5);
+					strncpy(CNTRL_RCD->ha_ref_no,(char *) hbx_refnumha.arr,hbx_refnumha.len);
+					strncpy(CNTRL_RCD->ha_cage_code,(char *) hbx_cagecdxh.arr,hbx_cagecdxh.len);
+					strncpy(CNTRL_RCD->hb_ref_no,(char *) hbx_addrefhb.arr,hbx_addrefhb.len);
+					strncpy(CNTRL_RCD->hb_cage_code,(char *) hbx_adcagehb.arr,hbx_adcagehb.len);
+					errcode=fetch_t45_proof_HB_candidates(CNTRL_RCD,SEGMNT01,SEGMNT02,SEGMNT03,SEGMNT04,SEGMNT05,SEGMNT08);
+					if(errcode==0)
+					{
+					}
+					else
+					{
+						fetched_row=1;
+						return(errcode);
+					}
+				}
+				else
+				{
+				}
+			}
+			else
+			{
+				fetched_row=1;
+				if (sqlca.sqlcode == NOT_FND)
+				{
+				}
+				else
+				{
+					printf("\nselect_proof_HB_candidates");
+					printf("\n\tBad SQLCODE on Fetch of Cursor");
+					printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+					printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+					printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+					printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+					printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+					printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+					printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+					CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+					errcode=2104;
+					btchslpf_dberr();
+				}
+			}			   	
+		}
+	}
+	else
+	{
+		if (sqlca.sqlcode == NOT_FND)
+		{
+		}
+		else
+		{
+			printf("\nselect_proof_HB_candidates");
+			printf("\n\tBad SQLCODE on Open of Cursor");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			errcode=2105;
+			btchslpf_dberr();
+		}
+	}		
+			
+	EXEC SQL CLOSE selct_t45_HB_candidate_info;
+	return(errcode);
+}
+/*	This function checks to see if the FETCHED HB REF_NO/CAGE CODE are equal to what was previously
+	processed.  If not, then it allows the HB reference number to be processed.  If it has been
+	processed, then will not process it again.
+
+	Setting errcode equal to 1, signifies the HB REF_NO/CAGE CODE has been processed.
+
+	      */
+	      
+int	check_t45_hb_cntrl(struct cntrl_rcd *CNTRL_RCD)
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\ncheck_t45_hb_cntrl");
+		printf("\nHBX Ref NO (%s)",(char *) hbx_addrefhb.arr);
+		printf("\nHBX Cage   (%s)",(char *) hbx_adcagehb.arr);
+		printf("\nCNTRL Refno(%s)",CNTRL_RCD->hb_ref_no);
+		printf("\nCNTRL Cage   (%s)",CNTRL_RCD->hb_cage_code);
+	#endif
+	
+	if ((strncmp((char *) hbx_addrefhb.arr,CNTRL_RCD->hb_ref_no,32) == 0) &&
+	   (strncmp((char *) hbx_adcagehb.arr,CNTRL_RCD->hb_cage_code,5) == 0))
+	{
+		errcode=1;
+	}
+	else
+	{
+		errcode=0;
+		strncpy(CNTRL_RCD->hb_ref_no,(char *) hbx_addrefhb.arr,hbx_addrefhb.len);
+		strncpy(CNTRL_RCD->hb_cage_code,(char *) hbx_adcagehb.arr,hbx_adcagehb.len);
+		CNTRL_RCD->built_01='N';
+		CNTRL_RCD->built_04='Y';
+		CNTRL_RCD->built_05='Y';
+	}
+	return(errcode);
+}
+
+/*
+	This function processing takes the information passed from the select_proof_HB_candidates
+	checks it against the HA/HG table using the ARN_ITEM_REF_NO and ARN_ITEM_CAGE_CODE to determine
+	which HA/HG information to use for the HBX REF_NO/CAGE CODE.
+
+			*/
+			
+EXEC SQL DECLARE fetch_HB_candidate_info_csr CURSOR for 
+    select slic_hg.refnumha,
+    	   slic_hg.cagecdxh,
+    	   slic_hg.eiacodxa,
+    	   slic_hg.lsaconxb,
+    	   slic_hg.altlcnxb,
+	   slic_hg.qtypeihg,
+	   slic_hg.itmcathg,
+	   substr(slic_hg.smrcodhg,1,1),   
+	   hgx.nharefno,
+	   hgx.nhacgecd,
+	   hgx.suplyrcd
+       from t45_hgx01 hgx,
+	    t45_hg slic_hg
+        where
+              slic_hg.can_int = 0
+          and slic_hg.refnumha = :hbx_refnumha
+          and slic_hg.cagecdxh = :hbx_cagecdxh
+	  and slic_hg.eiacodxa in ('T45SE','T45TS')
+          and slic_hg.eiacodxa = hgx.eiacodxa (+)
+          and slic_hg.lsaconxb = hgx.lsaconxb (+)
+          and slic_hg.altlcnxb = hgx.altlcnxb (+)
+          and slic_hg.refnumha = hgx.refnumha (+)
+          and slic_hg.cagecdxh = hgx.cagecdxh (+)
+          and slic_hg.lcntypxb = hgx.lcntypxb (+)
+	  and slic_hg.itmcathg > ' '
+             order by 1,2;
+
+int     fetch_t45_proof_HB_candidates(struct cntrl_rcd *CNTRL_RCD,struct prtsc01 *SEGMNT01,struct prtsc02 *SEGMNT02,struct prtsc03 *SEGMNT03,struct prtsc04 *SEGMNT04,struct prtsc05 *SEGMNT05,struct prtsc08 *SEGMNT08)
+
+{
+	int	errcode=0;
+	int     fetched_row=0;
+	int	fetched_ctr=0;
+	char    spaces[]={"                                        "};
+
+
+	#if DEBUG
+		printf("\nfetch_t45_proof_HB_candidates");
+	#endif
+
+	EXEC SQL OPEN fetch_HB_candidate_info_csr;
+	
+	if (sqlca.sqlcode == FND)
+	{
+		while(!fetched_row)
+		{
+			EXEC SQL FETCH fetch_HB_candidate_info_csr
+			   INTO :hgx_refnumha,
+				:hgx_cagecdxh,
+				:eiacodxa,
+				:lsaconxb,
+			   	:altlcnxb,
+		   		:qtypeihg:qtypeihg_i,
+				:itmcathg:itmcathg_i,
+				:smrcodhg_pos1:smrcodhg_pos1_i,
+				:hgx_nharefno:hgx_nharefno_i,
+				:hgx_nhacgecd:hgx_nhacgecd_i,
+				:hgx_suplyrcd:hgx_suplyrcd_i;
+			if (sqlca.sqlcode == FND)
+			{
+				errcode=check_t45_cntrl(CNTRL_RCD);
+				if (errcode == 0)
+				{
+					strncpy(SEGMNT03->hg_icc,(char *) itmcathg.arr,itmcathg.len);
+					strncpy((char *) refno.arr,CNTRL_RCD->ha_ref_no,32);
+					strncpy((char *) cage_code.arr,CNTRL_RCD->ha_cage_code,5);
+					refno.arr[32]='\0';
+					refno.len=strlen((char *) refno.arr);
+					cage_code.len=5;
+					cage_code.arr[5]='\0';
+					strncpy(CNTRL_RCD->ha_eiac,(char *) eiacodxa.arr,eiacodxa.len);
+					strncpy((char *) eiac.arr,CNTRL_RCD->ha_eiac,10);
+					eiac.arr[10]='\0';
+					eiac.len=10;
+					
+					errcode=validate_t45_hg_rcd(CNTRL_RCD);
+				}
+				if (CNTRL_RCD->valid_application == 'Y')
+				{
+					fetched_ctr++;
+/* 
+
+	Code needs to be inserted her in order to determine if the Customer on SEGMNT02 needs to be reset
+	
+	*/
+					strncpy(CNTRL_RCD->mdl_acft_prf,spaces,10);
+					strncpy(CNTRL_RCD->mdl_acft_prf,(char *) eiacodxa.arr,eiacodxa.len);
+					errcode=gather_t45_proof_data(CNTRL_RCD,SEGMNT01,SEGMNT02,SEGMNT03,SEGMNT04,SEGMNT05,SEGMNT08);
+					if (errcode==0)
+					{
+					}
+					else
+					{
+						fetched_row=1;
+					}
+				}
+				else
+				{
+					fetched_row=1;
+				}
+			}
+			else
+			{
+				fetched_row=1;
+				if (sqlca.sqlcode == NOT_FND)
+				{
+					if(fetched_ctr>0)
+					{
+					}
+					else
+					{
+						CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+					}
+				}
+				else
+				{
+					printf("\nfetch_t45_proof_candidates");
+					printf("\n\tBad SQLCODE on Fetch of Cursor");
+					printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+					printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+					printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+					printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+					printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+					printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+					printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+					CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+					errcode=2106;
+					btchslpf_dberr();
+				}
+			}			   	
+		}
+	}
+	else
+	{
+		if (sqlca.sqlcode == NOT_FND)
+		{
+			printf("\nfetch_proof_candidates");
+			printf("\n\tUnable to locate information on Initial Select");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+			errcode=2107;
+			btchslpf_dberr();
+		}
+		else
+		{
+			printf("\fetch_proof_candidates");
+			printf("\n\tBad SQLCODE on Open of Cursor");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			errcode=2108;
+			btchslpf_dberr();
+		}
+	}		
+			
+	EXEC SQL CLOSE fetch_HB_candidate_info_csr;
+	return(errcode);
+}
+/*	This function checks to see if the FETCHED REF_NO/CAGE CODE are equal to what was previously
+	processed.  If not, then it sets up previous information and resets the "built_??" indicators to
+	"N".
+	      */
+int	check_t45_cntrl(struct cntrl_rcd *CNTRL_RCD)
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\ncheck_t45_cntrl");
+		printf("\nHGX Ref NO (%s)",(char *) hgx_refnumha.arr);
+		printf("\nHGX Cage   (%s)",(char *) hgx_cagecdxh.arr);
+		printf("\nCNTRL Refno(%s)",CNTRL_RCD->ha_ref_no);
+		printf("\nCNTRL Cage   (%s)",CNTRL_RCD->ha_cage_code);
+	#endif
+	
+	if ((strncmp((char *) hgx_refnumha.arr,CNTRL_RCD->ha_ref_no,32) == 0) &&
+	   (strncmp((char *) hgx_cagecdxh.arr,CNTRL_RCD->ha_cage_code,5) == 0))
+	{
+	}
+	else
+	{
+		strncpy(CNTRL_RCD->ha_ref_no,(char *) hgx_refnumha.arr,hgx_refnumha.len);
+		strncpy(CNTRL_RCD->ha_cage_code,(char *) hgx_cagecdxh.arr,hgx_cagecdxh.len);
+		CNTRL_RCD->built_01='N';
+		CNTRL_RCD->built_04='Y';
+		CNTRL_RCD->built_05='Y';
+	}
+	return(errcode);
+}
+
+/*	This function checks to see if the information is a valid application.  It must have a "Y" on the
+	PROOF_TRANSFER_FLAG on the HAX or Effectivity.  If neither of these conditions are true then this
+	application is not processed.
+	
+	*/
+	
+int	validate_t45_hg_rcd(struct cntrl_rcd *CNTRL_RCD)
+{
+	int	errcode=0;
+	
+	#if DEBUG
+		printf("\nvalidate_t45_hg_rcd");
+		printf("\nrefno (%s) (%d) (%d)",(char *) refno.arr,strlen((char *) refno.arr),refno.len);
+		printf("\ncage_code (%s) (%d) (%d)",(char *) cage_code.arr,strlen((char *) cage_code.arr),cage_code.len);
+		printf("\neiac (%s) (%d) (%d)",(char *) eiac.arr,strlen((char *) eiac.arr),eiac.len);
+		printf("\nlcn  (%s) alc (%s)",(char *) lsaconxb.arr,altlcnxb.arr);
+		printf("\nProof Transfer Flag (%c)",proof_transfer_flag);
+	#endif	
+	
+	CNTRL_RCD->valid_application = 'N';
+	
+	if (proof_transfer_flag == 'Y')
+	{
+		CNTRL_RCD->valid_application = 'Y';
+	}
+	else
+	{
+		errcode=check_t45_eff_exist(CNTRL_RCD);
+		if (CNTRL_RCD->valid_application == 'Y')
+		{
+			if (smrcodhg_pos1_i == 0)
+			{
+				if (smrcodhg_pos1 == 'P')
+				{
+					CNTRL_RCD->valid_application = 'Y';
+				}
+				else
+				{
+					CNTRL_RCD->valid_application = 'N';
+				}
+			}
+		}
+				
+		if (CNTRL_RCD->valid_application == 'Y')
+		{
+			errcode=check_t45_itmcathg(CNTRL_RCD);
+		}
+	}	
+	
+	return(errcode);
+}
+/*
+
+
+
+				*/
+EXEC SQL DECLARE cnt_t45_effecty_csr CURSOR for
+	select count(*)
+	from t45_hgx01a hgx2	     
+	    where hgx2.can_int = 0
+	     and hgx2.refnumha  = :refno
+	     and hgx2.cagecdxh  = :cage_code
+	     and hgx2.eiacodxa  = :eiac
+	     and hgx2.lcntypxb    = 'P'
+	     and hgx2.lsaconxb = :lsaconxb
+	     and hgx2.altlcnxb = :altlcnxb
+	union
+	select count(*)
+	from t45_hpx01a hpx2  
+ 	   where hpx2.can_int = 0
+ 	     and hpx2.refnumha = :refno
+	     and hpx2.cagecdxh = :cage_code
+	     and hpx2.eiacodxa  = :eiac
+	     and hpx2.lcntypxb  = 'P'
+	     and hpx2.lsaconxb = :lsaconxb
+	     and hpx2.altlcnxb = :altlcnxb;
+
+int	check_t45_eff_exist(struct cntrl_rcd *CNTRL_RCD)
+{
+	int	errcode=0;
+	int	fetched_row=0;
+	int	number_rows=0;
+	
+	#if DEBUG
+		printf("\ncheck_t45_eff_exist");
+		printf("\nrefno (%s) (%d) (%d)",(char *) refno.arr,strlen((char *) refno.arr),refno.len);
+		printf("\ncage_code (%s) (%d) (%d)",(char *) cage_code.arr,strlen((char *) cage_code.arr),cage_code.len);
+		printf("\neiac (%s) (%d) (%d)",(char *) eiac.arr,strlen((char *) eiac.arr),eiac.len);
+		printf("\nlcn (%s) (%s)",(char *) lsaconxb.arr, (char *) altlcnxb.arr);
+	#endif
+
+	EXEC SQL OPEN cnt_t45_effecty_csr;
+
+	if (sqlca.sqlcode == FND)
+	{
+		while(!fetched_row)
+		{
+			EXEC SQL FETCH cnt_t45_effecty_csr
+			  into 	:num_eff:num_eff_i;
+
+			if (sqlca.sqlcode == FND)
+			{
+				if (num_eff_i == 0)
+				{
+					if (num_eff > 0)
+					{
+						number_rows=number_rows+num_eff;
+						CNTRL_RCD->valid_application = 'Y';
+					}
+					else
+					{
+					}
+				}
+				else
+				{
+				}
+			}
+			else
+			{
+				fetched_row=1;
+				if (sqlca.sqlcode == NOT_FND)
+				{
+					if (number_rows > 0)
+					{
+					}
+					else
+					{
+						CNTRL_RCD->valid_application = 'N';
+					}
+				}
+				else
+				{
+					printf("\nFUNCTION: Check_t45_eff_exist");
+					printf("\n\tFETCH Data Failure");
+					printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+					printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+					printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+					printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+					printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+					printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+					printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+					CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+					errcode=2109;
+					btchslpf_dberr();
+				}
+			}
+		}
+	}
+	else
+	{
+		if (sqlca.sqlcode == NOT_FND)
+		{
+			CNTRL_RCD->valid_application = 'N';
+		}
+		else
+		{
+			printf("\nFUNCTION: Check_t45_eff_exist");
+			printf("\n\tOpen Cursor Failure");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+			errcode=2110;
+			btchslpf_dberr();
+			
+		}
+	}
+
+	EXEC SQL CLOSE cnt_t45_effecty_csr;
+	
+		
+	#if DEBUG
+		printf("\ncheck_t45_eff_exist");
+		printf("\nNumber Rows Effectvty (%d)",num_eff);
+	#endif
+	
+	return(errcode);
+}
+
+/*	This function qualifies the selected application based upon the value of the Item category
+	on the SLIC HG Record.
+		*/
+int	check_t45_itmcathg(struct cntrl_rcd *CNTRL_RCD)
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\ncheck_t45_itmcathg");
+	#endif
+	
+	if ((strncmp((char *) itmcathg.arr,"X ",2) == 0) ||
+	    (strncmp((char *) itmcathg.arr,"Y ",2) == 0) ||
+	    (strncmp((char *) itmcathg.arr,"K ",2) == 0) ||
+	    (strncmp((char *) itmcathg.arr,"L ",2) == 0) ||
+	    (strncmp((char *) itmcathg.arr,"AB",2) == 0) ||
+	    (strncmp((char *) itmcathg.arr,"AE",2) == 0))
+	{
+	     	CNTRL_RCD->valid_application = 'Y';
+	}
+	else
+	{
+		CNTRL_RCD->valid_application = 'N';
+	}
+	 	 
+	return(errcode);
+}
+
+int	gather_t45_proof_data(struct cntrl_rcd *CNTRL_RCD,struct prtsc01 *SEGMNT01,struct prtsc02 *SEGMNT02,struct prtsc03 *SEGMNT03,struct prtsc04 *SEGMNT04,struct prtsc05 *SEGMNT05,struct prtsc08 *SEGMNT08)
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\ngather_t45_proof_data");
+	#endif
+
+	if (CNTRL_RCD->built_01 == 'Y')
+	{
+	}
+	else
+	{
+		errcode=create_t45_0102(CNTRL_RCD,SEGMNT01,SEGMNT02);
+	}
+
+/*	if(errcode == 0)
+	{
+		errcode=create_t45_03(CNTRL_RCD,SEGMNT03);
+	}
+	else
+	{
+	}   */
+
+	if (CNTRL_RCD->built_04 == 'Y')
+	{
+	}
+	else
+	{
+		if (errcode == 0)
+		{
+			errcode=create_t45_04(CNTRL_RCD,SEGMNT04);
+		}
+		else
+		{
+		}
+	}
+
+	if (CNTRL_RCD->built_05 == 'Y')
+	{
+	}
+	else
+	{
+		if (errcode == 0)
+		{
+			errcode=create_t45_05(CNTRL_RCD,SEGMNT05);
+		}
+		else
+		{
+		}
+	}
+
+	if (errcode == 0)
+	{
+		errcode=build_t45_prtsc08_rcd(SEGMNT08,CNTRL_RCD);
+	}
+	else
+	{
+	}
+	
+	return(errcode);
+}
+
+/*
+
+	This is the main processing function for building the
+	PROOF interface Record.
+	*/
+
+int     build_t45_prtsc08_rcd(struct prtsc08 *SEGMNT08,struct cntrl_rcd *CNTRL_RCD)
+
+{
+	int	errcode=0;
+	int	i=0;
+	char    spaces[]={"                                        "};
+	char	outData[500];
+
+	#if DEBUG
+		printf("\nbuild_t45_prtsc08_rcd");
+	#endif
+
+	errcode=initlze_segmnt08(SEGMNT08);
+
+	if(strncmp(CNTRL_RCD->ha_hb_code,"HA",2) == 0)
+	{
+		strncpy(SEGMNT08->ref_no,(char *) hgx_refnumha.arr,hgx_refnumha.len);
+		strncpy(SEGMNT08->cage_code,(char *) hgx_cagecdxh.arr,hgx_cagecdxh.len);
+	}
+	else
+	{
+		if(strncmp(CNTRL_RCD->ha_hb_code,"HB",2) == 0)
+		{
+			strncpy(SEGMNT08->ref_no,CNTRL_RCD->hb_ref_no,32);
+			strncpy(SEGMNT08->cage_code,CNTRL_RCD->hb_cage_code,5);
+		}
+		else
+		{
+			printf("\nUnable to determine HA/HB Record Type");
+			printf("\nCNTRL_RCD ha_hb_code is (%s)",CNTRL_RCD->ha_hb_code);
+			errcode=1111;
+			return(errcode);
+		}
+	}
+	strncpy(SEGMNT08->prtsc08a,"08",2);
+	strncpy(SEGMNT08->hg_end_item_acrnym,CNTRL_RCD->mdl_acft_prf,10);
+	strncpy(SEGMNT08->hg_alt_lsa,(char *) altlcnxb.arr,altlcnxb.len);
+	strncpy(SEGMNT08->hg_08_icc,(char *) itmcathg.arr,itmcathg.len);
+	strncpy(SEGMNT08->hg_lsaconxb,(char *) lsaconxb.arr,lsaconxb.len);
+	if (hgx_suplyrcd_i == 0)
+	{
+		strncpy(SEGMNT08->hgx_suplyr_cage,(char *) hgx_suplyrcd.arr,hgx_suplyrcd.len);
+	}
+	else
+	{
+		strncpy(SEGMNT08->hgx_suplyr_cage,spaces,5);
+	}
+        if (qtypeihg_i == 0)
+	{
+		strncpy(SEGMNT08->hg_qpei,(char *) qtypeihg.arr,qtypeihg.len);
+	}
+	else
+	{
+		strncpy(SEGMNT08->hg_qpei,spaces,5);
+	}
+        if (hgx_nhacgecd_i == 0)
+	{
+		strncpy(SEGMNT08->hgx_nha_cage,(char *) hgx_nhacgecd.arr,hgx_nhacgecd.len);
+	}
+	else
+	{
+		strncpy(SEGMNT08->hgx_nha_cage,spaces,5);
+	}
+
+       if (hgx_nharefno_i == 0)
+       {
+	       strncpy(SEGMNT08->hgx_nha_ref_number,(char *) hgx_nharefno.arr,hgx_nharefno.len);
+       }
+       else
+       {
+	       strncpy(SEGMNT08->hgx_nha_ref_number,spaces,32);
+	}
+
+	for (i=0; i<501; i++)
+	{
+		outData[i] = ' ';
+	}
+
+	SEGMNT08->prtsc08_eof='\0';
+	SEGMNT08->prtsc08_newline='\n';
+	#if DEBUG
+		printf("\nSegmnt 08 (%s)",SEGMNT08);
+		printf("\n\tref no (%s)",SEGMNT08->ref_no);
+		printf("\n\tcage code (%s)",SEGMNT08->cage_code);
+		printf("\n\tprtsc08a (%s)",SEGMNT08->prtsc08a);
+		printf("\n\teiac (%s)",SEGMNT08->hg_end_item_acrnym);
+		printf("\n\tLCN (%s)",SEGMNT08->hg_lsaconxb);
+		printf("\n\tALC (%s)",SEGMNT08->hg_alt_lsa);
+		printf("\n\tICC (%s)",SEGMNT08->hg_08_icc);
+		printf("\n\tSuplyr Cage (%s):",SEGMNT08->hgx_suplyr_cage);
+		printf("\n\tQPEI (%s)",SEGMNT08->hg_qpei);
+		printf("\n\tNHA REf No (%s)",SEGMNT08->hgx_nha_ref_number);
+		printf("\n\tNHA Cage (%s)",SEGMNT08->hgx_nha_cage);
+	#endif
+	sprintf(outData,"%s",SEGMNT08);
+	errcode=write_t45_rcd((char *) &outData,CNTRL_RCD);
+
+	return(errcode);
+}
+/*
+    
+			  */
+int	write_t45_rcd(char *outData,struct cntrl_rcd *CNTRL_RCD)
+{
+	int	errcode=0;
+	int	numrecs=0;
+
+	#if DEBUG
+		printf("\nwrite_t45_rcd (%s) (%d)",outData,strlen(outData));
+	#endif
+
+	if (strlen(outData) == 0)
+	{
+		printf("\nLength of output rcd is zero (%d) count (%d)",strlen(outData),rcds_created);
+	}
+
+	numrecs=fwrite(outData,strlen(outData),1,outfp);
+	if (numrecs > 0)
+	{
+		rcds_created++;
+	}
+	else
+	{
+		printf("\n****************************************");
+		printf("\n*fwrite Error Fwrite Error Fwrite Error*");
+		printf("\n*fwrite Error Fwrite Error Fwrite Error*");
+		printf("\n*fwrite Error Fwrite Error Fwrite Error*");
+		printf("\n*fwrite Error Fwrite Error Fwrite Error*");
+		printf("\n****************************************");
+		errcode=2109;
+	}
+
+	return(errcode);
+}
+/*
+ **************************************************************************
+ *  PROGRAM NAME: btchsp450102.pc
+ *
+ *  PURPOSE: This application creates the information for the PRTSC01A and
+ *          PRTSC02A Segment of the PROOF IMS Data Base.  
+ *
+ *  INPUTS:   N/A
+ *            
+ *           
+ *
+ *  OUTPUTS:  N/A 
+ *            
+ *           
+ *
+ *  CHANGE HISTORY:
+ *   REV     DATE    Programmer                 CHANGE
+ *   ---  --------   ----------------------     ------
+ *    00  05/31/1996 Larry Mills                Initial coding
+ *    01  01/21/1999 Larry Mills                SLIC Tailor Conversion 
+ *
+ **************************************************************************
+*/
+
+EXEC SQL BEGIN DECLARE SECTION;
+
+/*	PROOF HOST VARIABLES   */
+
+	varchar	 refnumha[33];
+	varchar	 cagecdxh[6];
+	varchar	 hb_refnumha[33];
+	varchar	 hb_cagecdxh[6];
+	
+/*	1388 HA Table		*/
+
+	varchar	ha_itnameha[20];
+	short	ha_itnameha_i;
+	char	ha_physecha;
+	short	ha_physecha_i;
+	char	ha_shlifeha;
+	short	ha_shlifeha_i;
+	varchar	ha_unitisha[3];
+	short	ha_unitisha_i;
+	varchar	ha_prdldtha[5];
+	short	ha_prdldtha_i;
+	varchar	ha_cognsnha[3];
+	short	ha_cognsnha_i;
+	varchar	ha_smmnsnha[3];
+	short	ha_smmnsnha_i;
+	char	ha_matnsnha;
+	short	ha_matnsnha_i;
+	varchar	ha_fscnsnha[5];
+	short	ha_fscnsnha_i;
+	varchar	ha_niinsnha[10];
+	short	ha_niinsnha_i;
+        char    ha_aaplccha;
+        short	ha_aaplccha_i;
+
+
+/*	1388 HAX Extension      */
+
+	varchar	hax_sctldtme[3];
+	short	hax_sctldtme_i;
+	char	hax_scttstfg;
+	short	hax_scttstfg_i;
+	varchar	hax_sctcmpdt[11];
+	short	hax_sctcmpdt_i;
+	varchar	hax_sctauth[17];
+	short	hax_sctauth_i;
+	varchar	hax_nicncog[3];
+	short	hax_nicncog_i;
+	char	hax_nicnmcc;
+	short	hax_nicnmcc_i;
+	varchar	hax_nicnfsc[5];
+	short	hax_nicnfsc_i;
+	varchar	hax_nicnniin[10];
+	short	hax_nicnniin_i;
+	varchar	hax_nicnsmic[3];
+	short  	hax_nicnsmic_i;
+	varchar hax_psind[4];
+	short	hax_psind_i;
+	varchar hax_psscdno[23];
+	short   hax_psscdno_i;
+	char	hax_proof_transfer_flag;
+	short	hax_proof_transfer_flag_i;
+
+/*      1388 HB Table definition   */
+
+	varchar addrefhb[33];
+	short   addrefhb_i;
+	varchar adcagehb[6];
+	short   adcagehb_i;
+	char    arn_rncc;
+	short   arn_rncc_i;
+	char	arn_type_code;
+	short	arn_type_code_i;
+
+		
+/*	1388 HF Table		*/
+
+	varchar	hf_qtyupkhf[4];
+	short	hf_qtyupkhf_i;
+	
+/*      1388 EA Table definition   */
+
+	char    se_cfegfeea;
+	short   se_cfegfeea_i;
+
+/*	1388 HG Extension Elements */
+	char	cat_resp_ind;
+	char	se_item_ind;
+
+EXEC SQL END DECLARE SECTION;
+
+int	create_t45_0102(struct cntrl_rcd *CNTRL_RCD,struct prtsc01 *SEGMNT01,struct prtsc02 *SEGMNT02) 
+
+{
+
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\ncreate_t45_0102");
+	#endif
+	
+        strncpy((char *) refnumha.arr,CNTRL_RCD->ha_ref_no,32);
+	refnumha.len=strlen((char *) refnumha.arr);
+	strncpy((char *) cagecdxh.arr,CNTRL_RCD->ha_cage_code,5);
+	cagecdxh.len=5;
+	
+	errcode=initlze_segmnt0102_host_var();
+
+	if(strncmp(CNTRL_RCD->ha_hb_code,"HA",2) == 0)
+	{
+		errcode=get_PRTSC01A_t45_ha(CNTRL_RCD,SEGMNT01,SEGMNT02);		
+	}
+	else
+	{
+		if(strncmp(CNTRL_RCD->ha_hb_code,"HB",2) == 0)
+		{
+			        strncpy((char *) hb_refnumha.arr,CNTRL_RCD->hb_ref_no,32);
+				hb_refnumha.len=strlen((char *) hb_refnumha.arr);
+				strncpy((char *) hb_cagecdxh.arr,CNTRL_RCD->hb_cage_code,5);
+				hb_cagecdxh.len=5;
+				errcode=get_PRTSC01A_t45_hb(CNTRL_RCD,SEGMNT01,SEGMNT02);			
+		}
+		else
+		{
+			printf("\ncreate_0102");
+			printf("\nUnable to determine HA/HB Record Type");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			printf("\nCNTRL_RCD ha_hb_code is (%s)",CNTRL_RCD->ha_hb_code);
+			errcode=2200;
+			return(errcode);
+		}
+	}
+	
+	return(errcode);		
+}
+
+
+/*	This function the PRTSC01A information is the request is for T45
+				*/
+
+int     get_PRTSC01A_t45_ha(struct cntrl_rcd *CNTRL_RCD, struct prtsc01 *SEGMNT01,struct prtsc02 *SEGMNT02)
+
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\nget_PRTSC01A_T45_ha");
+		printf("\nrefno (%s) (%d) (%d)",(char *) refnumha.arr,strlen((char *) refnumha.arr),refnumha.len);
+		printf("\ncage_code (%s) (%d) (%d)",(char *) cagecdxh.arr,strlen((char *) cagecdxh.arr),cagecdxh.len);
+	#endif
+
+	EXEC SQL
+            select  ha.itnameha,
+		substr(to_char(ha.prdldtha,'0009'),2,4),
+                ha.physecha,
+                ha.shlifeha,
+		ha.unitisha,
+                ha.cognsnha,
+		ha.smmnsnha,
+		ha.matnsnha,
+		ha.fscnsnha,
+		ha.niinsnha,
+		ha.aaplccha,
+		intrfce.proof_transfer_flag
+		into :ha_itnameha:ha_itnameha_i,
+		    :ha_prdldtha:ha_prdldtha_i,
+		    :ha_physecha:ha_physecha_i,
+		    :ha_shlifeha:ha_shlifeha_i,
+		    :ha_unitisha:ha_unitisha_i,
+		    :ha_cognsnha:ha_cognsnha_i,
+		    :ha_smmnsnha:ha_smmnsnha_i,
+		    :ha_matnsnha:ha_matnsnha_i,
+		    :ha_fscnsnha:ha_fscnsnha_i,
+		    :ha_niinsnha:ha_niinsnha_i,
+		    :ha_aaplccha:ha_aaplccha_i,
+        	    :hax_proof_transfer_flag:hax_proof_transfer_flag_i
+            from t45_ha ha,
+		 prov.t45_intrfce_ext intrfce
+            where
+		  ha.can_int = 0
+              and ha.cagecdxh = intrfce.cage_code
+              and ha.refnumha = rpad(intrfce.ref_no,32,' ')
+	      and ha.refnumha = :refnumha
+	      and ha.cagecdxh = :cagecdxh
+	      and intrfce.ha_hb_ind = 'HA';
+
+
+	if (sqlca.sqlcode == FND)
+	{
+		errcode=get_t45_hax01_data(CNTRL_RCD);
+		if (errcode == 0)
+		{
+			errcode=get_t45_hax01a_data(CNTRL_RCD);
+		}
+		if (errcode == 0)
+		{
+			errcode=get_PRTSC01A_t45_hf(CNTRL_RCD);
+		}
+		if(errcode == 0 && (hax_proof_transfer_flag == 'N' ||
+		                    hax_proof_transfer_flag_i == -1))
+		{
+			SEGMNT01->proof_transfer_flag='N';
+			errcode=updte_t45_hax_xfer_flag(CNTRL_RCD);
+		}
+		else
+		{
+			SEGMNT01->proof_transfer_flag=hax_proof_transfer_flag;
+		}
+		if (errcode == 0)
+		{
+			errcode=get_t45_SE_info_ea(CNTRL_RCD);
+		}
+		if(errcode == 0)
+		{
+			errcode=get_t45_arn_info(CNTRL_RCD);
+		}
+		if(errcode==0)
+		{
+			errcode=determine_t45_se_data(CNTRL_RCD,SEGMNT01);
+		}
+		if(errcode == 0)
+		{
+			errcode=determine_t45_cat_resp(CNTRL_RCD);
+		}
+		if (errcode == 0)
+		{
+			errcode=build_prtsc0102_rcd(CNTRL_RCD,SEGMNT01,SEGMNT02);
+			CNTRL_RCD->built_01='Y';
+		}
+	}
+	else
+	{
+		if (sqlca.sqlcode == NOT_FND)
+		{
+			printf("\nget_PRTSC01A_T45_ha");
+			printf("\nUnable to locate HA Recorded for Selected HG APPLICATION");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			errcode=2201;
+			btchslpf_dberr();
+		}
+		else
+		{
+			printf("\nget_PRTSC01A_T45_ha");
+			printf("\nBad SQLCODE");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+			errcode=2202;
+			btchslpf_dberr();
+		}
+	}
+
+	return(errcode);		
+}
+int     get_t45_hax01_data(struct cntrl_rcd *CNTRL_RCD)
+
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\nget_t45_hax01_data");
+		printf("\nrefnumha (%s) (%d) (%d)",(char *) refnumha.arr,strlen((char *) refnumha.arr),refnumha.len);
+		printf("\ncagecdxh (%s) (%d) (%d)",(char *) cagecdxh.arr,strlen((char *) cagecdxh.arr),cagecdxh.len);
+	#endif
+
+	EXEC SQL
+            select hax.nicncog,
+		hax.nicnmcc,
+		hax.nicnfsc,
+		hax.nicnniin,
+		hax.nicnsmic 
+		into :hax_nicncog:hax_nicncog_i,
+		     :hax_nicnmcc:hax_nicnmcc_i,
+		     :hax_nicnfsc:hax_nicnfsc_i,
+		     :hax_nicnniin:hax_nicnniin_i,
+		     :hax_nicnsmic:hax_nicnsmic_i
+            from t45_hax01 hax
+            where
+                  hax.can_int = 0
+	      and hax.refnumha = :refnumha
+              and hax.cagecdxh = :cagecdxh;
+
+
+	if (sqlca.sqlcode == FND)
+	{
+	}
+	else
+	{
+		if (sqlca.sqlcode == NOT_FND)
+		{
+			hax_nicncog_i=1;
+			hax_nicnmcc_i=1;
+			hax_nicnfsc_i=1;
+			hax_nicnniin_i=1;
+			hax_nicnsmic_i=1;
+		}
+		else
+		{
+			printf("\nget_t45_hax_data");
+			CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			errcode=1114;
+			btchslpf_dberr();		
+		}
+	}
+	
+	return(errcode);
+}
+int     get_t45_hax01a_data(struct cntrl_rcd *CNTRL_RCD)
+
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\nget_t45_hax01a_data");
+		printf("\nrefnumha (%s) (%d) (%d)",(char *) refnumha.arr,strlen((char *) refnumha.arr),refnumha.len);
+		printf("\ncagecdxh (%s) (%d) (%d)",(char *) cagecdxh.arr,strlen((char *) cagecdxh.arr),cagecdxh.len);
+	#endif
+
+	EXEC SQL
+            select substr(to_char(hax01a.sctldtme,'09'),2,2),
+	        hax01a.scttstfg,
+		substr(hax01a.sctcmpdt,6,2)||
+		'/'||
+		substr(hax01a.sctcmpdt,9,2)||
+		'/'||
+		substr(hax01a.sctcmpdt,1,4),
+                hax01a.sctauth,
+		hax01a.psind,
+		hax01a.psscdno
+		into :hax_sctldtme:hax_sctldtme_i,
+		    :hax_scttstfg:hax_scttstfg_i,
+		    :hax_sctcmpdt:hax_sctcmpdt_i,
+		    :hax_sctauth:hax_sctauth_i,
+		    :hax_psind:hax_psind_i,
+		    :hax_psscdno:hax_psscdno_i
+            from t45_hax01a hax01a
+            where
+                  hax01a.can_int = 0
+	      and hax01a.refnumha = :refnumha
+              and hax01a.cagecdxh = :cagecdxh;
+
+	if (sqlca.sqlcode == FND)
+	{
+	}
+	else
+	{
+		if (sqlca.sqlcode == NOT_FND)
+		{
+			hax_sctldtme_i=1;
+			hax_sctcmpdt_i=1;
+			hax_scttstfg_i=1;
+			hax_sctauth_i=1;
+			hax_psind_i=1;
+			hax_psscdno_i=1;
+		}
+		else
+		{
+			printf("\nget_t45_hax_data");
+			CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			errcode=1115;
+			btchslpf_dberr();
+		}
+	}
+	
+	return(errcode);
+}
+/*
+	This function updates the Proof_TRANSFER_FLAG on the HAX to "Y"
+	*/
+	
+int	updte_t45_hax_xfer_flag(struct cntrl_rcd *CNTRL_RCD)
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\nupdte_t45_hax_xfer_flag");
+	#endif
+	
+	EXEC SQL
+		update prov.t45_intrfce_ext
+		 	set proof_transfer_flag = 'Y'
+		 where
+		 	ref_no = rtrim(:refnumha)
+		 and	cage_code = :cagecdxh
+		 and	ha_hb_ind='HA';
+		
+	if (sqlca.sqlcode == FND)
+	{
+	}
+	else
+	{
+		printf("\nupdte_t45_hax_xfer_flag");
+		printf("\nUnable to update HAX Proof Transfer Flag");
+		CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+		printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+		printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+		printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+		printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+		printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+		printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+		printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+		errcode=1103;
+		btchslpf_dberr();
+	}
+
+	return(errcode);		
+}
+
+
+/*	This function the PRTSC01A information is the request is for T45
+				*/
+
+int     get_PRTSC01A_t45_hb(struct cntrl_rcd *CNTRL_RCD, struct prtsc01 *SEGMNT01,struct prtsc02 *SEGMNT02)
+
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\nget_PRTSC01A_T45_hb");
+		printf("\nrefnumha (%s)",refnumha.arr);
+		printf("\ncage_code (%s)",cagecdxh.arr);
+		printf("\naddrefhb (%s)",hb_refnumha.arr);
+		printf("\ncage_code (%s)",hb_cagecdxh.arr);
+	#endif
+
+	EXEC SQL
+            select  ha.itnameha,
+		substr(to_char(ha.prdldtha,'0009'),2,4),
+                ha.physecha,
+                ha.shlifeha,
+		ha.unitisha,
+                ha.cognsnha,
+		ha.smmnsnha,
+		ha.matnsnha,
+		ha.fscnsnha,
+		ha.niinsnha,
+		ha.aaplccha,
+		intrfce.proof_transfer_flag
+		into :ha_itnameha:ha_itnameha_i,
+		    :ha_prdldtha:ha_prdldtha_i,
+		    :ha_physecha:ha_physecha_i,
+		    :ha_shlifeha:ha_shlifeha_i,
+		    :ha_unitisha:ha_unitisha_i,
+		    :ha_cognsnha:ha_cognsnha_i,
+		    :ha_smmnsnha:ha_smmnsnha_i,
+		    :ha_matnsnha:ha_matnsnha_i,
+		    :ha_fscnsnha:ha_fscnsnha_i,
+		    :ha_niinsnha:ha_niinsnha_i,
+		    :ha_aaplccha:ha_aaplccha_i,
+        	    :hax_proof_transfer_flag:hax_proof_transfer_flag_i
+            from prov.t45_intrfce_ext intrfce,
+                 t45_ha ha,
+                 t45_hb hb
+            where
+		  ha.can_int = 0
+	      and ha.cagecdxh = :cagecdxh
+              and ha.refnumha = :refnumha
+              and hb.refnumhb = ha.refnumha
+              and hb.cagecdhb = ha.cagecdxh
+              and hb.addrefhb = :hb_refnumha
+              and hb.adcagehb = :hb_cagecdxh
+              and ha.can_int = hb.can_int
+              and hb.addrefhb = rpad(intrfce.ref_no,32,' ')
+              and hb.adcagehb = intrfce.cage_code
+              and intrfce.ha_hb_ind = 'HB';
+
+	if (sqlca.sqlcode == FND)
+	{
+		errcode=get_t45_hbx_data(CNTRL_RCD);
+		if (errcode == 0)
+		{
+			errcode=get_t45_hax01_data(CNTRL_RCD);
+		}
+		if (errcode == 0)
+		{
+			errcode=get_t45_hax01a_data(CNTRL_RCD);
+		}
+		if(errcode == 0)
+		{
+			errcode=get_PRTSC01A_t45_hf(CNTRL_RCD);
+		}
+		if(errcode == 0 && (hax_proof_transfer_flag == 'N' ||
+		                    hax_proof_transfer_flag_i == -1))
+		{
+			SEGMNT01->proof_transfer_flag='N';
+			errcode=updte_t45_hbx_xfer_flag(CNTRL_RCD); 
+		}
+		else
+		{
+			SEGMNT01->proof_transfer_flag=hax_proof_transfer_flag;
+		}
+		if (errcode == 0)
+		{
+			errcode=get_t45_SE_info_ea(CNTRL_RCD);
+		}
+		if(errcode == 0)
+		{
+			errcode=get_t45_arn_info(CNTRL_RCD);
+		}
+		if(errcode==0)
+		{
+			errcode=determine_t45_se_data(CNTRL_RCD,SEGMNT01);
+		}
+		if(errcode == 0)
+		{
+			errcode=determine_t45_cat_resp(CNTRL_RCD);
+		}
+		if (errcode == 0)
+		{
+			errcode=build_prtsc0102_rcd(CNTRL_RCD,SEGMNT01,SEGMNT02);
+			CNTRL_RCD->built_01='Y';
+		}
+	}
+	else
+	{
+		if (sqlca.sqlcode == NOT_FND)
+		{
+			printf("\nget_PRTSC01A_T45_hb");
+			printf("\nUnable to locate HA Recorded for Selected HB APPLICATION");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			errcode=2204;
+			btchslpf_dberr();
+		}
+		else
+		{
+			printf("\nget_PRTSC01A_T45_hb");
+			printf("\nBad SQLCODE");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+			errcode=2205;
+			btchslpf_dberr();
+		}
+	}
+
+	return(errcode);		
+}
+int     get_t45_hbx_data(struct cntrl_rcd *CNTRL_RCD)
+
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\nget_t45_hbx_data");
+		printf("\nrefnumha (%s) (%d) (%d)",(char *) refnumha.arr,strlen((char *) refnumha.arr),refnumha.len);
+		printf("\ncagecdxh (%s) (%d) (%d)",(char *) cagecdxh.arr,strlen((char *) cagecdxh.arr),cagecdxh.len);
+	#endif
+
+	EXEC SQL
+            select hbx.adcog,
+		hbx.admcc,
+		hbx.adfsc,
+		hbx.adniin,
+		hbx.adsmic 
+		into :hax_nicncog:hax_nicncog_i,
+		     :hax_nicnmcc:hax_nicnmcc_i,
+		     :hax_nicnfsc:hax_nicnfsc_i,
+		     :hax_nicnniin:hax_nicnniin_i,
+		     :hax_nicnsmic:hax_nicnsmic_i 
+            from t45_hbx01 hbx
+            where
+                  hbx.can_int   = 0
+              and hbx.refnumha  = :refnumha
+              and hbx.cagecdxh  = :cagecdxh
+              and hbx.addrefhb  = :hb_refnumha
+              and hbx.adcagehb  = :hb_cagecdxh;
+
+	if (sqlca.sqlcode == FND)
+	{
+	}
+	else
+	{
+		if (sqlca.sqlcode == NOT_FND)
+		{
+			hax_nicncog_i=1;
+			hax_nicnmcc_i=1;
+			hax_nicnfsc_i=1;
+			hax_nicnniin_i=1;
+			hax_nicnsmic_i=1;
+		}
+		else
+		{
+		}
+	}
+	
+	return(errcode);
+}
+/*
+	This function updates the Proof_TRANSFER_FLAG on the HBX to "Y"
+	*/
+	
+int	updte_t45_hbx_xfer_flag(struct cntrl_rcd *CNTRL_RCD)
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\nupdte_t45_hbx_xfer_flag");
+	#endif
+	
+	EXEC SQL
+		update prov.t45_intrfce_ext
+		 	set proof_transfer_flag = 'Y'
+		 where
+		          ref_no = rtrim(:hb_refnumha)
+	       	      and cage_code = :hb_cagecdxh
+	       	      and ha_hb_ind = 'HB';
+
+		
+	if (sqlca.sqlcode == FND)
+	{
+	}
+	else
+	{
+		printf("\nupdte_t45_hbx_xfer_flag");
+		printf("\nUnable to update HBX Proof Transfer Flag");
+		printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+		printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+		printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+		printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+		printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+		printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+		printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+		errcode=2006;
+		CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+		btchslpf_dberr();
+	}
+
+	return(errcode);		
+}
+
+/*
+	This function gets the Packaging Preservation information from
+	the 1388 HF Table.
+				*/
+
+int	get_PRTSC01A_t45_hf(struct cntrl_rcd *CNTRL_RCD)
+
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\nget_PRTSC01A_T45_HF");
+	#endif
+
+	EXEC SQL
+	    select qtyupkhf
+		into :hf_qtyupkhf:hf_qtyupkhf_i
+            from t45_hf hf
+            where
+                  hf.cagecdxh = :cagecdxh
+              and hf.refnumha = :refnumha
+	      and hf.can_int = 0
+	      and degprohf in (select max(degprohf)
+				from t45_hf hf1
+				where hf.cagecdxh = hf1.cagecdxh
+				  and hf.refnumha = hf1.refnumha
+				  and hf.can_int  = hf1.can_int);
+
+	if (sqlca.sqlcode == FND)
+	{
+	}
+	else
+	{
+		if (sqlca.sqlcode == NOT_FND)
+		{
+			strncpy((char *) hf_qtyupkhf.arr,"   ",3);
+			hf_qtyupkhf.len=3;
+		}
+		else
+		{
+			printf("\nget_PRTSC01A_T45_HF");
+			CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;	
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			errcode=2207;
+			btchslpf_dberr();
+		}
+	}
+
+	return(errcode);		
+}
+
+int     get_t45_SE_info_ea(struct cntrl_rcd *CNTRL_RCD)
+
+{
+	int     errcode=0;
+
+	#if DEBUG
+		printf("\nget_t45_SE_info_ea");
+	#endif
+
+	EXEC SQL
+	    select cfegfeea
+		    into :se_cfegfeea:se_cfegfeea_i
+		  from t45_ea ea
+	     where
+		    ea.secageea = :cagecdxh
+		and ea.can_int = 0
+	      	and ea.serefnea = :refnumha;
+
+	if (sqlca.sqlcode == FND)
+	{
+	}
+	else
+	{
+		if (sqlca.sqlcode == NOT_FND)
+		{
+			se_cfegfeea=' ';
+		}
+		else
+		{
+			printf("\nget_t45_SE_info_ea");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+			errcode=2208;
+			btchslpf_dberr();
+		}
+	}
+
+	return(errcode);
+
+}
+/*  This function retrieves those HB Reference numbers that have a RNCC 
+    of 7 (SCD Reference Numbers).  If none are found then it checks to see if it
+    has an HB with an RNCC of D (Procurement Spec Reference Number)
+				*/
+				
+	EXEC SQL DECLARE process_t45_arn_info_csr CURSOR for
+	 select '1',hb.addrefhb,
+	           hb.adcagehb,
+		   hb.adrncchb
+	          from t45_hb hb
+            where
+	      	    hb.cagecdhb = :cagecdxh
+	      	and hb.refnumhb = :refnumha
+		and hb.adrncchb = '7'
+		and hb.can_int  = 0
+	union all
+	select '2',hb.addrefhb,
+	           hb.adcagehb,
+		   hb.adrncchb
+	          from t45_hb hb
+            where
+	      	    hb.cagecdhb = :cagecdxh
+	      	and hb.refnumhb = :refnumha
+		and hb.adrncchb = 'D'
+		and hb.can_int  = 0;
+		
+int	get_t45_arn_info(struct cntrl_rcd *CNTRL_RCD)
+
+{
+	int	errcode=0;
+	char	spaces[]={"                                        "};
+
+	#if DEBUG
+		printf("\nget_t45_arn_info");
+	#endif
+
+	EXEC SQL OPEN process_t45_arn_info_csr;
+	
+	if (sqlca.sqlcode == FND)
+	{
+		EXEC SQL FETCH process_t45_arn_info_csr
+	    		into :arn_type_code:arn_type_code_i,
+			:addrefhb:addrefhb_i,
+			:adcagehb:adcagehb_i,
+			:arn_rncc:arn_rncc_i;
+
+		if (sqlca.sqlcode == FND)
+		{
+		}
+		else
+		{
+			if (sqlca.sqlcode == NOT_FND)
+			{
+				strncpy((char *) addrefhb.arr,spaces,32);
+				addrefhb.len=32;
+				arn_rncc=' ';
+			}
+			else
+			{
+				printf("\nget_t45_arn_info");
+				printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+				printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+				printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+				printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+				printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+				printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+				printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+				printf("\nBad SQLCODE on FETCH");
+				CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+				errcode=2209;
+				btchslpf_dberr();
+			}
+		}
+	}
+	else
+	{
+		if (sqlca.sqlcode == NOT_FND)
+		{
+				strncpy((char *) addrefhb.arr,spaces,addrefhb.len);
+				addrefhb.len=32;
+				strncpy((char *) adcagehb.arr,spaces,adcagehb.len);
+				adcagehb.len=5;
+				arn_rncc=' ';
+		}
+		else
+		{
+			printf("\nget_t45_arn_info");
+			printf("\nBad SQLCODE on CURSOR OPEN");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+			errcode=2210;
+			btchslpf_dberr();
+		}
+	}
+	
+	EXEC SQL CLOSE process_t45_arn_info_csr;
+
+	return(errcode);		
+}
+/*
+	This function determines whether the Ref_NO/CAGE is and SE Item
+					*/
+
+int	determine_t45_se_data(struct cntrl_rcd *CNTRL_RCD,struct prtsc01 *SEGMNT01)
+{
+	int	errcode=0;
+	char	hg_lcn[18];
+	char	spaces[]={"                   "};
+/*	char	*Midstr();
+	char	*lcn_pos6_18;  */
+	char	lcn_pos6_18[14];
+	
+	se_item_ind='N';
+	strncpy(hg_lcn,spaces,18);
+	strncpy(hg_lcn,CNTRL_RCD->hg_lcn,18);
+	strncpy(lcn_pos6_18,&hg_lcn[5],13);
+/*	lcn_pos6_18=Midstr(hg_lcn,6,13); */
+	if (strncmp(lcn_pos6_18,spaces,13)==0)
+	{
+		se_item_ind='Y';
+	}
+	else
+	{
+		se_item_ind='N';
+	}
+
+	return(errcode);
+}
+
+/*
+	This function determines the Category Responsibility Code   */
+	
+	EXEC SQL DECLARE determine_t45_cat_resp_csr CURSOR for
+		select distinct '1',suplyrcd
+	            from t45_hgx01
+	             where refnumha = :refnumha
+	              and refnumha = :cagecdxh
+	              and suplyrcd = '76301'
+	        union all
+	        select distinct '2',suplyrcd
+	            from t45_hgx01
+	             where refnumha = :refnumha
+	              and refnumha = :cagecdxh
+	                and suplyrcd not in ('76301','     ')
+	        union all
+	        select distinct '3',suplyrcd
+	            from t45_hgx01
+	             where refnumha = :refnumha
+	              and refnumha = :cagecdxh
+	                and (suplyrcd is null or
+	                    suplyrcd = '     ')
+	        order by 1;
+	                    	
+int	determine_t45_cat_resp(struct cntrl_rcd *CNTRL_RCD)
+
+{
+	int	errcode=0;
+	char	fetched_row=0;
+	char	spaces[]={"                                        "};
+	
+	#if DEBUG
+		printf("\ndetermine_t45_cat_resp");
+	#endif
+	
+	EXEC SQL OPEN determine_t45_cat_resp_csr;
+	
+	strncpy((char *) hgx_suplyrcd.arr,spaces,5);
+	if (sqlca.sqlcode == FND)
+	{
+		while(!fetched_row)
+		{
+			EXEC SQL FETCH determine_t45_cat_resp_csr
+			  into :cat_resp_ind,
+			       :hgx_suplyrcd:hgx_suplyrcd_i;
+	   		if (sqlca.sqlcode == FND)
+			{
+				if (hgx_suplyrcd_i == FND)
+				{
+					fetched_row=1;
+				}
+				else
+				{
+					strncpy((char *) hgx_suplyrcd.arr,spaces,5);
+					hgx_suplyrcd.len=5;
+				}
+			}
+			else
+			{
+				fetched_row=1;
+				if (sqlca.sqlcode == NOT_FND)
+				{
+				}
+				else
+				{
+					printf("\ndetermine_t45_cat_resp");
+					printf("\nFETCH CURSOR");
+					printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+					printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+					printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+					printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+					printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+					printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+					printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+					CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+					errcode=1103;
+					btchslpf_dberr();
+				}
+			}
+		}
+	}
+	else
+	{
+		if (sqlca.sqlcode == NOT_FND)
+		{
+		}
+		else
+		{
+			printf("\ndetermine_t45_cat_resp");
+			printf("\nOpen CURSOR");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+			errcode=1101;
+			btchslpf_dberr();
+		}
+	}
+	
+	EXEC SQL CLOSE determine_t45_cat_resp_csr;
+	
+	return(errcode);
+}
+/*
+	This function sets up the output area with information from the
+	selects   */
+
+int	build_prtsc0102_rcd(struct cntrl_rcd *CNTRL_RCD,struct prtsc01 *SEGMNT01,struct prtsc02 *SEGMNT02)
+
+{
+	int	errcode=0;
+	char	spaces[]={"                                        "};
+	int	i=0;
+	char	outData[500];
+	
+	#if DEBUG
+		printf("\nbuild_prtsc0102_rcd");
+		printf("\nHA Ref No (%s)",(char *) refnumha.arr);
+		printf("\nHA Ref No Cage (%s)",(char *) cagecdxh.arr);
+		printf("\nHB Ref No (%s)",(char *) hb_refnumha.arr);
+		printf("\nHB Ref No Cage (%s)",(char *) hb_cagecdxh.arr);
+	#endif
+	
+	errcode=initlze_segmnt0102(SEGMNT01,SEGMNT02);
+	
+	errcode=set_t45_custmr(CNTRL_RCD,SEGMNT02);
+	
+	if(strncmp(CNTRL_RCD->ha_hb_code,"HA",2) == 0)
+	{
+		strncpy(SEGMNT01->ref_no,(char *) refnumha.arr,refnumha.len);
+		strncpy(SEGMNT01->cage_code,(char *) cagecdxh.arr,cagecdxh.len);
+	}
+	else
+	{
+		if(strncmp(CNTRL_RCD->ha_hb_code,"HB",2) == 0)
+		{
+			strncpy(SEGMNT01->ref_no,(char *) hb_refnumha.arr,hb_refnumha.len);
+			strncpy(SEGMNT01->cage_code,(char *) hb_cagecdxh.arr,hb_cagecdxh.len);
+		}
+		else
+		{
+			printf("\nbuild_prtsc0102_rcd");
+			printf("\nUnable to determine HA/HB Record Type - Building SEGMN01 RCD");
+			printf("\nCNTRL_RCD ha_hb_code is (%s)",CNTRL_RCD->ha_hb_code);
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			errcode=2211;
+			return(errcode);
+		}
+	}
+	
+	strncpy(SEGMNT01->prtsc01a,"01",2);
+	strncpy(SEGMNT01->filler,spaces,10);
+	strncpy(SEGMNT01->ref_no_type,CNTRL_RCD->ha_hb_code,2);
+	strncpy(SEGMNT01->ha_item_nme,(char *) ha_itnameha.arr,ha_itnameha.len);
+	strncpy(SEGMNT01->ha_prod_lead_time,(char *) ha_prdldtha.arr,ha_prdldtha.len);
+	SEGMNT01->se_item=se_item_ind;
+
+	if (hax_sctldtme_i == 0)
+	{
+		strncpy(SEGMNT01->hax_sct_lead_time,(char *) hax_sctldtme.arr,hax_sctldtme.len);
+	}
+	else
+	{
+		strncpy(SEGMNT01->hax_sct_lead_time,spaces,2);
+	}
+	SEGMNT01->ha_physcl_secrty=ha_physecha;
+	SEGMNT01->ha_shlf_life=ha_shlifeha;
+	strncpy(SEGMNT01->ha_unit_issue,(char *) ha_unitisha.arr,ha_unitisha.len);
+	if (hax_sctcmpdt_i == 0)
+	{
+		strncpy(SEGMNT01->hax_sct_compltn_date,(char *) hax_sctcmpdt.arr,hax_sctcmpdt.len);
+	}
+	else
+	{
+		strncpy(SEGMNT01->hax_sct_compltn_date,spaces,10);
+	}
+	if (hax_scttstfg_i == 0)
+	{
+		SEGMNT01->hax_sct_tst_reqd_flag=hax_scttstfg;
+	}
+	else
+	{
+		SEGMNT01->hax_sct_tst_reqd_flag=' ';
+	}
+	if (hax_sctauth_i == 0)
+	{
+		strncpy(SEGMNT01->hax_sct_authrztn_no,(char *) hax_sctauth.arr,hax_sctauth.len);
+	}
+	else
+	{
+		strncpy(SEGMNT01->hax_sct_authrztn_no,spaces,15);
+	}
+	if (hf_qtyupkhf_i == 0)
+	{
+		strncpy(SEGMNT01->hf_qup,(char *) hf_qtyupkhf.arr,hf_qtyupkhf.len);
+	}
+	else
+	{
+		strncpy(SEGMNT01->hf_qup,spaces,3);
+	}
+	if (hax_psind_i == 0)
+	{
+		strncpy(SEGMNT01->hax_ps_ind,(char *) hax_psind.arr,hax_psind.len);
+	}
+	else
+	{
+		strncpy(SEGMNT01->hax_ps_ind,spaces,3);
+	}
+	if (hax_psscdno_i == 0)
+	{
+		strncpy(SEGMNT01->hax_ps_scd_no,(char *) hax_psscdno.arr,hax_psscdno.len);
+	}
+	else
+	{
+		strncpy(SEGMNT01->hax_ps_scd_no,spaces,22);
+	}
+	
+	/* strncpy(SEGMNT02->ha_nsn_cog_code,(char *) ha_cognsnha.arr,ha_cognsnha.len); NO LONGER NEEDED PER PATRICIA WHITE (PROBLEMREPORT GSSIT00031772) */ 
+
+	/* 
+       if (ha_matnsnha == 0)
+	{
+		SEGMNT02->ha_nsn_matl=ha_matnsnha;
+	}
+	else
+	{
+		SEGMNT02->ha_nsn_matl=' ';
+	} -- NO LONGER NEEDED PER PATRICIA WHITE (PROBLEMREPORT GSSIT00031772)
+       */
+
+	strncpy(SEGMNT02->ha_nsn_fsc,(char *) ha_fscnsnha.arr,ha_fscnsnha.len);
+	strncpy(SEGMNT02->ha_nsn_niin,(char *) ha_niinsnha.arr,ha_niinsnha.len);
+	strncpy(SEGMNT02->ha_nsn_spec_ident,(char *) ha_smmnsnha.arr,ha_smmnsnha.len);
+	
+	if(hax_nicncog_i == 0)
+	{
+		strncpy(SEGMNT02->hax_nsn_cog_code,(char *) hax_nicncog.arr,hax_nicncog.len);
+	}
+	else
+	{
+		strncpy(SEGMNT02->hax_nsn_cog_code,spaces,2);
+	}
+	
+	if (hax_nicnmcc_i == 0)
+	{
+		SEGMNT02->hax_nsn_matl=hax_nicnmcc;
+	}
+	else
+	{
+		SEGMNT02->hax_nsn_matl=' ';
+	}
+	
+	if(hax_nicnfsc_i == 0)
+	{
+		strncpy(SEGMNT02->hax_nsn_fsc,(char *) hax_nicnfsc.arr,hax_nicnfsc.len);
+	}
+	else
+	{
+		strncpy(SEGMNT02->hax_nsn_fsc,spaces,4);
+	}
+	
+	if(hax_nicnniin_i == 0)
+	{
+		strncpy(SEGMNT02->hax_nsn_niin,(char *) hax_nicnniin.arr,hax_nicnniin.len);
+	}
+	else
+	{
+		strncpy(SEGMNT02->hax_nsn_niin,spaces,9);
+	}
+	
+	if(hax_nicnsmic_i == 0)
+	{
+		strncpy(SEGMNT02->hax_nsn_spec_ident,(char *) hax_nicnsmic.arr,hax_nicnsmic.len);
+	}
+	else
+	{
+		strncpy(SEGMNT02->hax_nsn_spec_ident,spaces,2);
+	}
+	
+
+	strncpy(SEGMNT02->prtsc02a,"02",2);
+	strncpy(SEGMNT02->hg_end_item_acrnym,CNTRL_RCD->mdl_acft_prf,10);
+	if (ha_aaplccha_i == 0)
+	{
+		SEGMNT02->ha_aaplccha=ha_aaplccha; 
+	}
+	else
+	{
+		SEGMNT02->ha_aaplccha=' '; 
+	}
+	strncpy(SEGMNT02->hgx_suplyr_cage_code,(char *) hgx_suplyrcd.arr,hgx_suplyrcd.len);
+
+	if (addrefhb_i == 0)
+	{
+		strncpy(SEGMNT01->hb_arn_ref_no,(char *) addrefhb.arr,addrefhb.len);
+	}
+	else
+	{
+		strncpy(SEGMNT01->hb_arn_ref_no,spaces,32);
+	}
+	
+	if (adcagehb_i == 0)
+	{
+		strncpy(SEGMNT01->hb_arn_cage,(char *) adcagehb.arr,adcagehb.len);
+	}
+	else
+	{
+		strncpy(SEGMNT01->hb_arn_cage,spaces,5);
+	}
+	
+	if (arn_rncc_i == 0)
+	{
+		SEGMNT01->hb_arn_rncc=arn_rncc;
+	}
+	else
+	{
+		SEGMNT01->hb_arn_rncc=' ';
+	}
+	
+	if (se_cfegfeea_i == 0)
+	{
+		SEGMNT01->ea_cfe_gfe=se_cfegfeea;
+	}
+	else
+	{
+		SEGMNT01->ea_cfe_gfe=' ';
+	}
+	
+	for (i=0;i<501;i++)
+	{
+		outData[i]=' ';
+	}
+	
+	SEGMNT01->prtsc01_eof='\0';
+	SEGMNT01->prtsc01_newline='\n';
+	#if DEBUG
+		printf("\nSegmnt 01 (%s)",SEGMNT01);
+	#endif
+	sprintf(outData,"%s",SEGMNT01);
+	errcode=write_t45_rcd((char *) &outData,CNTRL_RCD);
+	
+	for (i=0;i<501;i++)
+	{
+		outData[i]=' ';
+	}
+
+	if(strncmp(CNTRL_RCD->ha_hb_code,"HA",2) == 0)
+	{
+		strncpy(SEGMNT02->ref_no,(char *) refnumha.arr,refnumha.len);
+		strncpy(SEGMNT02->cage_code,(char *) cagecdxh.arr,cagecdxh.len);
+	}
+	else
+	{
+		if(strncmp(CNTRL_RCD->ha_hb_code,"HB",2) == 0)
+		{
+			strncpy(SEGMNT02->ref_no,(char *) hb_refnumha.arr,hb_refnumha.len);
+			strncpy(SEGMNT02->cage_code,(char *) hb_cagecdxh.arr,hb_cagecdxh.len);
+		}
+		else
+		{
+			printf("\nbuild_prtsc0102_rcd");
+			printf("\nUnable to determine HA/HB Record Type");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			printf("\nCNTRL_RCD ha_hb_code is (%s)",CNTRL_RCD->ha_hb_code);
+			errcode=2212;
+			return(errcode);
+		}
+	}
+	#if DEBUG
+		printf("\nSegmnt 02 (%s)",SEGMNT02);
+	#endif
+
+	errcode=write_t45_segmnt02(CNTRL_RCD,SEGMNT02);
+	
+	return(errcode);		
+}
+int	write_t45_segmnt02(struct cntrl_rcd *CNTRL_RCD,struct prtsc02 *SEGMNT02)
+{
+	int	errcode=0;
+	int	fetched_row=0;
+	int	fetched_ctr=0;
+	char	outData[500];
+
+	SEGMNT02->prtsc02_eof='\0';
+	SEGMNT02->prtsc02_newline='\n';
+	#if DEBUG
+		printf("\nwrite_t45_segmnt02");
+		printf("\nSegmnt 02 (%s)",SEGMNT02);
+	#endif
+	sprintf(outData,"%s",SEGMNT02);
+	errcode=write_t45_rcd((char *) &outData,CNTRL_RCD);		
+	return(errcode);
+}
+
+int	set_t45_custmr(struct cntrl_rcd *CNTRL_RCD,struct prtsc02 *SEGMNT02)
+{
+	int	errcode=0;
+		
+	#if DEBUG
+		printf("\nset_t45_custmr");
+	#endif
+	
+	strncpy(SEGMNT02->custmr,"NV",2);
+		
+	return(errcode);
+}
+
+
+EXEC SQL BEGIN DECLARE SECTION;
+
+/*	PROOF HOST VARIABLES   */
+
+/*	1388 HG Table Host Variables */
+
+	varchar	hgx_ref_no[33];
+	varchar	hgx_cage_code[6];
+	varchar	hg_eiac[11];
+	varchar	hg_lcn[19];
+	varchar	hg_alc[3];
+
+/*	Effectivity Host Variables   */
+
+	char	series_cd;
+	short	series_cd_i;
+	varchar	ef_from[6];
+	short	ef_from_i;
+	varchar	ef_to[6];
+	short	ef_to_i;
+
+EXEC SQL END DECLARE SECTION;
+
+int	create_t45_03(struct cntrl_rcd *CNTRL_RCD,struct prtsc03 *SEGMNT03)
+
+{
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\ncreate_t45_03");
+	#endif
+	
+	strncpy((char *) refno.arr,CNTRL_RCD->ha_ref_no,32);
+	strcat((char *) refno.arr,'\0');
+	refno.len=strlen((char *) refno.arr);
+	strncpy((char *) cage_code.arr,CNTRL_RCD->ha_cage_code,5);
+	cage_code.len=5;
+	cage_code.arr[6]='\0';
+	strncpy((char *) eiac.arr,CNTRL_RCD->ha_eiac,10);
+	strcat((char *) eiac.arr,'\0');
+	eiac.len=strlen((char *) eiac.arr);
+	strncpy((char *) hg_lcn.arr,CNTRL_RCD->hg_lcn,18);
+	strcat((char *) hg_lcn.arr,'\0');
+	hg_lcn.len=strlen((char *) hg_lcn.arr);
+	strncpy((char *) hg_alc.arr,CNTRL_RCD->hg_alc,2);
+	strcat((char *) hg_alc.arr,'\0');
+	hg_alc.len=strlen((char *) hg_alc.arr);
+
+	errcode=fetch_t45_eff(CNTRL_RCD,SEGMNT03);
+
+	return(errcode);		
+}
+
+EXEC SQL DECLARE effecty_t45_csr CURSOR for
+	select distinct	hgx2.refnumha,
+    	   	hgx2.cagecdxh,
+    	   	hgx2.eiacodxa,
+    	   	model,
+		to_char(efffrom,'0009'),
+		to_char(effto,'0009')
+	from slic2b20.t45_hgx01a hgx2	     
+	    where hgx2.refnumha = :refno
+	     and hgx2.cagecdxh  = :cage_code
+	     and hgx2.eiacodxa = :eiac
+	     and hgx2.lcntypxb = 'P'
+	     and hgx2.can_int = 0
+	union
+	select distinct	hpx2.refnumha,
+    	   	hpx2.cagecdxh,
+    	   	hpx2.eiacodxa,
+    	   	mdlhp,    
+		to_char(uoefffrm,'0009'),
+		to_char(uoeffto,'0009')
+	from slic2b20.t45_hpx01a hpx2  
+ 	   where hpx2.refnumha = :refno
+	     and hpx2.cagecdxh = :cage_code
+	     and hpx2.eiacodxa = :eiac
+	     and hpx2.lcntypxb = 'P'
+	     and hpx2.can_int = 0
+	order by 1,2,3,4,5,6;
+		
+int     fetch_t45_eff(struct cntrl_rcd *CNTRL_RCD,struct prtsc03 *SEGMNT03)
+
+{
+	char    spaces[]={"                                        "};
+	int     errcode=0;
+	int	fetched_row=0;
+	int	fetched_ctr=0;
+
+	#if DEBUG
+		printf("\nfetch_t45_eff");
+		printf("\nrefno (%s) (%d) (%d)",(char *) refno.arr,strlen((char *) refno.arr),refno.len);
+		printf("\ncage_code (%s) (%d) (%d)",(char *) cage_code.arr,strlen((char *) cage_code.arr),cage_code.len);
+		printf("\neiac (%s) (%d) (%d)",(char *) eiac.arr,strlen((char *) eiac.arr),eiac.len);
+		printf("\nlcn (%s) alc (%s)",(char *) hg_lcn.arr, (char *) hg_alc.arr);
+
+	#endif
+
+	EXEC SQL OPEN effecty_t45_csr;
+
+	if (sqlca.sqlcode == FND)
+	{
+		while(!fetched_row)
+		{
+			errcode=initlze_segmnt03_host_var();
+			EXEC SQL FETCH effecty_t45_csr
+			  into :hgx_ref_no,
+				:hgx_cage_code,
+				:hg_eiac,
+				:series_cd:series_cd_i,
+			  	:ef_from:ef_from_i,
+			  	:ef_to:ef_to_i;
+
+			if (sqlca.sqlcode == FND)
+			{
+				CNTRL_RCD->valid_application = 'Y';
+				fetched_ctr++;
+				errcode=initlze_segmnt03(SEGMNT03);
+				if(strncmp(CNTRL_RCD->ha_hb_code,"HA",2) == 0)
+				{
+					strncpy(SEGMNT03->ref_no,(char *) refno.arr,refno.len);
+					strncpy(SEGMNT03->cage_code,(char *) cage_code.arr,cage_code.len);
+				}
+				else
+				{
+					if(strncmp(CNTRL_RCD->ha_hb_code,"HB",2) == 0)
+					{
+						strncpy(SEGMNT03->ref_no,CNTRL_RCD->hb_ref_no,32);
+						strncpy(SEGMNT03->cage_code,CNTRL_RCD->hb_cage_code,5);
+					}
+					else
+					{
+						printf("\nfetch_t45_eff");
+						printf("\nUnable to determine HA/HB Record Type");
+						printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+						printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+						printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+						printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+						printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+						printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+						printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+						printf("\nCNTRL_RCD ha_hb_code is (%s)",CNTRL_RCD->ha_hb_code);
+						errcode=2300;
+						return(errcode);
+					}
+				}
+				
+				strncpy(SEGMNT03->prtsc03a,"03",2);
+				strncpy(SEGMNT03->hg_lsaconxb,CNTRL_RCD->hg_lcn,18);
+				strncpy(SEGMNT03->hg_alt_lsa,CNTRL_RCD->hg_alc,2);
+
+				strncpy(SEGMNT03->hg_end_item_acrnym,CNTRL_RCD->mdl_acft_prf,10);
+				SEGMNT03->mdl_instld_on_eff=series_cd;
+				strncpy(SEGMNT03->from_eff,(char *) ef_from.arr,ef_from.len);
+				strncpy(SEGMNT03->to_eff,(char *) ef_to.arr,ef_to.len);
+
+				errcode=build_t45_prtsc03_rcd(CNTRL_RCD,SEGMNT03);
+			}
+			else
+			{
+				fetched_row=1;
+				if (sqlca.sqlcode == NOT_FND)
+				{
+					if (fetched_ctr > 0)
+					{
+					}
+					else
+					{
+						CNTRL_RCD->valid_application = 'N';
+					}
+				}
+				else
+				{
+					printf("\nFUNCTION: fetch_eff");
+					printf("\n\tFETCH Data Failure");
+					printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+					printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+					printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+					printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+					printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+					printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+					printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+					CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+					errcode=2301;
+					btchslpf_dberr();
+					
+				}
+			}
+		}
+	}
+	else
+	{
+		if (sqlca.sqlcode = NOT_FND)
+		{
+			CNTRL_RCD->valid_application = 'N';
+		}
+		else
+		{
+			printf("\nFUNCTION: fetch_eff");
+			printf("\n\tOpen Cursor Failure");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+			errcode=2302;
+
+			btchslpf_dberr();
+			
+		}
+	}
+
+	EXEC SQL CLOSE effecty_t45_csr;
+	
+	return(errcode);
+}
+/*
+
+	This is the main processing function for building the
+	PROOF interface Record.
+	*/
+
+int     build_t45_prtsc03_rcd(struct cntrl_rcd *CNTRL_RCD,struct prtsc03 *SEGMNT03)
+
+{
+	int	errcode=0;
+	char    spaces[]={"                                        "};
+	int	i=0;
+	char	outData[500];
+
+
+	#if DEBUG
+		printf("\nbuild_t45_prtsc03_rcd");
+	#endif
+
+	for (i=0;i<501;i++)
+	{
+		outData[i]=' ';
+	}
+	
+	SEGMNT03->prtsc03_eof='\0';
+	SEGMNT03->prtsc03_newline='\n';
+	
+	#if DEBUG
+		printf("\nSegmnt 03 (%s)",SEGMNT03);
+	#endif
+	
+	sprintf(outData,"%s",SEGMNT03);
+	errcode=write_t45_rcd((char *) &outData,CNTRL_RCD);
+	
+	return(errcode);
+}
+/*
+ **************************************************************************
+ *  PROGRAM NAME: btchspt4504.pc
+ *
+ *  PURPOSE: This application qualifies the PROOF Information being processed
+ *          against the 1388 Tables.  
+ *
+ *  INPUTS:   N/A
+ *            
+ *           
+ *
+ *  OUTPUTS:  N/A 
+ *            
+ *           
+ *
+ *  CHANGE HISTORY:
+ *   REV     DATE    Programmer                 CHANGE
+ *   ---  --------   ----------------------     ------
+ *    00  05/24/1996 Larry Mills                Initial coding 
+ *
+ **************************************************************************
+*/
+EXEC SQL BEGIN DECLARE SECTION;
+
+/*	PROOF HOST VARIABLES   */
+
+	varchar	hpx_refnumha[33];
+	varchar	hpx_cagecdxh[6];
+	short	hpx_cagecdxh_i;
+	varchar	hpx_eiacodxa[11];
+	short	hpx_eiacodxa_i;
+	varchar	rsrefno[33];
+	short	rsrefno_i;
+	char	rsind;
+	short	rsind_i;
+	varchar	canumbhp[17];
+	short	canumbhp_i;
+	varchar	repsupid[3];
+	short	repsupid_i;
+
+EXEC SQL END DECLARE SECTION;
+
+int	create_t45_04(struct cntrl_rcd *CNTRL_RCD,struct prtsc04 *SEGMNT04) 
+
+{
+
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\ncreate_t45_04");
+	#endif
+	
+        strncpy((char *) refnumha.arr,CNTRL_RCD->ha_ref_no,32);
+	refnumha.len=strlen((char *) refnumha.arr);
+	strncpy((char *) cagecdxh.arr,CNTRL_RCD->ha_cage_code,5);
+	cagecdxh.len=5;
+
+	errcode=get_t45_supsdure_info(CNTRL_RCD,SEGMNT04);
+
+	return(errcode);		
+}
+
+/*
+	The following Function select the supersedure information for the
+	Part Number in question
+				*/
+
+EXEC SQL DECLARE supsdure_t45_csr CURSOR for
+	select distinct refnumha,
+		cagecdxh,
+		eiacodxa,
+		rsrefno,
+		rsind,
+		canumbhp,
+		repsupid
+	   from t45_hpx01
+	     where
+		    refnumha = :refnumha
+		and cagecdxh = :cagecdxh
+		and eiacodxa = :eiacodxa
+		and rsind in ('R','S')
+		and eiacodxa in ('T45TS','T45SE');
+
+int	get_t45_supsdure_info(struct cntrl_rcd *CNTRL_RCD, struct prtsc04 *SEGMNT04)
+{
+	int	errcode=0;
+		
+	#if DEBUG
+		printf("\nget_t45_supsdure_info");
+		printf("\nrefnumha (%s) (%d) (%d)",(char *) refnumha.arr,strlen((char *) refnumha.arr),refnumha.len);
+		printf("\ncagecdxh (%s) (%d) (%d)",(char *) cagecdxh.arr,strlen((char *) cagecdxh.arr),cagecdxh.len);
+		printf("\neiacodxa (%s) (%d) (%d)",(char *) eiacodxa.arr,strlen((char *) eiacodxa.arr),eiacodxa.len);
+	#endif
+
+	EXEC SQL OPEN supsdure_t45_csr;
+
+	if (sqlca.sqlcode == FND)
+	{
+		errcode=fetch_t45_supsdure_info(CNTRL_RCD,SEGMNT04);
+	}
+	else
+	{
+		if (sqlca.sqlcode == NOT_FND)
+		{
+		}
+		else
+		{
+			printf("\nget_t45_supsdure_info");
+			printf("\nBad SQLCODE on CURSOR OPEN");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+			errcode=2400;
+			btchslpf_dberr();
+		}
+	}
+
+	EXEC SQL CLOSE supsdure_t45_csr;
+
+	return(errcode);
+}
+
+int	fetch_t45_supsdure_info(struct cntrl_rcd *CNTRL_RCD, struct prtsc04 *SEGMNT04)
+{
+	int	errcode=0;
+	int	fetched_row=0;
+	int	fetched_ctr=0;
+	char	spaces[]={"                                        "};
+	char	outData[500];
+	int	i;
+		
+	#if DEBUG
+		printf("\nfetch_t45_supsdure_info");
+	#endif
+
+	while(!fetched_row)
+	{
+		errcode=initlze_segmnt04_host_var();
+		EXEC SQL FETCH supsdure_t45_csr into
+			:hpx_refnumha,
+			:hpx_cagecdxh:hpx_cagecdxh_i,
+			:hpx_eiacodxa:hpx_eiacodxa_i, 
+			:rsrefno:rsrefno_i,
+			:rsind:rsind_i,
+			:canumbhp:canumbhp_i,
+			:repsupid:repsupid_i;
+
+		if (sqlca.sqlcode == FND)
+		{
+			errcode=initlze_segmnt04(SEGMNT04);
+			fetched_ctr++;
+			if (hpx_cagecdxh_i == 0)
+			{
+			}
+			else
+			{
+				strncpy((char *) hpx_cagecdxh.arr,spaces,5);
+			}
+			if(strncmp(CNTRL_RCD->ha_hb_code,"HA",2) == 0)
+			{
+				strncpy(SEGMNT04->ref_no,(char *) refnumha.arr,refnumha.len);
+				strncpy(SEGMNT04->cage_code,(char *) cagecdxh.arr,cagecdxh.len);
+			}
+			else
+			{
+				if(strncmp(CNTRL_RCD->ha_hb_code,"HB",2) == 0)
+				{
+					strncpy(SEGMNT04->ref_no,CNTRL_RCD->hb_ref_no,32);
+					strncpy(SEGMNT04->cage_code,CNTRL_RCD->hb_cage_code,5);
+				}
+				else
+				{
+					printf("\nfetch_t45_supsdure_info");
+					printf("\nUnable to determine HA/HB Record Type");
+					printf("\nCNTRL_RCD ha_hb_code is (%s)",CNTRL_RCD->ha_hb_code);
+					printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+					printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+					printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+					printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+					printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+					printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+					printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+					errcode=2401;
+					return(errcode);
+				}
+			}
+			strncpy(SEGMNT04->hg_end_item_acrnym,CNTRL_RCD->mdl_acft_prf,10);
+			strncpy(SEGMNT04->prtsc04a,"04",2);
+			if (rsrefno_i == 0)
+			{
+				strncpy(SEGMNT04->hpx_replcng_prt_no,(char *) rsrefno.arr,rsrefno.len);
+			}
+			else
+			{
+				strncpy(SEGMNT04->hpx_replcng_prt_no,spaces,32);
+			}
+			if (rsind_i == 0)
+			{
+				SEGMNT04->hpx_replcng_indctr=rsind;
+			}
+			else
+			{
+				SEGMNT04->hpx_replcng_indctr=' ';
+			}
+			if (canumbhp_i == 0)
+			{
+				strncpy(SEGMNT04->hpx_replcng_chng_authrty_no,(char *) canumbhp.arr,canumbhp.len);
+			}
+			else
+			{
+				strncpy(SEGMNT04->hpx_replcng_chng_authrty_no,spaces,15);
+			}
+			strncpy(SEGMNT04->hpx_replcng_intrchng_code,(char *) repsupid.arr,repsupid.len);
+		
+			for (i=0;i<501;i++)
+			{
+				outData[i]=' ';
+			}
+	
+			SEGMNT04->prtsc04_eof='\0';
+			SEGMNT04->prtsc04_newline='\n';
+			#if DEBUG
+				printf("\nSegmnt 04 (%s)",SEGMNT04);
+			#endif
+			sprintf(outData,"%s",SEGMNT04);
+			errcode=write_t45_rcd((char *) &outData,CNTRL_RCD);}
+		else
+		{
+			fetched_row=1;
+			CNTRL_RCD->built_04='N';
+			if (sqlca.sqlcode == NOT_FND)
+			{
+			}
+			else
+			{
+				printf("\nfetch_t45_supsdure_info");
+				printf("\nBad SQLCODE on Cursor Open");
+				printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+				printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+				printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+				printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+				printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+				printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+				printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+				CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+				errcode=2402;
+				btchslpf_dberr();
+			}
+		}
+	}
+
+	return(errcode);
+}
+/*
+ **************************************************************************
+ *  PROGRAM NAME: btchspt4505.pc
+ *
+ *  PURPOSE: This application qualifies the PROOF Information being processed
+ *          against the 1388 Tables.  
+ *
+ *  INPUTS:   N/A
+ *            
+ *           
+ *
+ *  OUTPUTS:  N/A 
+ *            
+ *           
+ *
+ *  CHANGE HISTORY:
+ *   REV     DATE    Programmer                 CHANGE
+ *   ---  --------   ----------------------     ------
+ *    00  05/24/1996 Larry Mills                Initial coding 
+ *
+ **************************************************************************
+*/
+EXEC SQL BEGIN DECLARE SECTION;
+
+/*	PROOF HOST VARIABLES   */
+
+	varchar	hd_refnumha[33];
+	varchar	hd_cagecdxh[6];
+	varchar	fiscyrhd[3];
+	short	fiscyrhd_i;
+	varchar	uiprichd[11];
+	short	uiprichd_i;
+
+EXEC SQL END DECLARE SECTION;
+
+int	create_t45_05(struct cntrl_rcd *CNTRL_RCD,struct prtsc05 *SEGMNT05) 
+
+{
+
+	int	errcode=0;
+
+	#if DEBUG
+		printf("\ncreate_t45_05");
+	#endif
+	
+        strncpy((char *) refnumha.arr,CNTRL_RCD->ha_ref_no,32);
+	refnumha.len=strlen((char *) refnumha.arr);
+	strncpy((char *) cagecdxh.arr,CNTRL_RCD->ha_cage_code,5);
+	cagecdxh.len=5;
+
+	errcode=get_t45_pricing_info(CNTRL_RCD,SEGMNT05);
+
+	return(errcode);		
+}
+
+EXEC SQL DECLARE pricing_t45_csr CURSOR for
+	select distinct refnumha,
+		cagecdxh,
+		fiscyrhd,
+		substr(to_char(uiprichd,'00000000V09'),2,10)
+		from t45_hd
+		where refnumha = :refnumha
+		  and cagecdxh = :cagecdxh
+		 and fiscyrhd > ' '
+		 and can_int = 0
+	  order by fiscyrhd desc;
+
+int	get_t45_pricing_info(struct cntrl_rcd *CNTRL_RCD, struct prtsc05 *SEGMNT05)
+{
+	int	errcode=0;
+		
+	#if DEBUG
+		printf("\nget_t45_pricing_info");
+	#endif
+
+	EXEC SQL OPEN pricing_t45_csr;
+
+	if (sqlca.sqlcode == FND)
+	{
+		errcode=fetch_t45_pricing_info(CNTRL_RCD,SEGMNT05);
+	}
+	else
+	{
+		if (sqlca.sqlcode == NOT_FND)
+		{
+		}
+		else
+		{
+			printf("\nget_t45_pricing_info");
+			printf("\nBad SQLCODE on CURSOR Open");
+			printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+			printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+			printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+			printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+			printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+			printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+			printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+			CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+			errcode=2500;
+			btchslpf_dberr();
+		}
+	}
+
+	EXEC SQL CLOSE pricing_t45_csr;
+
+	return(errcode);
+}
+
+int	fetch_t45_pricing_info(struct cntrl_rcd *CNTRL_RCD, struct prtsc05 *SEGMNT05)
+{
+	int	errcode=0;
+	char	spaces[]="                                ";
+	int	fetched_row=0;
+	int	i=0;
+	char	outData[500];
+		
+	#if DEBUG
+		printf("\nfetch_t45_pricing_info");
+	#endif
+
+	while(!fetched_row)
+	{
+		errcode=initlze_segmnt05_host_var();
+		
+		EXEC SQL FETCH pricing_t45_csr into
+			:hd_refnumha,
+			:hd_cagecdxh,
+			:fiscyrhd:fiscyrhd_i,
+			:uiprichd:uiprichd_i;
+
+		if (sqlca.sqlcode == FND)
+		{
+			errcode=initlze_segmnt05(SEGMNT05);
+			if(strncmp(CNTRL_RCD->ha_hb_code,"HA",2) == 0)
+			{
+				strncpy(SEGMNT05->ref_no,(char *) hd_refnumha.arr,hd_refnumha.len);
+				strncpy(SEGMNT05->cage_code,(char *) hd_cagecdxh.arr,hd_cagecdxh.len);
+			}
+			else
+			{
+				if(strncmp(CNTRL_RCD->ha_hb_code,"HB",2) == 0)
+				{
+					strncpy(SEGMNT05->ref_no,CNTRL_RCD->hb_ref_no,32);
+					strncpy(SEGMNT05->cage_code,CNTRL_RCD->hb_cage_code,5);
+				}
+				else
+				{
+					printf("\nfetch_t45_pricing_info");
+					printf("\nUnable to determine HA/HB Record Type");
+					printf("\nCNTRL_RCD ha_hb_code is (%s)",CNTRL_RCD->ha_hb_code);
+					printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+					printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+					printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+					printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+					printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+					printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+					printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+					errcode=2501;
+					return(errcode);
+				}
+			}
+			strncpy(SEGMNT05->prtsc05a,"05",2);
+			strncpy(SEGMNT05->hg_end_item_acrnym,CNTRL_RCD->mdl_acft_prf,10);
+			strncpy(SEGMNT05->hd_fiscal_year,(char *) fiscyrhd.arr,fiscyrhd.len);
+			strncpy(SEGMNT05->hd_unit_issue_price,(char *) uiprichd.arr,uiprichd.len);
+			SEGMNT05->hd_unit_issue_price[10]=' ';
+			for (i=0;i<501;i++)
+			{
+				outData[i]=' ';
+			}
+			SEGMNT05->prtsc05_eof='\0';
+			SEGMNT05->prtsc05_newline='\n';
+			#if DEBUG
+				printf("\nSegmnt 05 (%s)",SEGMNT05);
+			#endif
+			sprintf(outData,"%s",SEGMNT05);
+			errcode=write_t45_rcd((char *) &outData,CNTRL_RCD);
+		}
+		else
+		{
+			CNTRL_RCD->built_05='N';
+			fetched_row=1;
+			if (sqlca.sqlcode == NOT_FND)
+			{
+			}
+			else
+			{
+				printf("\nfetch_t45_pricing_info");
+				printf("\nBad SQLCODE on CURSOR OPEN");
+				printf("\nCNTRL_RCD ha_eiac (%s)",CNTRL_RCD->ha_eiac);
+				printf("\nCNTRL_RCD ha_ref_No (%s)",CNTRL_RCD->ha_ref_no);
+				printf("\nCNTRL_RCD ha_cage_code (%s)",CNTRL_RCD->ha_cage_code);
+				printf("\nCNTRL_RCD hb_ref_No (%s)",CNTRL_RCD->hb_ref_no);
+				printf("\nCNTRL_RCD hb_cage_code (%s)",CNTRL_RCD->hb_cage_code);
+				printf("\nCNTRL_RCD hg_lcn (%s)",CNTRL_RCD->hg_lcn);
+				printf("\nCNTRL_RCD hg_alc (%s)",CNTRL_RCD->hg_alc);
+				CNTRL_RCD->prf_sqlcode=sqlca.sqlcode;
+				errcode=2502;
+				btchslpf_dberr();
+			}
+		}
+	}
+
+	return(errcode);
+}
+/*
+
+			*/
+int	initlze_segmnt08(struct prtsc08 *SEGMNT08)
+{
+	int	errcode=0;
+	char    spaces[]={"                                        "};
+
+	#if DEBUG
+		printf("\ninitlze_segmnt08");
+	#endif
+
+	strncpy(SEGMNT08->ref_no,spaces,32);
+	strncpy(SEGMNT08->cage_code,spaces,5);
+	strncpy(SEGMNT08->hg_alt_lsa,spaces,2);
+	strncpy(SEGMNT08->hg_lsaconxb,spaces,18);
+	strncpy(SEGMNT08->hg_08_icc,spaces,2);
+	strncpy(SEGMNT08->hgx_suplyr_cage,spaces,5);
+	strncpy(SEGMNT08->hg_qpei,spaces,5);
+	strncpy(SEGMNT08->hgx_nha_ref_number,spaces,32);
+	strncpy(SEGMNT08->hgx_nha_cage,spaces,5);
+
+	return(errcode);
+}
+
+/*
+
+			*/
+int	initlze_segmnt08_host_var()
+{
+	int	errcode=0;
+	char    spaces[]={"                                        "};
+
+	#if DEBUG
+		printf("\ninitlze_segmnt08_host_var");
+	#endif
+	
+	proof_transfer_flag=' ';
+
+	strncpy((char *) hbx_addrefhb.arr,spaces,32);
+	strncpy((char *) hbx_adcagehb.arr,spaces,5);
+	strncpy((char *) hbx_refnumha.arr,spaces,32);
+	strncpy((char *) hbx_cagecdxh.arr,spaces,5);
+
+	strncpy((char *) eiacodxa.arr,spaces,10);
+	strncpy((char *) lsaconxb.arr,spaces,18);
+	strncpy((char *) altlcnxb.arr,spaces,02);
+	strncpy((char *) qtypeihg.arr,spaces,05);
+	strncpy((char *) itmcathg.arr,spaces,2);
+	smrcodhg_pos1=' ';
+	
+	strncpy((char *) hgx_refnumha.arr,spaces,32);
+	strncpy((char *) hgx_cagecdxh.arr,spaces,5);
+	strncpy((char *) hgx_suplyrcd.arr,spaces,5);
+	strncpy((char *) hgx_nharefno.arr,spaces,32);
+	strncpy((char *) hgx_nhacgecd.arr,spaces,5);
+
+	return(errcode);
+}
+
+
+/*
+
+		*/
+int	initlze_segmnt0102(struct prtsc01 *SEGMNT01,struct prtsc02 *SEGMNT02)
+{
+	int	errcode=0;
+	char	spaces[]={"                                        "};
+
+	#if DEBUG
+		printf("\ninitlze_segmnt0102");
+	#endif
+	strncpy(SEGMNT01->ref_no,spaces,32);
+	strncpy(SEGMNT01->cage_code,spaces,5);
+	strncpy(SEGMNT01->filler,spaces,10);
+	strncpy(SEGMNT01->ha_item_nme,spaces,19);
+	strncpy(SEGMNT01->ha_prod_lead_time,spaces,4);
+	strncpy(SEGMNT01->hax_sct_lead_time,spaces,2);
+	strncpy(SEGMNT01->ha_unit_issue,spaces,2);
+	SEGMNT01->ha_physcl_secrty=' ';
+	SEGMNT01->ha_shlf_life=' ';
+	strncpy(SEGMNT01->hf_qup,spaces,3);
+	SEGMNT01->hax_sct_tst_reqd_flag=' ';
+	strncpy(SEGMNT01->hax_sct_compltn_date,spaces,10);
+	strncpy(SEGMNT01->hax_sct_authrztn_no,spaces,15);
+	strncpy(SEGMNT01->hax_ps_ind,spaces,3);
+	strncpy(SEGMNT01->hax_ps_scd_no,spaces,22);
+	SEGMNT01->hb_arn_rncc=' ';
+	strncpy(SEGMNT01->hb_arn_ref_no,spaces,32);
+	strncpy(SEGMNT01->hb_arn_cage,spaces,32);
+	SEGMNT01->ea_cfe_gfe=' ';
+	SEGMNT01->se_item='N';
+	SEGMNT01->proof_transfer_flag=' ';
+	strncpy(SEGMNT02->ref_no,spaces,32);
+	strncpy(SEGMNT02->cage_code,spaces,5);
+	strncpy(SEGMNT02->hg_end_item_acrnym,spaces,10);
+	strncpy(SEGMNT02->custmr,spaces,2);
+	strncpy(SEGMNT02->ha_nsn_cog_code,spaces,2);
+	SEGMNT02->ha_nsn_matl=' ';
+	strncpy(SEGMNT02->ha_nsn_fsc,spaces,4);
+	strncpy(SEGMNT02->ha_nsn_niin,spaces,9);
+	strncpy(SEGMNT02->ha_nsn_spec_ident,spaces,2);
+	strncpy(SEGMNT02->hax_nsn_cog_code,spaces,2);
+	SEGMNT02->hax_nsn_matl=' ';
+	strncpy(SEGMNT02->hax_nsn_fsc,spaces,4);
+	strncpy(SEGMNT02->hax_nsn_niin,spaces,9);
+	strncpy(SEGMNT02->hax_nsn_spec_ident,spaces,2);
+	SEGMNT02->ha_aaplccha=' ';
+	strncpy(SEGMNT02->hgx_suplyr_cage_code,spaces,5);
+
+	return(errcode);
+}
+/*
+
+		*/
+int	initlze_segmnt0102_host_var()
+{
+	int	errcode=0;
+	char	spaces[]={"                                        "};
+
+	#if DEBUG
+		printf("\ninitlze_segmnt0102_host_var");
+	#endif
+	
+	strncpy((char *) hb_refnumha.arr,spaces,32);
+	strncpy((char *) ha_itnameha.arr,spaces,19);
+	ha_physecha=' ';
+	ha_shlifeha=' ';
+	strncpy((char *) ha_unitisha.arr,spaces,2);
+	strncpy((char *) ha_prdldtha.arr,spaces,4);
+	strncpy((char *) ha_cognsnha.arr,spaces,2);
+	strncpy((char *) ha_smmnsnha.arr,spaces,2);
+	ha_matnsnha=' ';
+	strncpy((char *) ha_fscnsnha.arr,spaces,4);
+	strncpy((char *) ha_niinsnha.arr,spaces,9);
+	ha_aaplccha=' ';
+
+	strncpy((char *) hax_sctldtme.arr,spaces,2);
+	hax_scttstfg=' ';
+	strncpy((char *) hax_sctcmpdt.arr,spaces,11);
+	strncpy((char *) hax_sctauth.arr,spaces,16);
+	strncpy((char *) hax_nicncog.arr,spaces,2);
+	hax_nicnmcc=' ';
+	strncpy((char *) hax_nicnfsc.arr,spaces,4);
+	strncpy((char *) hax_nicnniin.arr,spaces,9);
+	strncpy((char *) hax_nicnsmic.arr,spaces,2);
+	strncpy((char *) hax_psind.arr,spaces,3);
+	strncpy((char *) hax_psscdno.arr,spaces,22);
+	hax_proof_transfer_flag=' ';
+	
+	strncpy((char *) addrefhb.arr,spaces,32);
+	strncpy((char *) adcagehb.arr,spaces,5);
+	arn_rncc=' ';
+	arn_type_code=' ';
+	
+	strncpy((char *) hf_qtyupkhf.arr,spaces,3);
+	
+	se_cfegfeea=' ';
+	se_item_ind='N';
+	strncpy((char *) hgx_suplyrcd.arr,spaces,5);
+
+	return(errcode);
+}
+/*
+
+		*/
+int	initlze_segmnt03(struct prtsc03 *SEGMNT03)
+{
+	int	errcode=0;
+	char    spaces[]={"                                        "};
+
+	#if DEBUG
+		printf("\ninitlze_segmnt03");
+	#endif
+	
+	SEGMNT03->mdl_instld_on_eff=' ';
+	strncpy(SEGMNT03->from_eff,spaces,5);
+	strncpy(SEGMNT03->to_eff,spaces,5);
+	
+	return(errcode);
+}
+/*
+
+		*/
+int	initlze_segmnt03_host_var()
+{
+	int	errcode=0;
+	char    spaces[]={"                                        "};	
+	
+	#if DEBUG
+		printf("\ninitlze_segmnt03_host_var");
+	#endif
+	
+	series_cd=' ';
+	strncpy((char *) ef_from.arr,spaces,5);
+	strncpy((char *) ef_to.arr,spaces,5);
+	
+	return(errcode);
+}
+/*
+
+	*/
+int	initlze_segmnt04(struct prtsc04 *SEGMNT04)
+{
+	int	errcode=0;
+	char	spaces[]="                                        ";
+
+	#if DEBUG
+		printf("\ninitlze-segmnt04");
+	#endif	
+	strncpy(SEGMNT04->ref_no,spaces,32);
+	strncpy(SEGMNT04->cage_code,spaces,5);
+	strncpy(SEGMNT04->hg_end_item_acrnym,spaces,10);
+	SEGMNT04->hpx_replcng_indctr=' ';
+	strncpy(SEGMNT04->hpx_replcng_prt_no,spaces,32);
+	strncpy(SEGMNT04->hpx_replcng_chng_authrty_no,spaces,15);
+	strncpy(SEGMNT04->hpx_replcng_intrchng_code,spaces,2);
+	
+	return(errcode);
+}
+/*
+		*/
+int	initlze_segmnt04_host_var()
+{
+	int	errcode=0;
+	char	spaces[]="                                        ";
+	
+	strncpy((char *) hpx_refnumha.arr,spaces,32);
+	strncpy((char *) hpx_cagecdxh.arr,spaces,5);
+	strncpy((char *) hpx_eiacodxa.arr,spaces,10);
+	strncpy((char *) rsrefno.arr,spaces,32);
+	rsind=' ';
+	strncpy((char *) canumbhp.arr,spaces,15);
+	strncpy((char *) repsupid.arr,spaces,2);
+	
+	return(errcode);
+}
+/*
+
+		*/
+int	initlze_segmnt05(struct prtsc05 *SEGMNT05)
+{
+	int	errcode=0;
+	char	spaces[]="                                ";
+		
+	#if DEBUG
+		printf("\ninitlze_segmnt05");
+	#endif
+	
+	strncpy(SEGMNT05->ref_no,spaces,32);
+	strncpy(SEGMNT05->cage_code,spaces,5);
+	strncpy(SEGMNT05->hg_end_item_acrnym,spaces,10);
+	strncpy(SEGMNT05->hd_fiscal_year,spaces,2);
+	strncpy(SEGMNT05->hd_unit_issue_price,spaces,10);
+	
+	return(errcode);
+}
+
+/*
+
+		*/
+int	initlze_segmnt05_host_var()
+{
+	int	errcode=0;
+	char	spaces[]="                                ";
+		
+	#if DEBUG
+		printf("\ninitlze_segmnt05host_var");
+	#endif
+		
+	strncpy((char *) hd_refnumha.arr,spaces,32);
+	strncpy((char *) hd_cagecdxh.arr,spaces,5);
+	strncpy((char *) fiscyrhd.arr,spaces,2);
+	strncpy((char *) uiprichd.arr,spaces,10);
+	
+	return(errcode);
+}	

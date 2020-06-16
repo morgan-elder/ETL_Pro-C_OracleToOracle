@@ -1,4 +1,5 @@
-/* vim: ts=2:sw=2:sts=2:et:syntax=c: */
+/* vim: ts=2:sw=2:sts=2:et:syn=c: 
+ * */
 #ifndef VARCHAR_SETUP
 #define VARCHAR_SETUP
 #include <string.h>

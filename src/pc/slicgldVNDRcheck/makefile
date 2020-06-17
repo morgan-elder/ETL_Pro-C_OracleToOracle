@@ -9,8 +9,8 @@ EXE_DIR=$(APP_HOME)/exe
 PRECOMPINC=${ORACLE_HOME}/precomp/public/
 
 slicgldVNDRcheck : slicgldVNDRcheck.o 
-	gcc -o $@ $(CLNTSH) $@.o -L$(ORACLE_HOME)/lib -L$(APP_HOME)/libs -lscm
-	cp $@ $(EXE_DIR)/$@
+	$(CC) -o $(EXE_DIR)/$@ $(CLNTSH) $< -L${ORACLE_HOME}/lib \
+		-L$(APP_HOME)/libs -lscm
 
 slicgldVNDRcheck.c : slicgldVNDRcheck.pc 
 	proc $(PROCOPT) include=$(INC_HOME) $<
@@ -19,7 +19,7 @@ slicgldVNDRcheck.o : slicgldVNDRcheck.c
 	$(CC) $(DEBUG) -O -c -I $(PRECOMPINC) -I $(INC_HOME) $<
 
 install:
-	scp slicgldVNDRcheck $(PROD_DIR)/.
+	scp $(EXE_DIR)/slicgldVNDRcheck $(PROD_DIR)/.
 
 clean:
-	rm -rf *.o *.c slicgldVNDRcheck
+	rm -rf *.o *.c $(EXE_DIR)/slicgldVNDRcheck

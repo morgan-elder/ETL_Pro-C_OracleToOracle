@@ -1,25 +1,24 @@
 CC=gcc
 DEBUG=
 PROCOPT=
-SCM_HOME=${HOME}/src
-INC_HOME=$(SCM_HOME)/includes
+APP_HOME=${HOME}/src
+INC_HOME=$(APP_HOME)/includes
 CLNTSH=${ORACLE_HOME}/lib/libclntsh.so
 PROD_DIR=nwlsap06.cs.boeing.com:/data/scm/c/exe
-EXE_DIR=$(SCM_HOME)/exe
+EXE_DIR=$(APP_HOME)/exe
 PRECOMPINC=${ORACLE_HOME}/precomp/public/
 
 slicgldHA : slicgldHA.o 
-	gcc -o $@ $(CLNTSH) $@.o -L$(ORACLE_HOME)/lib -L$(SCM_HOME)/libs -lscm
-	cp $@ $(EXE_DIR)/$@
+	gcc -o $(EXE_DIR)/$@ $(CLNTSH) $< -L${ORACLE_HOME}/lib -L$(APP_HOME)/libs -lscm
 
-slicgldHA.c : slicgldHA.pc $(INC_HOME)/gold685_cat1_api.h  $(INC_HOME)/GetTime.h
+slicgldHA.c : slicgldHA.pc 
 	proc $(PROCOPT) include=$(INC_HOME) $<
 
 slicgldHA.o : slicgldHA.c
 	$(CC) $(DEBUG) -O -c -I $(PRECOMPINC) -I $(INC_HOME) $<
 
 install:
-	scp slicgldHA $(PROD_DIR)/.
+	scp $(EXE_DIR)/slicgldHA $(PROD_DIR)/.
 
 clean:
-	rm -rf *.o *.c slicgldHA
+	rm -rf *.o *.c $(EXE_DIR)/slicgldHA

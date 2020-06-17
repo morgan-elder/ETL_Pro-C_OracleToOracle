@@ -8,11 +8,10 @@ PROD_DIR=nwlsap06.cs.boeing.com:/data/scm/c/exe
 EXE_DIR=$(APP_HOME)/exe
 PRECOMPINC=${ORACLE_HOME}/precomp/public/
 
+# $< must precede all -L's and -l for linker to work
 slicgldHG : slicgldHG.o 
-	gcc -o $@ $(CLNTSH) $@.o -L$(ORACLE_HOME)/lib -L$(APP_HOME)/libs -lscm
-	cp $@ $(EXE_DIR)/$@
+	gcc -o $(EXE_DIR)/$@ $(CLNTSH) $< -L${ORACLE_HOME}/lib -L$(APP_HOME)/libs -lscm
 
-#slicgldHG.c : slicgldHG.pc $(INC_HOME)/gold685_cat1_api.h  $(INC_HOME)/GetTime.h
 slicgldHG.c : slicgldHG.pc 
 	proc $(PROCOPT) include=$(INC_HOME) $<
 
@@ -20,7 +19,7 @@ slicgldHG.o : slicgldHG.c
 	$(CC) $(DEBUG) -O -c -I $(PRECOMPINC) -I $(INC_HOME) $<
 
 install:
-	scp slicgldHG $(PROD_DIR)/.
+	scp $(EXE_DIR)/slicgldHG $(PROD_DIR)/.
 
 clean:
-	rm -rf *.o *.c slicgldHG
+	rm -rf *.o *.c $(EXE_DIR)/slicgldHG

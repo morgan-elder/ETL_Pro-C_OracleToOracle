@@ -126,6 +126,7 @@ int    A1100_check_complete_supersedure();
 int    A1105_get_ha_cage();
 int    A1199_delete_hp_chg_table();
 int    A1199_update_hp_chg_table();
+char * replace(const char *s, char ch, const char *repl) ;
 int    A1200_check_hax04();
 int    A1299_01_check_hax04_pn(char *partno,char *cage);
 int    A1299_02_create_hax04_report();
@@ -156,6 +157,7 @@ int    hp_candidate_written=0;
 int    error_rcds_written=0;
 int    chk_rsrefno=0;
 int    chk_refnum=0;
+int    rowsUpdated = 0 ;
 
 main(int argc, char **argv)
 {
@@ -229,6 +231,7 @@ main(int argc, char **argv)
     printf("\n- Number of HP Seq 02 Candidates written\t%d",hp_seq_02_candidate_written);
     printf("\n- Number of HP Seq 03 Candidates written\t%d",hp_seq_03_candidate_written);
     printf("\n- Number of HP Change Records Deleted\t\t%d",hp_candidate_deleted);
+    printf("\n- Number of HP Change Records Updated\t\t%d",rowsUpdated);
     printf("\n- Number of HP Candidates written\t\t%d",hp_candidate_written);
     printf("\n- Number of Report Records Written\t\t%d",error_rcds_written);
     printf("\n\n- Program Error Code (%d)\t\t",errcode);
@@ -843,6 +846,14 @@ int    A1199_update_hp_chg_table()
     strcat(mysql," set message=rtrim('");
     strcat(mysql,(char *) chg_err_msg.arr);
     strcat(mysql,"') where refnumha = rtrim('");
+    if (strchr(refnumha.arr,'\'') != NULL) {
+      char *result = NULL;
+      result = replace((char *) refnumha.arr,'\'',"''");
+      assert(strlen(result) < sizeof(refnumha.arr));
+      strncpy(refnumha.arr,result,strlen(result)) ;
+      refnumha.arr[strlen(result)] = '\0' ;
+      free(result) ;
+    }
     strcat(mysql,(char *) refnumha.arr);
     strcat(mysql,"') and cagecdxh = '");
     strcat(mysql,(char *) cagecdxh.arr);
@@ -868,31 +879,50 @@ int    A1199_update_hp_chg_table()
     {
         if(sqlca.sqlerrd[2]>0)
         {
-            #if DEBUG
-            printf("\nRows Deleted (%d)",sqlca.sqlerrd[2]);
-            #endif
-        }
-        else
-        {
-            printf("\nunable to locate Change Rcd (%d)",rows_fetched);
+            rowsUpdated= rowsUpdated + sqlca.sqlerrd[2];
         }
     }
     else
     {
         if(sqlca.sqlcode==NOT_FND)
         {
-            printf("\nunable to locate Change Rcd (%d)",rows_fetched);
+            printf("\nunable to locate Change Rcd (%d) for %s",rows_fetched, mysql);
         }
         else
         {
             printf("\nA1199_update_hp_chg_table");
             printf("\nBad SQLCODE ");
+            printf("\nParse error at %d in %s", sqlca.sqlerrd[4],mysql);
             errcode=sqlca.sqlcode;
             A999_02_dberr();
         }
     }
     
     return(errcode);
+}
+/*
+
+*/
+char *replace(const char *s, char ch, const char *repl) {
+  int count = 0;
+  const char *t;
+
+  for(t=s; *t; t++)
+    count += (*t == ch);
+
+  size_t rlen = strlen(repl);
+  char *res = malloc(strlen(s) + (rlen-1)*count + 1);
+  char *ptr = res;
+  for(t=s; *t; t++) {
+    if(*t == ch) {
+      memcpy(ptr, repl, rlen);
+      ptr += rlen;
+    } else {
+      *ptr++ = *t;
+    }
+  }
+  *ptr = 0;
+  return res;
 }
 /*
 

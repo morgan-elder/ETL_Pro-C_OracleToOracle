@@ -30,9 +30,9 @@
 #include <string.h>
 
 /* Application Peculiar Includes      */
-#include "/mcair/dev/appl/scm/includes/slichax04_chgrcd.h"
-#include "/mcair/dev/appl/scm/includes/slichb_chgrcd.h"
-#include "/mcair/dev/appl/scm/includes/slichg_chgrcd.h"
+#include "../../src/includes/slichax04_chgrcd.h"
+#include "../../src/includes/slichb_chgrcd.h"
+#include "../../src/includes/slichg_chgrcd.h"
 
 /* File Pointer Definitions           */
 FILE *hax04_candidates_fp;

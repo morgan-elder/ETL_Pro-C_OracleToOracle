@@ -1,5 +1,5 @@
 /*============================================================================
-  vim: ts=2:sw=2:sts=2:et:syntax=c    
+  vim: ts=2:sw=2:sts=2:et:syn=c    
   FILE:  gldCATAPIU.pc
 
   ABSTRACT:  
@@ -3052,7 +3052,7 @@ int A9999_01_setup_type001_part_number()
   return(errcode);
 }
 /*
-
+
 */
 int A9999_02a_api_create_int_hdr()
 {
@@ -3062,15 +3062,15 @@ int A9999_02a_api_create_int_hdr()
     printf("A9999_02a_api_create_int_hdr\n");
   #endif
   
-  exec sql execute
-   begin
+  EXEC SQL EXECUTE
+   BEGIn
     if_xs.create_inthdr(rtrim(:api_interface_name),
         rtrim(:api_ext_app_name),
         rtrim(:api_ext_app_id),
         :api_status,
         :api_intrfce_trans_tk);
-   end;
-  end-exec;
+   END;
+  END-EXEC;
 
   if(sqlca.sqlcode==FND)
   {

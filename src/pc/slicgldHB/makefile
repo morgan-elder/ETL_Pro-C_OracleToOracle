@@ -9,17 +9,16 @@ EXE_DIR=$(SCM_HOME)/exe
 PRECOMPINC=${ORACLE_HOME}/precomp/public/
 
 slicgldHB : slicgldHB.o 
-	gcc -o $@ $(CLNTSH) $@.o -L$(ORACLE_HOME)/lib -L$(SCM_HOME)/libs -lscm
-	cp $@ $(EXE_DIR)/$@
+	gcc -o $(EXE_DIR)/$@ $(CLNTSH) $< -L${ORACLE_HOME}/lib -L$(SCM_HOME)/libs -lscm
 
-slicgldHB.c : slicgldHB.pc $(INC_HOME)/gold685_cat1_api.h  $(INC_HOME)/GetTime.h
+slicgldHB.c : slicgldHB.pc 
 	proc $(PROCOPT) include=$(INC_HOME) $<
 
 slicgldHB.o : slicgldHB.c
 	$(CC) $(DEBUG) -O -c -I $(PRECOMPINC) -I $(INC_HOME) $<
 
 install:
-	scp slicgldHB $(PROD_DIR)/.
+	scp $(EXE_DIR)/slicgldHB $(PROD_DIR)/.
 
 clean:
-	rm -rf *.o *.c slicgldHB
+	rm -rf *.o *.c $(EXE_DIR)/slicgldHB

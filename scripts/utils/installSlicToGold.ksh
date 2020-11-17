@@ -1,8 +1,8 @@
 #!/usr/bin/ksh
 
 
-if (($#=0)) ; then
-  SFTPSCRIPT=sftpSlciToGoldExe.txt
+if (($#==0)) ; then
+  SFTPSCRIPT=sftpSlicToGoldExe.txt
 fi
 
 

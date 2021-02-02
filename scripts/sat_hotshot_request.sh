@@ -26,11 +26,16 @@ PASSWORD_FILE=/home/scmftp/.srfscm
 SQL_DIR="/data/scm/sql"
 SQLPLUS_SCRIPT=${SQL_DIR}/sat_hotshot_request.sql
 APPL=/APPL/rel/appl
+LOGNAME=$(logname)
+HOST=$(hostname)
+ADDR_FILE=
 
 # source is equivalent to the dot . command
 # it just includes the code and does not issue a return code
-[[ "$DEBUG" == "Y" ]] && echo sourcing $APPL/pss_shared/public/set_pss_env_no_login
-source ${APPL}/pss_shared/public/set_pss_env_no_login
+if [[ -e ${APPL}/pss_shared/public/set_pss_env_no_login ]] ; then
+  [[ "$DEBUG" == "Y" ]] && echo sourcing $APPL/pss_shared/public/set_pss_env_no_login
+  source ${APPL}/pss_shared/public/set_pss_env_no_login
+fi
 
 [[ "$DEBUG" == "Y" ]] && echo sourcing /data/scm/public/setup_scm_sh
 source /data/scm/public/setup_scm_sh
@@ -46,9 +51,13 @@ echo "Processing in Environment "$PSS_ENV
 
 
 function usage {
+  typeset OPTIONS="-a addrfile -d -h -o fileout -p oracct_password_file -s script"
   >&2 echo ""
-  >&2 echo "Usage $THIS [ -d -h -o fileout -p oracct_password_file -s script  ]"
-  >&2 echo "where optional switch -d turns on debugging"
+  >&2 echo "Usage $THIS [ $OPTIONS ]"
+  >&2 echo "where optional switch -a addrfile specifies a file with a"
+  >&2 echo "      list of emails - one email address per line"
+  >&2 echo "      lines starting with a # are ignorned"
+  >&2 echo "      optional switch -d turns on debugging"
   >&2 echo "      optional switch -h displays this message"
   >&2 echo "      optional switch -o fileout output from the"
   >&2 echo "      SQL*Plus script will override $OUT_FILE"
@@ -61,8 +70,14 @@ function usage {
   >&2 echo ""
 }
 
-while getopts "dho:p:s:" opt ; do
+while getopts "a:dho:p:s:" opt ; do
   case "$opt" in
+    a) ADDR_FILE=$OPTARG
+       if [[ ! -e "$ADDR_FILE" ]] ; then
+         >&2 echo "$ADDR_FILE does not exist"
+         usage
+         exit 4
+       fi;;
     d) set -x; DEBUG=Y;;
     o) OUT_FILE=$OPTARG;;
     p) PASSWORD_FILE=$OPTARG
@@ -81,6 +96,30 @@ while getopts "dho:p:s:" opt ; do
 done
 shift $((OPTIND-1))
 
+# you can specify an ADDR_FILE at run time
+# with -a addr_file otherwise the recipient
+# is based on the current user
+function getRecipients {
+  typeset LINE=
+  typeset RECIPIENTS=
+  if [[ "$ADDR_FILE" != "" && -e "$ADDR_FILE" ]] ; then
+    while read LINE
+    do
+      [[ "$LINE" == \#* ]] && continue
+      RECIPIENTS="$LINE $RECIPIENTS"
+    done < $ADDR_FILE
+  fi
+  # make sure someone gets the email
+  if [[ "$RECIPIENTS" == "" ]] ; then
+    if [[ "$LOGNAME" == "slic2gld" ]] ; then
+      RECIPIENTS=Douglas.S.Elder@boeing.com
+    else
+      RECIPIENTS=Gary.G.Wolf@boeing.com
+    fi
+  fi
+  # return the string with echo
+  echo $RECIPIENTS
+}
 
 # input /tmp file name to be created
 function prepareScript {
@@ -122,9 +161,20 @@ function main {
 
   typeset TEMP=$(mktemp).sql
 
-  prepareScript "$TEMP"
+  
+  # get rid of any old output file
+  rm -f $OUT_FILE
   RC=$?
+  if ((RC!=0)) ; then
+    >&2 echo "Unable to remove $OUT_FILE"
+    # show the file's permissions in the log
+    ls -al $OUT_FILE
+  fi
 
+  if ((RC==0)) ; then
+    prepareScript "$TEMP"
+    RC=$?
+  fi
   if ((RC==0)) ; then
     [[ "$DEBUG" == "Y" ]] && echo "Executing sqlplus -L @$TEMP $OUT_FILE"
     sqlplus -L @$TEMP $OUT_FILE
@@ -159,4 +209,45 @@ RC=$?
 echo ""
 echo "log $LOG created"
 echo ""
+
+# use a block of code to generate text for sendmail
+{
+  echo "From: $THIS@$HOST"
+  echo "Subject: $SQLPLUS_SCRIT with RC=$RC"
+  echo "To: $(getRecipients)"
+  echo "Content-Type: text/html"
+  if ((RC==0)) ; then
+    BGCOLOR=Green  
+    TEXTCOLOR=White  
+  else   
+    BGCOLOR=Red  
+    TEXTCOLOR=Black  
+  fi
+  # create the html with the content of the 
+  # output file and the log file
+  echo "<html>"
+  echo "<body>"
+  echo "<div style='background-color: $BGCOLOR;font-weight: bold;color : $TEXTCOLOR'>"
+  echo "<h2>"
+  echo "$SQLPLUS_SCRIPT executed with RC=$RC"
+  echo "</h2>"
+  echo "<p>"
+  echo "$OUT_FILE:"
+  echo "</p>"
+  if [[ -e "$OUT_FILE" && -s "$OUT_FILE" ]] ; then
+    perl -p -e 's/\n/<br>/' < $OUT_FILE
+  else
+    echo "<p>*** not created due to errors (see log) ***</p>"
+  fi
+  echo "</div>"
+  echo "<div style='background-color: $BGCOLOR;color : $TEXTCOLOR'>"
+  echo "<p>"
+  echo "Log:"
+  echo "</p>"
+  perl -p -e 's/\n/<br>/' <  $LOG
+  echo "</div>"
+  echo "</body>"
+  echo "</html>"
+} | sendmail -t 
+
 exit $RC

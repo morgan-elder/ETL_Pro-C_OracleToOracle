@@ -1,0 +1,179 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+<title>~\Documents\SLICWAVE-GOLD\scripts\sat_hotshot_request.sh.html</title>
+<meta name="Generator" content="Vim/8.1">
+<meta name="plugin-version" content="vim7.4_v2">
+<meta name="syntax" content="ksh">
+<meta name="settings" content="use_css,pre_wrap,no_foldcolumn,expand_tabs,prevent_copy=">
+<meta name="colorscheme" content="elflord">
+<style type="text/css">
+<!--
+pre { white-space: pre-wrap; font-family: monospace; color: #00ffff; background-color: #000000; }
+body { font-family: monospace; color: #00ffff; background-color: #000000; }
+* { font-size: 1em; }
+.Comment { color: #80a0ff; }
+.Constant { color: #ff00ff; }
+.Special { color: #ff0000; }
+.Identifier { color: #40ffff; }
+.Statement { color: #aa4444; font-weight: bold; }
+.PreProc { color: #ff80ff; }
+.Function { color: #ffffff; }
+.Repeat { color: #ffffff; }
+.Operator { color: #ff0000; }
+-->
+</style>
+
+<script type='text/javascript'>
+<!--
+
+-->
+</script>
+</head>
+<body>
+<pre id='vimCodeElement'>
+<span class="Comment">#!/bin/ksh</span>
+<span class="Comment"># sat_hotshot_request.sh</span>
+<span class="Comment">#  </span>
+<span class="Comment"># change history</span>
+<span class="Comment">#</span>
+<span class="Comment"># date    who   change</span>
+<span class="Comment"># 04/30/2009  Doug Meyer  Created New.</span>
+<span class="Comment"># 12/18/2020  Douglas S. Elder  Tried to make it more usable</span>
+<span class="Comment">#                               NOTE: file with oracle_account/password@tnsname</span>
+<span class="Comment">#                               is missing - see PASSWORD_FILE below</span>
+<span class="Comment">#</span>
+<span class="Identifier">THIS</span>=<span class="PreProc">$(</span><span class="Special">basename </span><span class="PreProc">$0</span><span class="PreProc">)</span>
+<span class="Comment"># the original code was extracting the oracle_account/password@tnsname</span>
+<span class="Comment"># from this file - i.e. the account needed to run the SQL*Plus Script</span>
+<span class="Identifier">PASSWORD_FILE</span>=/home/scmftp/.srfscm
+<span class="Identifier">SCM_SQL</span>=<span class="Operator">&quot;</span><span class="Constant">/data/scm/sql</span><span class="Operator">&quot;</span>
+<span class="Identifier">SQLPLUS_SCRIPT</span>=<span class="PreProc">${</span><span class="PreProc">SCM_SQL</span><span class="PreProc">}</span>/sat_hotshot_request.sql
+
+<span class="Function">function</span> <span class="Function">usage {</span>
+  <span class="Operator">&gt;&amp;2</span> <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;&quot;</span>
+  <span class="Operator">&gt;&amp;2</span> <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">Usage </span><span class="PreProc">$THIS</span><span class="Constant"> [ -d -h -p oracct_password_file  ]</span><span class="Operator">&quot;</span>
+  <span class="Operator">&gt;&amp;2</span> <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">where optional switch -d turns on debugging</span><span class="Operator">&quot;</span>
+  <span class="Operator">&gt;&amp;2</span> <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">      optional switch -h displays this message</span><span class="Operator">&quot;</span>
+  <span class="Operator">&gt;&amp;2</span> <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">      optional switch -p oracct_password_file</span><span class="Operator">&quot;</span>
+  <span class="Operator">&gt;&amp;2</span> <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">      overrides the default file </span><span class="PreProc">$PASSWORD_FILE</span><span class="Operator">&quot;</span>
+  <span class="Operator">&gt;&amp;2</span> <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;&quot;</span>
+<span class="Function">}</span>
+
+<span class="Statement">while </span><span class="Statement">getopts</span><span class="Repeat"> </span><span class="Operator">&quot;</span><span class="Constant">dhp:</span><span class="Operator">&quot;</span><span class="Repeat"> opt </span><span class="Operator">;</span><span class="Repeat"> </span><span class="Repeat">do</span>
+  <span class="Repeat">case</span> <span class="Operator">&quot;</span><span class="PreProc">$opt</span><span class="Operator">&quot;</span> <span class="Repeat">in</span>
+    d<span class="Statement">)</span> <span class="Statement">set</span><span class="Identifier"> </span><span class="Special">-x</span><span class="Operator">;</span> <span class="Identifier">DEBUG</span>=Y<span class="Statement">;;</span>
+    p<span class="Statement">)</span> <span class="Identifier">PASSWORD_FILE</span>=<span class="PreProc">$OPTARG</span>
+       <span class="Repeat">if </span><span class="Special">[[</span> <span class="Repeat">!</span> <span class="Repeat">-e</span> <span class="PreProc">$PASSWORD_FILE</span> <span class="Special">]]</span> <span class="Operator">;</span> <span class="Repeat">then</span>
+         <span class="Repeat">&gt;</span><span class="Operator">&amp;</span><span class="Constant">2</span> <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="PreProc">$PASSWORD_FILE</span><span class="Constant"> does not exist</span><span class="Operator">&quot;</span>
+         usage
+       <span class="Repeat">fi</span> <span class="Statement">;;</span>
+    h<span class="Statement">)</span> usage<span class="Operator">;</span> <span class="Statement">exit</span> <span class="Constant">0</span><span class="Statement">;;</span>
+    *<span class="Statement">)</span> usage<span class="Operator">;</span> <span class="Statement">exit</span> <span class="Constant">4</span><span class="Statement">;;</span>
+  <span class="Repeat">esac</span>
+<span class="Repeat">done</span>
+<span class="Statement">shift</span> <span class="PreProc">$((</span><span class="Special">OPTIND-1</span><span class="PreProc">))</span>
+
+<span class="Function">function</span> <span class="Function">setup {</span>
+
+  <span class="Special">[[</span> <span class="Operator">&quot;</span><span class="PreProc">$DEBUG</span><span class="Operator">&quot;</span> <span class="Repeat">==</span> <span class="Operator">&quot;</span><span class="Constant">Y</span><span class="Operator">&quot;</span> <span class="Special">]]</span> <span class="Operator">&amp;&amp;</span> <span class="Statement">set</span><span class="Identifier"> </span><span class="Special">-x</span>
+
+  <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">###########################################################################</span><span class="Operator">&quot;</span>
+  <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">              Start SAT Hotshot Request - </span><span class="PreProc">$(</span><span class="Special">date</span><span class="PreProc">)</span><span class="Operator">&quot;</span>
+  <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">###########################################################################</span><span class="Operator">&quot;</span>
+  <span class="Statement">typeset</span><span class="Identifier"> MCAIR=/mcair/rel/appl</span>
+  <span class="Comment"># source is equivalent to the dot . command</span>
+  <span class="Comment"># it just includes the code and does not issue a return code</span>
+  <span class="Special">[[</span> <span class="Operator">&quot;</span><span class="PreProc">$DEBUG</span><span class="Operator">&quot;</span> <span class="Repeat">==</span> <span class="Operator">&quot;</span><span class="Constant">Y</span><span class="Operator">&quot;</span> <span class="Special">]]</span> <span class="Operator">&amp;&amp;</span> <span class="Statement">echo</span><span class="Constant"> sourcing </span><span class="PreProc">$MCAIR</span><span class="Constant">/pss_shared/public/set_pss_env_no_login</span>
+  source <span class="PreProc">${</span><span class="PreProc">MCAIR</span><span class="PreProc">}</span>/pss_shared/public/set_pss_env_no_login
+
+  <span class="Special">[[</span> <span class="Operator">&quot;</span><span class="PreProc">$DEBUG</span><span class="Operator">&quot;</span> <span class="Repeat">==</span> <span class="Operator">&quot;</span><span class="Constant">Y</span><span class="Operator">&quot;</span> <span class="Special">]]</span> <span class="Operator">&amp;&amp;</span> <span class="Statement">echo</span><span class="Constant"> sourcing /data/scm/public/setup_scm_sh</span>
+  source /data/scm/public/setup_scm_sh
+  <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">Processing in Environment </span><span class="Operator">&quot;</span><span class="PreProc">$PSS_ENV</span>
+
+<span class="Function">}</span>
+
+<span class="Comment"># input /tmp file name to be created</span>
+<span class="Function">function</span> <span class="Function">prepareScript {</span>
+
+  <span class="Statement">typeset</span><span class="Identifier"> TEMP=</span><span class="PreProc">$1</span>
+  <span class="Statement">typeset</span><span class="Identifier"> RC=0</span>
+
+  <span class="Comment"># does the file with oracle_account/password@tnsname exist?</span>
+  <span class="Repeat">if </span><span class="Special">[[</span> <span class="Repeat">-e</span> <span class="Operator">&quot;</span><span class="PreProc">$PASSWORD_FILE</span><span class="Operator">&quot;</span> <span class="Special">]]</span> <span class="Operator">;</span> <span class="Repeat">then</span>
+    <span class="Comment"># write oracle_account/password@tnsname and the script to $TEMP</span>
+    <span class="Statement">cat</span> <span class="Operator">&quot;</span><span class="PreProc">$PASSWORD_FILE</span><span class="Operator">&quot;</span>  <span class="Operator">&quot;</span><span class="PreProc">$SQLPLUS_SCRIPT</span><span class="Operator">&quot;</span> <span class="Repeat">&gt;</span> <span class="PreProc">$TEMP</span>
+  <span class="Repeat">else</span>
+    <span class="Repeat">&gt;</span><span class="Operator">&amp;</span><span class="Constant">2</span> <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">Missing file </span><span class="PreProc">$PASSWORD_FILE</span><span class="Constant">  with oracle_account/password@tnsname</span><span class="Operator">&quot;</span>
+    <span class="Identifier">RC</span>=<span class="Constant">4</span>
+  <span class="Repeat">fi</span>
+
+  <span class="Statement">return</span> <span class="PreProc">$RC</span>
+<span class="Function">}</span>
+
+<span class="Function">function</span> <span class="Function">main {</span>
+  <span class="Statement">typeset</span><span class="Identifier"> RC=0 </span>
+  <span class="Statement">typeset</span><span class="Identifier"> SCM_OUT=</span>
+
+  setup
+
+  <span class="Repeat">if </span><span class="Operator">[</span> <span class="PreProc">$PSS_ENV</span> <span class="Repeat">=</span> <span class="Constant">&quot;PRODN&quot;</span> <span class="Operator">]</span>
+  <span class="Repeat">then</span>
+    <span class="Statement">export</span><span class="Identifier"> SCM_OUT=/data/scm/PROD</span>
+  <span class="Repeat">else</span>
+    <span class="Statement">export</span><span class="Identifier"> SCM_OUT=/data/scm/TEST</span>
+  <span class="Repeat">fi</span>
+
+  <span class="Statement">typeset</span><span class="Identifier"> HOTSHOT_OUT=</span><span class="PreProc">${</span><span class="PreProc">SCM_OUT</span><span class="PreProc">}</span><span class="Identifier">/sat_hotshot_request.out</span>
+
+  <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;&quot;</span>
+  <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">##################################################################</span><span class="Operator">&quot;</span>
+  <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">  Loading hotshot requests to New Breed interface</span><span class="Operator">&quot;</span>
+  <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">  RUNNING: </span><span class="PreProc">$SQLPLUS_SCRIPT</span><span class="Operator">&quot;</span>
+  <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">           with credentials from </span><span class="PreProc">$PASSWORD_FILE</span><span class="Operator">&quot;</span>
+  <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">  Output File: </span><span class="PreProc">$HOTSHOT_OUT</span><span class="Operator">&quot;</span>
+  <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">##################################################################</span><span class="Operator">&quot;</span>
+  <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;&quot;</span>
+
+  <span class="Statement">typeset</span><span class="Identifier"> TEMP=</span><span class="PreProc">$(</span><span class="Special">mktemp</span><span class="PreProc">)</span>
+
+  prepareScript <span class="Operator">&quot;</span><span class="PreProc">$TEMP</span><span class="Operator">&quot;</span>
+  <span class="Identifier">RC</span>=<span class="PreProc">$?</span>
+
+  <span class="Repeat">if </span><span class="Special">((</span>RC<span class="Repeat">==</span><span class="Constant">0</span><span class="Special">))</span> <span class="Operator">;</span> <span class="Repeat">then</span>
+    <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">Executing sqlplus -L @</span><span class="PreProc">$TEMP</span><span class="Constant"> </span><span class="PreProc">$HOTSHOT_OUT</span><span class="Operator">&quot;</span>
+    sqlplus <span class="Repeat">-L</span> @<span class="PreProc">$TEMP</span> <span class="PreProc">$HOTSHOT_OUT</span>
+    <span class="Identifier">RC</span>=<span class="PreProc">$?</span>
+    <span class="Repeat">if </span><span class="Special">((</span>RC<span class="Repeat">==</span><span class="Constant">0</span><span class="Special">))</span> <span class="Operator">;</span> <span class="Repeat">then</span>
+      <span class="Repeat">if </span><span class="Special">[[</span> <span class="Repeat">-e</span> <span class="Operator">&quot;</span><span class="PreProc">$HOTSHOT_OUT</span><span class="Operator">&quot;</span> <span class="Special">]]</span> <span class="Operator">;</span> <span class="Repeat">then</span>
+        <span class="Statement">chmod</span> <span class="Constant">644</span> <span class="PreProc">$HOTSHOT_OUT</span>
+        <span class="Comment"># all went well get rid of $TEMP</span>
+        <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="PreProc">$SQLPLUS_SCRIPT</span><span class="Constant"> exited successfully.</span><span class="Operator">&quot;</span>
+        <span class="Statement">rm</span> <span class="PreProc">$TEMP</span>
+     <span class="Repeat">else</span>
+       <span class="Repeat">&gt;</span><span class="Operator">&amp;</span><span class="Constant">2</span> <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="PreProc">$SQLPLUS_SCRIPT</span><span class="Constant"> failed to create </span><span class="PreProc">$HOTSHOT_OUT</span><span class="Operator">&quot;</span>
+       <span class="Repeat">&gt;</span><span class="Operator">&amp;</span><span class="Constant">2</span> <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">Check </span><span class="PreProc">$TEMP</span><span class="Constant"> script and </span><span class="PreProc">$HOTSHOT_OUT</span><span class="Operator">&quot;</span>
+     <span class="Repeat">fi</span>
+    <span class="Repeat">else</span>
+      <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">sqlplus -L @</span><span class="PreProc">$TEMP</span><span class="Constant"> </span><span class="PreProc">$HOTSHOT_OUT</span><span class="Constant"> failed with RC=</span><span class="PreProc">$RC</span><span class="Operator">&quot;</span>
+    <span class="Repeat">fi</span>
+  <span class="Repeat">fi</span>
+  <span class="Statement">return</span> <span class="PreProc">$RC</span>
+<span class="Function">}</span>
+
+<span class="Identifier">LOG</span>=<span class="PreProc">$(</span><span class="Special">mktemp</span><span class="PreProc">)</span>
+
+<span class="Statement">set</span><span class="Identifier"> </span><span class="Special">-o</span><span class="Identifier"> pipefail</span>
+main <span class="Constant">2</span><span class="Operator">&gt;&amp;1</span> | tee <span class="PreProc">$LOG</span>
+<span class="Identifier">RC</span>=<span class="PreProc">$?</span>
+<span class="Repeat">if </span><span class="Special">((</span>RC<span class="Repeat">!=</span><span class="Constant">0</span><span class="Special">))</span> <span class="Operator">;</span> <span class="Repeat">then</span>
+  <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;&quot;</span>
+  <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;</span><span class="Constant">Check log </span><span class="PreProc">$LOG</span><span class="Constant"> for errors</span><span class="Operator">&quot;</span>
+  <span class="Statement">echo</span><span class="Constant"> </span><span class="Operator">&quot;&quot;</span>
+<span class="Repeat">fi</span>
+<span class="Statement">exit</span> <span class="PreProc">$RC</span>
+</pre>
+</body>
+</html>
+<!-- vim: set foldmethod=manual : -->

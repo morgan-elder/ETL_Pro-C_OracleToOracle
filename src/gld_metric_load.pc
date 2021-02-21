@@ -1,6 +1,6 @@
 /* ************************************************************** */
 /* Title:  GLD Metric Load                                        */
-/* Author: Andy Wickersham                                        */
+/* Original Author
 /* Description: This program loads Metric data from GOLD          */
 /*              into the gld_reqmtrc table in SLIC.               */
 /*                                                                */

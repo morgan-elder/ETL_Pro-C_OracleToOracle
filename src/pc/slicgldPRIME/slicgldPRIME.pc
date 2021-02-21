@@ -23,7 +23,7 @@
 *  CHANGE HISTORY:
 *   REV     DATE    Programmer                 CHANGE
 *   ---  --------   ----------------------     ------
-*    00  02/26/01   Larry MIlls                 Initial coding
+*    00  02/26/01   Orginal Author                 Initial coding
 *
 **************************************************************************
 */

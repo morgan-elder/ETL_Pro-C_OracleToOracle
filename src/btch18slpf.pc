@@ -1634,7 +1634,7 @@ static int	write_f18_rcd(char * outData,struct cntrl_rcd *CNTRL_RCD)
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
  *    00  05/31/1996 Original Author                Initial coding 
- *    01  08/13/1998 Larry MIlls                Converted Program to use
+ *    01  08/13/1998 Orginal Author                Converted Program to use
  *                                              SLIC Tailor Tables
  *
  **************************************************************************

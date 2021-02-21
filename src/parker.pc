@@ -15,7 +15,7 @@
 *
 * REV      DATE       PROGRAMMER                       CHANGE
 * ---      ---------  ---------------------            ------
-* 00       03/07/03   Robert Price                     Initial coding
+* 00       03/07/03   Contributor                     Initial coding
 *
 *
 ***************************************************************************

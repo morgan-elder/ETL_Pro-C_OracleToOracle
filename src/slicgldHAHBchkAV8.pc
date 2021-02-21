@@ -15,7 +15,7 @@
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  06/06/02   Andy Wickersham            Initial coding
+ *    00  06/06/02   Contributor            Initial coding
  **************************************************************************
 */
 

@@ -16,10 +16,10 @@
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  05/14/02   Andy Wickersham            Initial coding
+ *    00  05/14/02   Contributor            Initial coding
  *    01  09/24/02   Contributor                  Mod to base SLIC prefix on model
  *                                              passed in as an argument
- *    02  10/20/02   Chandler Wilson          Changed print lines and modified
+ *    02  10/20/02   Contributor          Changed print lines and modified
  *                          to print error if no cage in GOLD
  **************************************************************************
 */

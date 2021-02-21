@@ -63,7 +63,7 @@
  *                                       new criteria for loading a part to GOLD
  *        09/25/02   Contributor           Added code to set category_instrument to 'SE' for SE items
  *
- *	  12  12/16/02   Chandler Wilson	 Changed queries to dynamic SQL, Coded changes for the VARCHAR
+ *	  12  12/16/02   Contributor	 Changed queries to dynamic SQL, Coded changes for the VARCHAR
  *                                       data conversion, Added code to NOT update lead times for f18
  *    13  01/24/03   Contributor           Commented out line 4885 'error_code = 0;' in
  *                                       Z9992_check_cat1_part

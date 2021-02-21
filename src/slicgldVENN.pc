@@ -30,7 +30,7 @@
  *                                              Fixed select condition on GOLD query to match vendor name
  *                                                to vendor_name column instead of cage_code column.
  *    02  08/09/02   Contributor                  Fixed A1200_check_samst40() when multiple names are found
- *    03  12/15/03   David Hurshman             Changed owner of sams_tble40 to SCM.
+ *    03  12/15/03   Contributor             Changed owner of sams_tble40 to SCM.
  *
  **************************************************************************
 */

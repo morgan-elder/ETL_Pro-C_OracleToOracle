@@ -32,7 +32,7 @@
  *    01  1/23/1998  Original Author                Added F15 SLIC/PROOF
  *    02  6/11/1998  Original Author                Added AV8 SLIC/PROOF
  *    03  9/21/1998  Original Author                Added Harpoon SLIC/PROOF
- *    04  6/23/2005  David Hurshman             Modified query to pull HB data
+ *    04  6/23/2005  Contributor             Modified query to pull HB data
  *    05  11/10/2014 Maintainer                  Removed COGNSN and MATNSN from the output file.
  *
  **************************************************************************

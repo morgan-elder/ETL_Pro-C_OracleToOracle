@@ -7,8 +7,8 @@
      parameter, parse it, and input into Oracle.
      
   10/12/2015  only use fflush for debugging - Douglas Elder
-  08/19/2002  Added processing of ACTD and CATS records - Ben Barth
-  03/17/2003  Changed insert into IFI005006 for gfp_price,price1 & price2 - Ben Barth
+  08/19/2002  Added processing of ACTD and CATS records - Contributor
+  03/17/2003  Changed insert into IFI005006 for gfp_price,price1 & price2 - Contributor
 =============================================================================*/
 
 #include <errno.h>

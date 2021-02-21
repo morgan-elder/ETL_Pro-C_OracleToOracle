@@ -35,13 +35,13 @@
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  05/07/01   Ben Barth                  Initial coding
- *    00  05/22/01   Ben Barth                  Added code to check super-
+ *    00  05/07/01   Contributor                  Initial coding
+ *    00  05/22/01   Contributor                  Added code to check super-
  *                                              sedure info on part
  *    01  06/28/01   Nate Thrasher              Added code to pull pccn from
  *                                              xc table. 
- *    02  11/04/02   Ben Barth                  CHAR to VARCHAR conv.
- *    03  01/24/06   Larry Mills		AV8B HISS Modificaitons
+ *    02  11/04/02   Contributor                  CHAR to VARCHAR conv.
+ *    03  01/24/06   Original Author		AV8B HISS Modificaitons
  **************************************************************************
 */
 #include <stdlib.h>

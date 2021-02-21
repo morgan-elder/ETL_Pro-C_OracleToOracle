@@ -20,7 +20,7 @@
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  03/13/07   Larry Mills                 Initial coding 
+ *    00  03/13/07   Original Author                 Initial coding 
  *
  **************************************************************************
 */

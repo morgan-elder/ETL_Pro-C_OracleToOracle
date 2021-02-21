@@ -19,17 +19,17 @@
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
  *    00  05/26/00   Bob Alter                  Initial coding  
- *    01  03/15/01   Ben Barth					Rework of some code
+ *    01  03/15/01   Contributor					Rework of some code
  *                                              - Moved queries to separate functions.
  *                                              - Changed vendor_code to be 21 chars.
  *                                              - Changed processing of vendor name.
  *                                              Added timing functions to retrieve start and end times.
- *    01  03/16/01   Ben Barth                  Added include for gold685_venc_api_sort_cntrl.h.
+ *    01  03/16/01   Contributor                  Added include for gold685_venc_api_sort_cntrl.h.
  *                                              Created substring function to strip off the sort_cage
  *                                                from the input vendor record.
  *                                              Fixed select condition on GOLD query to match vendor name
  *                                                to vendor_name column instead of cage_code column.
- *    02  08/09/02   Ben Barth                  Fixed A1200_check_samst40() when multiple names are found
+ *    02  08/09/02   Contributor                  Fixed A1200_check_samst40() when multiple names are found
  *    03  12/15/03   David Hurshman             Changed owner of sams_tble40 to SCM.
  *
  **************************************************************************

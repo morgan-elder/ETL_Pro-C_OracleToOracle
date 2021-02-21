@@ -17,8 +17,8 @@
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  03/02/00   Larry Mills                Initial coding 
- *    01  03/06/01   Larry Mills		Added code to check Gold for the the
+ *    00  03/02/00   Original Author                Initial coding 
+ *    01  03/06/01   Original Author		Added code to check Gold for the the
  *						existence of the ADDREFHB.  If it exists
  *						then check PRIME.  If PRIME does not match
  *						then create a report Record that an Alternate

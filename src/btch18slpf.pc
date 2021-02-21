@@ -26,10 +26,10 @@
  *  CHANGE HISTORY:
  *   REV     DATE     Programmer                 CHANGE
  *   ---  --------    ----------------------     ------
- *    00  5/27/1996   Larry Mills                Initial coding 
- *    01  1/23/1998   Larry Mills                Added F15 SLIC/PROOF
- *    02  6/11/1998   Larry Mills                Added AV8 SLIC/PROOF
- *    03  9/21/1998   Larry Mills                Added Harpoon SLIC/PROOF
+ *    00  5/27/1996   Original Author                Initial coding 
+ *    01  1/23/1998   Original Author                Added F15 SLIC/PROOF
+ *    02  6/11/1998   Original Author                Added AV8 SLIC/PROOF
+ *    03  9/21/1998   Original Author                Added Harpoon SLIC/PROOF
  *    04  10/14/2003  David Hurshman             Removed check of COG and MANUF CODE
  *    05  11/11/2014  Douglas Elder              commented out the cog & mat nsn
  *
@@ -328,9 +328,9 @@ static void	btchslpf_dberr()
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  05/24/1996 Larry Mills                Initial coding
- *    01  04/02/1998 Larry Mills                Added Multiple EIAC Capability 
- *    02  08/13/1998 Larry Mills                Converted Program to use SLIC
+ *    00  05/24/1996 Original Author                Initial coding
+ *    01  04/02/1998 Original Author                Added Multiple EIAC Capability 
+ *    02  08/13/1998 Original Author                Converted Program to use SLIC
  *   						Tailor Tables.
  *
  **************************************************************************
@@ -1633,7 +1633,7 @@ static int	write_f18_rcd(char * outData,struct cntrl_rcd *CNTRL_RCD)
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  05/31/1996 Larry Mills                Initial coding 
+ *    00  05/31/1996 Original Author                Initial coding 
  *    01  08/13/1998 Larry MIlls                Converted Program to use
  *                                              SLIC Tailor Tables
  *
@@ -3070,8 +3070,8 @@ static int	set_f18_custmr(struct cntrl_rcd *CNTRL_RCD,struct prtsc02 *SEGMNT02)
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  05/24/1996 Larry Mills                Initial coding
- *    01  08/13/1998 Larry Mills                Converted Program to use SLIC
+ *    00  05/24/1996 Original Author                Initial coding
+ *    01  08/13/1998 Original Author                Converted Program to use SLIC
  *   						Tailor Tables.
  *
  **************************************************************************
@@ -3365,8 +3365,8 @@ static int     build_f18_prtsc03_rcd(struct cntrl_rcd *CNTRL_RCD,struct prtsc03 
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  05/24/1996 Larry Mills                Initial coding 
- *    01  08/13/1998 Larry Mills                Converted Program to use SLIC
+ *    00  05/24/1996 Original Author                Initial coding 
+ *    01  08/13/1998 Original Author                Converted Program to use SLIC
  *   						Tailor Tables.*
  **************************************************************************
 */
@@ -3642,8 +3642,8 @@ static int	fetch_f18_supsdure_info(struct cntrl_rcd *CNTRL_RCD, struct prtsc04 *
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  05/24/1996 Larry Mills                Initial coding 
- *    01  08/13/1998 Larry Mills                Converted Program to use SLIC
+ *    00  05/24/1996 Original Author                Initial coding 
+ *    01  08/13/1998 Original Author                Converted Program to use SLIC
  *   						Tailor Tables.*
  **************************************************************************
 */

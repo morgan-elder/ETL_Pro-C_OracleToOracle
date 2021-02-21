@@ -17,7 +17,7 @@
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  08/23/01   Ben Barth                  Initial coding
+ *    00  08/23/01   Contributor                  Initial coding
  **************************************************************************
 */
 

@@ -17,8 +17,8 @@
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  03/02/00   Larry Mills                Initial coding 
- *    01  08/19/02   Ben Barth                  change signon to use Login() function
+ *    00  03/02/00   Original Author                Initial coding 
+ *    01  08/19/02   Contributor                  change signon to use Login() function
  *    02  07/04/15   Douglas Elder              when fwriting hb just use the struct
                                                 and initialize it with memset
  **************************************************************************

@@ -17,8 +17,8 @@
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  08/15/02   Ben Barth                  Initial coding
- *    01  11/01/02   Ben Barth                  CHAR to VARCHAR conv.
+ *    00  08/15/02   Contributor                  Initial coding
+ *    01  11/01/02   Contributor                  CHAR to VARCHAR conv.
  **************************************************************************
 */
 #include <stdio.h>

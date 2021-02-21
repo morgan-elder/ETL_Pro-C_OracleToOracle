@@ -28,12 +28,12 @@
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  5/27/1996  Larry Mills                Initial coding 
- *    01  1/23/1998  Larry Mills                Added F15 SLIC/PROOF
- *    02  6/11/1998  Larry Mills                Added AV8 SLIC/PROOF
- *    03  9/21/1998  Larry Mills                Added Harpoon SLIC/PROOF
+ *    00  5/27/1996  Original Author                Initial coding 
+ *    01  1/23/1998  Original Author                Added F15 SLIC/PROOF
+ *    02  6/11/1998  Original Author                Added AV8 SLIC/PROOF
+ *    03  9/21/1998  Original Author                Added Harpoon SLIC/PROOF
  *    04  6/23/2005  David Hurshman             Modified query to pull HB data
- *    05  11/10/2014 Thuy Pham                  Removed COGNSN and MATNSN from the output file.
+ *    05  11/10/2014 Maintainer                  Removed COGNSN and MATNSN from the output file.
  *
  **************************************************************************
  */

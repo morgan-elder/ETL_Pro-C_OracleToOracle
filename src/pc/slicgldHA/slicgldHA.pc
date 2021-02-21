@@ -17,8 +17,8 @@
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  03/02/00   Larry Mills                Initial coding 
- *    01  01/13/06   Larry Mills                Converted to Dynamic SQL and modified to pull based upon Model being passed in
+ *    00  03/02/00   Original Author                Initial coding 
+ *    01  01/13/06   Original Author                Converted to Dynamic SQL and modified to pull based upon Model being passed in
  *    02  01/11/15   Douglas Elder              use fflush only when debugging - buffering is more efficient for regular I/O
  *                                              use exists query to speed up funtion A2000_sql_chk_hax04
  *                                              use Method 2 Dynamic EXECUTE for delete which incurs less overhead than a cursor

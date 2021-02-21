@@ -26,8 +26,8 @@
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  03/13/01   Larry Mills                Initial coding 
- *    01  11/01/02   Ben Barth                  CHAR to VARCHAR conv.
+ *    00  03/13/01   Original Author                Initial coding 
+ *    01  11/01/02   Contributor                  CHAR to VARCHAR conv.
  **************************************************************************
 */
 /* C System Includes                  */

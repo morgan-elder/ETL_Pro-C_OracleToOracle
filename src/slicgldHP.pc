@@ -17,10 +17,10 @@
 *  CHANGE HISTORY:
 *   REV     DATE    Programmer           CHANGE
 *   ---  --------   -----------------    ------
-*    00  03/02/00   Larry Mills          Initial coding
-*    01  10/17/01   Larry Mills           Added code to check that the supersedure part and cage
+*    00  03/02/00   Original Author          Initial coding
+*    01  10/17/01   Original Author           Added code to check that the supersedure part and cage
 *                                          exist in the HA Table
-*    02  08/19/02   Ben Barth            change signon to use Login() function
+*    02  08/19/02   Contributor            change signon to use Login() function
 *    03  01/12/15   Douglas Elder        use Method 2 for delete 
 *    04  07/04/15   Douglas Elder        use struct to write hp, hb, & hg
 *                                        fixed formatting of hp and used

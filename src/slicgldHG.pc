@@ -17,8 +17,8 @@
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer                 CHANGE
  *   ---  --------   ----------------------     ------
- *    00  03/02/00   Larry Mills                Initial coding
- *    01  08/10/02   Ben Barth                  Change signon to use Login() function
+ *    00  03/02/00   Original Author                Initial coding
+ *    01  08/10/02   Contributor                  Change signon to use Login() function
  *    02  07/03/15   Douglas Elder              changed formatting of hg and hb rec's 
  *                                              remove null terminator. It is not needed 
                                                 for fwrite and there is no space provided

@@ -11,11 +11,11 @@ OUTPUTS:  1.  Output file
 * * * CHANGE HISTORY:  
 * REV DATE Programmer CHANGE 
 * --- -------- ----------------- ------ 
-* 00 02/18/03 Kara Cappos Initial coding
-* 01 04/08/03 Kara Cappos Added modifications to either output to file or load data into scm.acdc_order_data Oracle table
-* 02 10/21/03 Kara Cappos Added Sweep logic
-* 03 11/04/04 Kara Cappos Added multiple price sources.  Also, varied pricing logic depending on the contract (TA4, TA5, etc)
-* 04 09/28/04 Kelly Dougherty Added TA8 price source
+* 00 02/18/03 Original Author Initial coding
+* 01 04/08/03 Original Author Added modifications to either output to file or load data into scm.acdc_order_data Oracle table
+* 02 10/21/03 Original Author Added Sweep logic
+* 03 11/04/04 Original Author Added multiple price sources.  Also, varied pricing logic depending on the contract (TA4, TA5, etc)
+* 04 09/28/04 Contributor Added TA8 price source
 ************************************************************************** */
 
 #include <stdlib.h> 

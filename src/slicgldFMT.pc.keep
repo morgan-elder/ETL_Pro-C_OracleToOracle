@@ -42,9 +42,9 @@
  *  CHANGE HISTORY:
  *   REV     DATE    Programmer          CHANGE
  *   ---  --------   ------------------- ------
- *    00  03/02/00   Larry Mills         Initial coding
- *    01  03/05/01   Larry Mills         do not remember
- *    02  03/10/01   Larry Mills		 Change Default of Mils Auto Processing from 'F' to 'T'
+ *    00  03/02/00   Original Author         Initial coding
+ *    01  03/05/01   Original Author         do not remember
+ *    02  03/10/01   Original Author		 Change Default of Mils Auto Processing from 'F' to 'T'
  *    03  05/30/01   Ben Barth           Don't write pricing record when the seg code is virtual
  *    04  10/25/01   Ben Barth           Change customer code from 'MDA' to 'STL'
  *    05  11/19/01   Ben Barth           Added code to set the IMS Des Code to F18BZZ and the nsn
@@ -63,7 +63,7 @@
  *                                       new criteria for loading a part to GOLD
  *        09/25/02   Ben Barth           Added code to set category_instrument to 'SE' for SE items
  *
- *	  12  12/16/02   Chandler Wilson	 Changed queries to dynamic SQL, Coded changes for the VARCHAR
+ *	  12  12/16/02   Contributor	 Changed queries to dynamic SQL, Coded changes for the VARCHAR
  *                                       data conversion, Added code to NOT update lead times for f18
  *    13  01/24/03   Ben Barth           Commented out line 4885 'error_code = 0;' in
  *                                       Z9992_check_cat1_part
@@ -4002,7 +4002,7 @@ int	A5999_01a_non_delimited_setup_ha()
 			Gold68_Cat1_api_rcd.critical_item_code[0]=crititha;
 		}
 this block of code commented out due to lack of critical item code information in slic
-Larry Mills
+Original Author
 */
 		Gold68_Cat1_api_rcd.critical_item_code[0]=' ';
 	}
